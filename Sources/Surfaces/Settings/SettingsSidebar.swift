@@ -181,11 +181,11 @@ extension SettingsSection {
             return ["Appearance", "Interface density", "Zoom", "Show Story timestamps",
                     "Expand entry details by default", "Fold quiet stretches after"]
         case .data:
-            // The upgrade copy's row may be absent, so it is not listed; the
-            // on-device AI row is listed only on a Mac that shows it.
+            // The upgrade copy's row may be absent, so it is not listed; on-device AI only where it shows.
             return ["Privacy", "Storage", "App use measured precisely since", "Backups", "Back up automatically",
                     "Back up to", "Keep automatic backups", "Last backup", "Next backup", "Back Up Now",
-                    "Show Backups", "Reveal Data Folder"] + (ModelGate.modelAvailable ? ["Use on-device AI"] : [])
+                    "Show Backups", "Reveal Data Folder", "Site signal", "Read the kind of site in the front browser tab",
+                    "Remember sites"] + (ModelGate.modelAvailable ? ["Use on-device AI"] : [])
         case .updates: return ["Check for updates automatically", "How often", "When an update is found",
                                "Check for Updates"]
         case .advanced: return ["Version", "Build", "Recovery"]

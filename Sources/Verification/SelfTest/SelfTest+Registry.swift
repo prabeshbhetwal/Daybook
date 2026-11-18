@@ -209,6 +209,15 @@ extension SelfTest {
             + ActivityCoverageChecks.tests
             + DailyGoalListChecks.tests
             + DailyGoalMigrationChecks.tests
+            + SiteKindChecks.tests
+            + SiteBeatChecks.tests
+            + SiteCreditChecks.tests
+            + SiteSignalChecks.tests
+            + SiteCreditChecks.laterTests
+            + SiteSignalWorkerChecks.tests
+            + SiteSignalWiringChecks.tests
+            + SiteSignalSurfaceChecks.tests
+            + SiteSignalSecurityChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

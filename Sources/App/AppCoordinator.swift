@@ -25,8 +25,13 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     /// idle. Every launch deleted the running session's power readings.
     private(set) lazy var store: SessionStore = {
         restoreEngineOnce()
-        return SessionStore(engine: engine, powerMonitor: powerMonitor)
+        let created = SessionStore(engine: engine, powerMonitor: powerMonitor)
+        // The engine's own preferences, `UserDefaults.standard`: the site signal's consent lives beside them.
+        created.installSiteSignal(defaults: .standard)
+        return created
     }()
+    /// The Site signal panel's model, on the preferences the store's reader was installed with above.
+    private(set) lazy var siteSignal = SiteSignalModel.live(defaults: .standard)
     private var engineRestored = false
     /// The status item's view of the store: republishes only what it shows.
     private(set) lazy var menuBarLabel = MenuBarLabelModel(store: store)

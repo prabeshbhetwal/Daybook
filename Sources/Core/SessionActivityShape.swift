@@ -19,7 +19,7 @@ struct SessionPhase: Codable, Equatable {
 struct ActivityFingerprint: Codable, Hashable {
     let shares: [Int]        // per AppPurpose.allCases: share of credited seconds, rounded down to 20% steps, 0...5
     let topApps: [String]    // two apps with most credited seconds, ties by bundle id, padded with ""
-    let siteKind: String     // "none" in this phase
+    let siteKind: String     // the site kind with most credited seconds, or "none"
 }
 
 /// One session's derived view: the snapshot stored at its end and the row's read model.

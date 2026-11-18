@@ -11,14 +11,17 @@ struct CreditedSlice: Equatable {
     let state: CreditState
     /// nil: counted but credited to nothing (passive on an app with no engaged slice yet, inside the grace).
     let purpose: AppPurpose?
+    /// The site kind the browser showed; set only with the site signal on, even where a purpose
+    /// the person set for the app decided the credit.
+    var site: SiteKind? = nil
 }
 
 struct CreditInput {
     let beats: [Beat]
     /// The session's counted time, from `CountedTime.spans` (below). Nothing outside it is credited.
     let counted: [DateInterval]
-    /// Signals on for this derivation: those any beat in the bounds carries. No beat field carries one
-    /// in Phase A, so it is empty until phase D's site kind; the counterfactual removes that signal.
+    /// Signals on for this derivation: those any beat in the bounds carries (`SignalKind.carried(by:)`).
+    /// Sites are read only with `.siteKind` here; the label's counterfactual removes it.
     let signals: Set<SignalKind>
     let purposeOverrides: [String: String]
 }
@@ -40,7 +43,7 @@ enum ActivityCredit {
         let counted = input.counted.sorted { $0.start < $1.start }
         let engaged = placed.filter(\.engaged).map(\.interval)
         let held = heldRuns(beats: beats, counted: counted, engaged: engaged, firstStart: firstStart,
-                            overrides: overrides)
+                            overrides: overrides, signals: input.signals)
         let heldSpans = held.map(\.interval)
         let anchor = placed.first(where: \.engaged)?.app
         var quietSince = firstStart
@@ -49,29 +52,37 @@ enum ActivityCredit {
         func purpose(_ app: String, _ activity: InputActivity) -> AppPurpose {
             PurposeMap.purpose(for: app, activity: activity, overrides: overrides)
         }
+        func piecePurpose(_ piece: Piece, _ activity: InputActivity) -> AppPurpose {
+            honouredSite(piece.site, app: piece.app, input)?.rule.purpose(activity) ?? purpose(piece.app, activity)
+        }
         // Rules 3a and 3b: a quiet second outside every held run.
         func quiet(_ piece: Piece, from start: Date) -> (CreditState, AppPurpose?) {
             if piece.presence == .agent { return (.quietKept, purpose(anchor ?? piece.app, .active)) }
-            guard isAmbiguous(piece.app, overrides) else { return (.quietKept, purpose(piece.app, .passive)) }
-            guard start.timeIntervalSince(quietSince) < ActivityConstants.watchGrace else {
-                return (.passive, purpose(piece.app, .passive))
+            let site = honouredSite(piece.site, app: piece.app, input)
+            guard site?.rule.isAmbiguous ?? isAmbiguous(piece.app, overrides) else {
+                return (.quietKept, piecePurpose(piece, .passive))
             }
-            return (.passive, engagedApps.contains(piece.app) ? purpose(piece.app, .active) : nil)
+            guard start.timeIntervalSince(quietSince) < ActivityConstants.watchGrace else {
+                return (.passive, piecePurpose(piece, .passive))
+            }
+            return (.passive, engagedApps.contains(piece.app) ? piecePurpose(piece, .active) : nil)
         }
 
         var slices: [CreditedSlice] = []
         for piece in placed {
+            // What the browser showed, kept even when the person's purpose decided the credit.
+            let site = input.signals.contains(.siteKind) ? piece.site : nil
             for part in cut(piece.interval, by: counted) where part.by != nil {
                 if piece.engaged {
                     slices.append(CreditedSlice(start: part.part.start, end: part.part.end, app: piece.app,
-                                                state: .engaged, purpose: purpose(piece.app, .active)))
+                                                state: .engaged, purpose: piecePurpose(piece, .active), site: site))
                     continue
                 }
                 for bit in cut(part.part, by: heldSpans) {
                     let (state, credited) = bit.by.map { (CreditState.held, held[$0].purpose as AppPurpose?) }
                         ?? quiet(piece, from: bit.part.start)
                     slices.append(CreditedSlice(start: bit.part.start, end: bit.part.end, app: piece.app,
-                                                state: state, purpose: credited))
+                                                state: state, purpose: credited, site: site))
                 }
             }
             if piece.engaged {
@@ -94,6 +105,7 @@ enum ActivityCredit {
         let app: String
         let engaged: Bool
         let presence: BeatPresence
+        let site: SiteKind?
     }
 
     /// Where recording began in the beat.
@@ -116,7 +128,7 @@ enum ActivityCredit {
                 let start = max(at, placed)
                 if start < end {
                     pieces.append(Piece(interval: DateInterval(start: start, end: end), app: slice.app,
-                                        engaged: isEngaged(slice), presence: beat.presence))
+                                        engaged: isEngaged(slice), presence: beat.presence, site: slice.site))
                     placed = end
                 }
                 at = end

@@ -1016,7 +1016,7 @@ final class PersistenceStore {
     /// Every preference this app stores, for a backup: its own `fc.` keys and
     /// nothing from the shared global domain.
     var backupSnapshot: [String: Any] {
-        defaults.dictionaryRepresentation().filter { $0.key.hasPrefix("fc.") }
+        defaults.dictionaryRepresentation().filter { $0.key.hasPrefix("fc.") && !$0.key.hasPrefix(SiteSignalSettings.keyPrefix) }
     }
 
     /// Used by the self-test harness to leave no residue behind.
@@ -1050,7 +1050,7 @@ final class PersistenceStore {
                     Key.paceWindowDays, Key.suggestionWindowDays, Key.breakTiersDisabled,
                     Key.quietFold, Key.welcomeLeftAt, Key.globalShortcut, Key.skippedConfirmations,
                     Key.nameSuggestionKept, Key.backupSchedule, Key.backupRetention, Key.backupFolder, Key.backupLog,
-                    Key.backupOfferPending]
+                    Key.backupOfferPending] + SiteSignalSettings.keys
         for key in keys { defaults.removeObject(forKey: key) }
         // And the unreadable values kept aside from those keys, but nothing else.
         for stored in defaults.dictionaryRepresentation().keys

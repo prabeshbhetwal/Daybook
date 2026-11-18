@@ -17,14 +17,14 @@ extension ActivityCredit {
     /// measuring at its start would. It is credited from its first beat, clipped to the
     /// stretch, to the end of its last non-empty beat.
     static func heldRuns(beats: [Beat], counted: [DateInterval], engaged: [DateInterval],
-                         firstStart: Date, overrides: [String: String]) -> [HeldRun] {
+                         firstStart: Date, overrides: [String: String], signals: Set<SignalKind>) -> [HeldRun] {
         var runs: [HeldRun] = []
         for span in counted {
             for stretch in cut(span, by: engaged) where stretch.by == nil {
                 let quietSince = engaged.last { $0.end <= stretch.part.start }?.end ?? firstStart
                 let inside = beats.filter { opening($0) < stretch.part.end && $0.end > stretch.part.start }
                 runs += inside.split { $0.watchedApps == [] }.compactMap {
-                    heldRun($0, in: stretch.part, quietSince: quietSince, overrides: overrides)
+                    heldRun($0, in: stretch.part, quietSince: quietSince, overrides: overrides, signals: signals)
                 }
             }
         }
@@ -32,11 +32,11 @@ extension ActivityCredit {
     }
 
     private static func heldRun(_ run: ArraySlice<Beat>, in stretch: DateInterval, quietSince: Date,
-                                overrides: [String: String]) -> HeldRun? {
+                                overrides: [String: String], signals: Set<SignalKind>) -> HeldRun? {
         let read = run.filter { !($0.watchedApps ?? []).isEmpty }
         guard let first = run.first, let last = read.last, read.contains(where: {
             min($0.end, stretch.end).timeIntervalSince(quietSince) > ActivityConstants.watchGrace
-        }), let purpose = heldPurpose(of: run, overrides: overrides) else { return nil }
+        }), let purpose = heldPurpose(of: run, overrides: overrides, signals: signals) else { return nil }
         let start = max(opening(first), stretch.start), end = min(last.end, stretch.end)
         guard purpose != .utility, start < end else { return nil }
         return HeldRun(interval: DateInterval(start: start, end: end), purpose: purpose)
@@ -50,7 +50,8 @@ extension ActivityCredit {
     /// holder is read over those beats too, since none may be written during the pause itself.
     /// Purpose nil when no holder was read or a utility holds it. `atStart` is true for a run
     /// that reaches back to the first beat.
-    static func watchPauses(_ beats: [Beat], counted: [DateInterval], overrides: [String: String])
+    static func watchPauses(_ beats: [Beat], counted: [DateInterval], overrides: [String: String],
+                            signals: Set<SignalKind> = [])
         -> [(span: DateInterval, purpose: AppPurpose?, atStart: Bool)] {
         var pauses: [(span: DateInterval, purpose: AppPurpose?, atStart: Bool)] = []
         var index = 0
@@ -64,7 +65,7 @@ extension ActivityCredit {
                   !whollyCounted(beats[lead - 1], counted) { lead -= 1 }
             let countedEnd = counted.map(\.end).filter { $0 <= opening(beats[index]) }.max() ?? .distantPast
             let start = max(opening(beats[lead]), countedEnd), end = beats[last].end
-            let purpose = heldPurpose(of: beats[lead...last], overrides: overrides)
+            let purpose = heldPurpose(of: beats[lead...last], overrides: overrides, signals: signals)
             if start < end {
                 pauses.append((DateInterval(start: start, end: end), purpose == .utility ? nil : purpose, lead == 0))
             }
@@ -82,13 +83,16 @@ extension ActivityCredit {
     }
 
     /// What a run of beats was held for: its holder's purpose, nil when no holder was read.
-    /// No microphone is read, so a browser holding the screen is watching, whatever plays in it.
-    static func heldPurpose(of run: ArraySlice<Beat>, overrides: [String: String]) -> AppPurpose? {
+    /// No microphone is read, so a browser holding the screen is watching, refined only by site kind
+    /// (`heldBrowserPurpose`).
+    static func heldPurpose(of run: ArraySlice<Beat>, overrides: [String: String],
+                            signals: Set<SignalKind>) -> AppPurpose? {
         let read = run.filter { !($0.watchedApps ?? []).isEmpty }
         guard !read.isEmpty else { return nil }
         let heldBy = holder(of: read, front: Set(run.flatMap { $0.slices.map(\.app) }))
-        return isAmbiguous(heldBy, overrides)
-            ? .media : PurposeMap.purpose(for: heldBy, activity: .passive, overrides: overrides)
+        return holdsAsBrowser(heldBy, in: run, overrides: overrides, signals: signals)
+            ? heldBrowserPurpose(heldBy, in: run, signals: signals)
+            : PurposeMap.purpose(for: heldBy, activity: .passive, overrides: overrides)
     }
 
     /// The app named in the most non-empty beats. A tie goes to a tied app that was in

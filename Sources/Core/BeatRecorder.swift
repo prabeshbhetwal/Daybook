@@ -25,6 +25,8 @@ struct BeatRecorder {
         /// which a late tick can put up to a second earlier.
         let baselineAt: Date
         let baseline: CounterReading
+        /// What a read said the browser showed; set by `site(_:app:requestedAt:at:counters:idleSeconds:)`.
+        var site: SiteKind? = nil
     }
 
     /// A beat in progress always has a slice open.
@@ -68,6 +70,7 @@ struct BeatRecorder {
                        counters: () -> CounterReading, idleSeconds: () -> TimeInterval) -> Beat? {
         var finished: Beat?
         var reading: CounterReading?  // a closing reading is the next slice's baseline
+        var carried: SiteKind?  // the same app's kind straight after an edge, until it is read again
         var opened = at
         if let open = beat, let last = lastTick {
             let edge = Self.edge(of: open)
@@ -77,6 +80,7 @@ struct BeatRecorder {
                 finished = Self.finish(open, cut: lost ? last : edge, readAt: at, reading: now,
                                        idle: idleSeconds(), unseen: Self.unseen(at, since: last))
                 reading = now
+                if !lost, open.slice.app == frontApp { carried = open.slice.site }
                 beat = nil
                 if let end = finished?.end { recordedThrough = end }
                 // The next beat begins where this one ended, not when the late tick arrived.
@@ -97,7 +101,7 @@ struct BeatRecorder {
             let start = Beat.gridStart(for: opened)
             current = OpenBeat(start: start, offset: Self.second(opened, in: start),
                                slice: OpenSlice(app: frontApp, opened: opened, baselineAt: at,
-                                                baseline: reading ?? counters()))
+                                                baseline: reading ?? counters(), site: carried))
         }
         current.ticks[presence, default: 0] += 1
         if let held = watchedApps {
@@ -152,7 +156,7 @@ struct BeatRecorder {
                          seconds: max(second(cut, in: start) - second(slice.opened, in: start), 0),
                          keys: delta(reading.keys, slice.baseline.keys),
                          clicks: delta(reading.clicks, slice.baseline.clicks),
-                         scrolls: delta(reading.scrolls, slice.baseline.scrolls))
+                         scrolls: delta(reading.scrolls, slice.baseline.scrolls), site: slice.site)
     }
 
     /// The beat as stored; nil when it held no seconds.
@@ -168,7 +172,8 @@ struct BeatRecorder {
     }
 
     /// Left to right, a slice under `flickFold` joins the one before it, or the one after it when
-    /// it comes first; a beat's only slice stays. Then neighbours in one app merge.
+    /// it comes first (so it takes that neighbour's site); a beat's only slice stays. Then
+    /// neighbours in one app and site merge.
     private static func fold(_ slices: [BeatSlice]) -> [BeatSlice] {
         var kept: [BeatSlice] = []
         var carried: BeatSlice?
@@ -185,7 +190,7 @@ struct BeatRecorder {
         if let only = carried { kept.append(only) }
         var merged: [BeatSlice] = []
         for slice in kept {
-            if let previous = merged.last, previous.app == slice.app {
+            if let previous = merged.last, previous.app == slice.app, previous.site == slice.site {
                 merged[merged.count - 1].absorb(slice)
             } else {
                 merged.append(slice)
@@ -203,6 +208,32 @@ struct BeatRecorder {
             if count > most { best = presence; most = count }
         }
         return best
+    }
+}
+
+extension BeatRecorder {
+    /// The kind of site the open slice carries, if any: what a refused read must clear.
+    var openSite: SiteKind? { beat?.slice.site }
+
+    /// A read of the browser tab. `kind` is what it showed at `requestedAt`; `app` is the bundle
+    /// identifier it was made for. An open slice of that app that began at or after the request
+    /// takes the kind whole; one that began earlier ends where the answer came, and a slice of the
+    /// same app with the kind opens. An answer for another app, or after recording stopped, is dropped.
+    mutating func site(_ kind: SiteKind?, app: String, requestedAt: Date, at: Date,
+                       counters: CounterReading, idleSeconds: TimeInterval) {
+        guard var open = beat, open.slice.app == app else { return }
+        if open.slice.opened >= requestedAt {
+            open.slice.site = kind
+        } else if kind != open.slice.site {
+            // The same bounds as `activate`: no slice opens across a gap or past the edge.
+            guard let last = lastTick, at.timeIntervalSince(last) <= Self.tickGap,
+                  at < Self.edge(of: open) else { return }
+            let cut = max(at, open.slice.opened)
+            open.closed.append(Self.close(open.slice, in: open.start, at: cut, readAt: at, reading: counters,
+                                          idle: idleSeconds, unseen: 0))
+            open.slice = OpenSlice(app: app, opened: cut, baselineAt: at, baseline: counters, site: kind)
+        }
+        beat = open
     }
 }
 

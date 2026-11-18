@@ -11,6 +11,8 @@ struct SessionActivityKey: Equatable {
     let isRunning: Bool
     let countsWhileWatching: Bool
     let overridesDigest: String
+    /// The signals its beats carry: a shape worked out without one is not the shape with it.
+    let signals: Set<SignalKind>
 }
 
 struct SessionActivityMemo {
@@ -111,14 +113,15 @@ extension SessionStore {
         } : counted
         guard ActivityDerivation.recordsWhole(tested, beats: beats) else { return nil }
         let overrides = engine.store.purposeOverrides, watching = session.workType.countsWhileWatching
+        let signals = SignalKind.carried(by: beats)
         let key = SessionActivityKey(bounds: bounds, counted: counted, beats: beats.count,
                                      algorithmVersion: ActivityConstants.algorithmVersion, isRunning: session.isRunning,
-                                     countsWhileWatching: watching, overridesDigest: SessionActivityShape.digest(overrides))
+                                     countsWhileWatching: watching, overridesDigest: SessionActivityShape.digest(overrides),
+                                     signals: signals)
         let row = SessionActivityMemoKey(session)
         if let memo = activityEvidence.memo[row], memo.key == key { return memo.shape }
         let shape = ActivityDerivation.derive(DerivationInput(
-            // No beat carries a signal in this phase, so none is on.
-            credit: CreditInput(beats: beats, counted: counted, signals: [], purposeOverrides: overrides),
+            credit: CreditInput(beats: beats, counted: counted, signals: signals, purposeOverrides: overrides),
             bounds: bounds, countsWhileWatching: watching,
             isRunning: session.isRunning, now: moment))
         if activityEvidence.memo.count >= Self.activityMemoLimit { activityEvidence.memo.removeAll() }
@@ -236,11 +239,14 @@ extension SessionStore {
         }
         let bounds = DateInterval(start: record.start, end: record.end)
         let kept = metadataArchive.metadata(for: record.id)?.activityShape
-        func isCurrent(_ counted: [DateInterval]) -> Bool {
+        // `signals` is nil until the beats are read: ended beats do not change, so a summary made from them
+        // already lists what they carry, and one with known pauses needs no beat read to tell.
+        func isCurrent(_ counted: [DateInterval], signals: Set<SignalKind>? = nil) -> Bool {
             guard let kept else { return false }
             return kept.bounds == bounds && kept.algorithmVersion == ActivityConstants.algorithmVersion
                 && abs(kept.countedSeconds - counted.reduce(0) { $0 + $1.duration }) < 0.5
                 && kept.countsWhileWatching == watching && kept.overridesDigest == overrides.digest
+                && signals.map { Set(kept.signals) == $0 } ?? true
         }
         // With pauses that add up to its work the counted time needs no beat; without, it is read from the beats.
         let known = record.exactPausedSpans.map { CountedTime.spans(records: [(bounds: bounds, paused: $0)], beats: []) }
@@ -251,9 +257,10 @@ extension SessionStore {
         let counted = known ?? CountedTime.spans(records: [(bounds: bounds, paused: nil)], beats: beats)
         // Beats over only part of its counted time leave nothing to keep: the row reads its apps instead.
         guard ActivityDerivation.recordsWhole(counted, beats: beats) else { return settle() }
-        if known == nil, isCurrent(counted) { return settle() }
+        let signals = SignalKind.carried(by: beats)
+        if known == nil, isCurrent(counted, signals: signals) { return settle() }
         let shape = ActivityDerivation.derive(DerivationInput(
-            credit: CreditInput(beats: beats, counted: counted, signals: [], purposeOverrides: overrides.all),
+            credit: CreditInput(beats: beats, counted: counted, signals: signals, purposeOverrides: overrides.all),
             bounds: bounds, countsWhileWatching: watching,
             isRunning: false, now: moment))
         // Evidence never raises an alert: a refused write is quietly left until the sidecar next saves something.
