@@ -42,7 +42,7 @@ struct YesterdayNotice: View {
                 }
                 HStack {
                     Spacer(minLength: 0)
-                    Button("Done", action: onDone).buttonStyle(StoryActionStyle())
+                    Button("Done", action: onDone).buttonStyle(StoryActionStyle(tint: StoryStyle.action))
                 }
                 .padding(.top, Tokens.Space.s)
             }
