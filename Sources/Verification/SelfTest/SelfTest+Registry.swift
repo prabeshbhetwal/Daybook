@@ -197,6 +197,7 @@ extension SelfTest {
             + StoryExpandAllChecks.tests
             + DayRecapChecks.tests
             + GlanceableRailChecks.tests
+            + DailyGoalListChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.
