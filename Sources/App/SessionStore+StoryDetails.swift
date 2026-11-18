@@ -170,7 +170,6 @@ extension SessionStore {
         let notes = Self.sessionEvidenceNotes(
             coverage: activity.coverage,
             elapsed: max(0, session.end.timeIntervalSince(session.start)),
-            gap: activity.gapDuration,
             isRunning: session.isRunning,
             isTrackingEnabled: isTrackingEnabled,
             conflicting: activity.hasConflictingForegroundEvidence)
@@ -183,18 +182,23 @@ extension SessionStore {
     /// The report also shows recorded app use and the time range, so its note
     /// keeps only the recording gap. A running session with recording off says
     /// nothing on the card, because the day's banner already says it.
+    /// The card's line is one short sentence; the time with nothing recorded
+    /// is the report's note and the card's info. It is the printed session
+    /// minus the printed app use, so "9m of 14m" and "5m" always add up.
     static func sessionEvidenceNotes(coverage: TimeInterval, elapsed: TimeInterval,
-                                     gap: TimeInterval, isRunning: Bool,
+                                     isRunning: Bool,
                                      isTrackingEnabled: Bool,
                                      conflicting: Bool) -> (card: String?, report: String?) {
         var card: String?
         var report: String?
         if coverage > 0 {
-            let gapNote = gap >= 1
-                ? "\(Tokens.preciseDuration(gap)) of the session has no app use recorded." : nil
-            card = "Recorded app use: \(Tokens.preciseDuration(coverage)) across "
-                + "\(Tokens.preciseDuration(elapsed)) elapsed." + (gapNote.map { " " + $0 } ?? "")
-            report = gapNote
+            let minutes = { (seconds: TimeInterval) in (DurationText.wholeSeconds(seconds) ?? 0) / 60 }
+            let used = minutes(coverage)
+            let span = max(used, minutes(elapsed))
+            let gap = span - used
+            report = gap > 0 ? "Nothing was recorded for \(Tokens.duration(TimeInterval(gap * 60)))." : nil
+            card = "Apps in use for \(Tokens.duration(TimeInterval(used * 60))) "
+                + "of \(Tokens.duration(TimeInterval(span * 60)))."
         } else if isRunning {
             card = isTrackingEnabled ? "No app use recorded yet." : nil
             report = isTrackingEnabled ? "No app use recorded yet."

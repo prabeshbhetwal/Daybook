@@ -48,7 +48,7 @@ enum RecordedActivityChecks {
                                         spans: [DateInterval(start: start, duration: 40)])
         let paragraph = SessionShape.paragraph(.init(segments: [xcode, safari, chrome], activity: activity,
                                                      workType: .deepWork, stretches: 1, worked: 40)) ?? ""
-        return paragraph.contains("You moved between apps once.")
+        return paragraph.contains("You switched apps once.")
             && !paragraph.contains("2 times")
             && !paragraph.contains("Chrome")
             ? [] : ["nested overlapping records added a raw-source app switch to canonical prose"]

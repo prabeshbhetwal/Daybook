@@ -56,22 +56,28 @@ enum RedundancyChecks {
                                                   workType: .deepWork, stretches: 1, worked: 1_800)) ?? ""
         var failures: [String] = []
         if prose.contains("predominant") { failures.append("the leading app was named again: \(prose)") }
-        if !prose.contains("moved between apps") { failures.append("the switch count was lost: \(prose)") }
+        if !prose.contains("switched apps") { failures.append("the switch count was lost: \(prose)") }
         return failures
     }
 
     private static func captionsAddOnly() -> [String] {
         var failures: [String] = []
-        let covered = SessionStore.sessionEvidenceNotes(coverage: 2_100, elapsed: 2_580, gap: 480,
+        let covered = SessionStore.sessionEvidenceNotes(coverage: 2_100, elapsed: 2_580,
                                                         isRunning: false, isTrackingEnabled: true,
                                                         conflicting: false)
-        if covered.card != "Recorded app use: 35m across 43m elapsed. 8m of the session has no app use recorded." {
+        if covered.card != "Apps in use for 35m of 43m." {
             failures.append("the card caption repeats its clock or lost coverage: \(covered.card ?? "nil")")
         }
-        if covered.report != "8m of the session has no app use recorded." {
+        if covered.report != "Nothing was recorded for 8m." {
             failures.append("the report note repeats its figures: \(covered.report ?? "nil")")
         }
-        let runningOff = SessionStore.sessionEvidenceNotes(coverage: 0, elapsed: 600, gap: 600,
+        // 9m 50s of 14m 10s prints 9m of 14m, so the gap prints 5m, not 4m.
+        let rounded = SessionStore.sessionEvidenceNotes(coverage: 590, elapsed: 850, isRunning: false,
+                                                        isTrackingEnabled: true, conflicting: false)
+        if rounded.card != "Apps in use for 9m of 14m." || rounded.report != "Nothing was recorded for 5m." {
+            failures.append("printed figures did not add up: \(rounded)")
+        }
+        let runningOff = SessionStore.sessionEvidenceNotes(coverage: 0, elapsed: 600,
                                                            isRunning: true, isTrackingEnabled: false,
                                                            conflicting: false)
         if runningOff.card != nil {
@@ -80,7 +86,7 @@ enum RedundancyChecks {
         if runningOff.report?.contains("Record app use is off") != true {
             failures.append("the report, which has no banner, lost the recording-off note")
         }
-        let unrecorded = SessionStore.sessionEvidenceNotes(coverage: 0, elapsed: 600, gap: 600,
+        let unrecorded = SessionStore.sessionEvidenceNotes(coverage: 0, elapsed: 600,
                                                            isRunning: false, isTrackingEnabled: true,
                                                            conflicting: true)
         if unrecorded.card?.contains("Recorded focus") != false
