@@ -196,6 +196,7 @@ extension SelfTest {
             + ChromeAlignmentChecks.tests
             + StoryExpandAllChecks.tests
             + DayRecapChecks.tests
+            + GlanceableRailChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

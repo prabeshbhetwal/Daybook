@@ -44,7 +44,7 @@ enum SessionShapeStopChecks: CheckSuite {
             event(.displaySleep, 80), event(.lock, 80 + 1 / 60.0), event(.systemSleep, 80 + 1 / 60.0),
         ]
         let text = away(segments, events)
-        expect(text == "Along the way input stopped once and the Mac slept 2 times and locked once.",
+        expect(text == "Along the way the Mac went idle once, slept 2 times and locked once.",
                "two sleeps and a lock read as such, got \(text ?? "nil")", &problems)
 
         let quit = away([use(0, 20, .systemLock)], [event(.quit, 20 - 0.5 / 60)])
@@ -68,7 +68,7 @@ enum SessionShapeStopChecks: CheckSuite {
     private static func noEventsUnchanged() -> [String] {
         var problems: [String] = []
         let both = away([use(0, 20, .systemLock), use(30, 50, .idle), use(60, 80, .systemLock)], [])
-        expect(both == "Along the way input stopped once and the Mac locked 2 times.",
+        expect(both == "Along the way the Mac went idle once and locked 2 times.",
                "a day before the log reads as it always did, got \(both ?? "nil")", &problems)
         let one = away([use(0, 20, .systemLock), use(30, 50, .appSwitch)], [])
         expect(one == "Along the way the Mac locked once.",
@@ -157,7 +157,7 @@ extension SessionShapeStopChecks {
         let started = event(.daybookStarted, -60)
         let mixed = away([use(0, 20, .systemLock), use(30, 40, .systemLock), use(50, 60, .idle)],
                          [started, event(.systemSleep, 20)], loggedSince: started.at)
-        expect(mixed == "Along the way input stopped once and the Mac slept once.",
+        expect(mixed == "Along the way the Mac went idle once and slept once.",
                "a stop with no event since the log began is left out, got \(mixed ?? "nil")", &problems)
         let alone = away([use(0, 20, .systemLock)], [started], loggedSince: started.at)
         expect(alone == nil, "unexplained stops alone say nothing, got \(alone ?? "nil")", &problems)

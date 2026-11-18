@@ -9,6 +9,8 @@ struct StoryRailDay: Equatable {
     let apps: [AppRank]
     let rhythm: [RhythmHour]
     let rhythmPeak: String?
+    /// The day in eight 3-hour blocks, with focus told apart from other use.
+    var blocks: [RhythmBlock] = []
 }
 
 extension SessionStore {
@@ -40,12 +42,24 @@ extension SessionStore {
                                    achieved: focusedActiveSeconds(on: day, usageSnapshot: snapshot), typical: nil),
                 apps: stats.rankedApps(for: day),
                 rhythm: rhythm,
-                rhythmPeak: Rhythm.peakLabel(rhythm) { DateFormats.hourLabel($0) })
+                rhythmPeak: Rhythm.peakLabel(rhythm) { DateFormats.hourLabel($0) },
+                blocks: rhythmBlocks(segments: segments, day: day, usage: snapshot?.sessions ?? usage.sessions))
         } else {
             reading = StoryRailDay(goal: GoalProgress(goal: engine.store.dailyGoal, achieved: 0, typical: nil),
                                    apps: [], rhythm: [], rhythmPeak: nil)
         }
         storyRailDayCache = (day, evidenceRevision, minute, reading)
         return reading
+    }
+
+    /// Eight credit calls, one per block, made once a minute at most: the
+    /// reading above is cached on the evidence and the minute.
+    private func rhythmBlocks(segments: [TimelineSegment], day: Date,
+                              usage: [AppUsageSession]) -> [RhythmBlock] {
+        let records = engine.archive.records
+        let running = storyRunningSpan
+        return Rhythm.blocks(segments: segments, day: day, now: now()) { block in
+            storyCreditedFocusSeconds(in: block, records: records, usage: usage, running: running)
+        }
     }
 }

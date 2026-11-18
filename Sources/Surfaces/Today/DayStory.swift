@@ -361,6 +361,7 @@ struct DayStory: View {
                                      apps: detail?.apps ?? [],
                                      shape: detail?.text,
                                      shapeCaption: detail?.caption,
+                                     gapNote: detail?.reportNote,
                                      activity: detail?.activity,
                                      canContinue: canContinueSession,
                                      // A stretch of the thread running now is neither continued
@@ -504,6 +505,8 @@ struct SessionEntryCard: View {
     /// What the recording shows, when it shows anything.
     var shape: String?
     var shapeCaption: String?
+    /// "Nothing was recorded for 5m.", for the strip's info.
+    var gapNote: String?
     var activity: RecordedActivity?
     var canContinue = false
     var canStartNewSession = false
@@ -832,15 +835,25 @@ struct SessionEntryCard: View {
         }
     }
 
+    /// The strip, its key and one line; what the session's recording means
+    /// in full is behind the info mark, not in sentences under the strip.
     private var activityDetail: some View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
-            sectionLabel("App use")
+            HStack(spacing: Tokens.Space.xs) {
+                sectionLabel("Apps used")
+                InfoMark(title: "Apps used", entries: StoryShapeChart.help(shape: shape, gap: gapNote))
+                Spacer(minLength: 0)
+            }
             if let activity {
                 StoryShapeChart(activity: activity)
             }
-            factualCaption
+            if let shapeCaption {
+                Text(shapeCaption)
+                    .font(Tokens.Typography.body)
+                    .foregroundStyle(StoryStyle.supportingInk)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
-        .help(shape ?? "Shows recorded app use, not typing.")
     }
 
     @ViewBuilder private var factualCaption: some View {
