@@ -481,7 +481,11 @@ struct CategoryEditorForm: View {
     private func save() {
         let wasNew = isNew
         guard let definition = editor.definitionForSaving(existing: catalog.allDefinitions) else { return }
-        model.saveCategory(definition)
+        guard model.saveCategory(definition) else {
+            editor.validationMessage = "You can keep up to \(DailyGoalList.maximum) goals. "
+                + "Remove one to set a goal here."
+            return
+        }
         onSaved?(definition, wasNew)
         onFinished()
     }

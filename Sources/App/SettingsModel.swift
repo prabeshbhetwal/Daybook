@@ -477,14 +477,15 @@ final class SettingsModel: ObservableObject {
 
     /// Keeps one entry per category: an edited built-in or a made category is
     /// replaced in place, a new one is appended.
-    func saveCategory(_ definition: WorkTypeDefinition) {
+    /// False, with nothing saved, when the goal list is full and cannot take a
+    /// new goal: the editor says so rather than closing on a goal that vanishes.
+    @discardableResult
+    func saveCategory(_ definition: WorkTypeDefinition) -> Bool {
         // The goal lives in the goal list; the definition no longer carries it.
         // Not its own write: the definitions' write below is the one refresh.
-        let moved = store.setCategoryGoal(definition.id, seconds: definition.dailyGoal)
-        // Only once the list is the truth, and only if it took the goal; before
-        // that, or if it was full, the definition keeps it.
+        guard store.setCategoryGoal(definition.id, seconds: definition.dailyGoal) else { return false }
         var definition = definition
-        if store.goalsMigrated && moved { definition.dailyGoal = nil }
+        if store.goalsMigrated { definition.dailyGoal = nil }
         var definitions = workTypeDefinitions
         if let index = definitions.firstIndex(where: { $0.id == definition.id }) {
             definitions[index] = definition
@@ -492,6 +493,7 @@ final class SettingsModel: ObservableObject {
             definitions.append(definition)
         }
         workTypeDefinitions = definitions
+        return true
     }
 
     /// A made category leaves every picker but keeps describing its records.
@@ -515,6 +517,9 @@ final class SettingsModel: ObservableObject {
     /// and colour.
     func resetCategory(id: String) {
         guard WorkType(rawValue: id).isBuiltIn else { return }
+        // Its goal goes too: the confirmation promises it, and the list would
+        // otherwise put the goal back.
+        store.setCategoryGoal(id, seconds: nil)
         workTypeDefinitions = workTypeDefinitions.filter { $0.id != id }
     }
 

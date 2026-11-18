@@ -85,6 +85,20 @@ enum DailyGoalMigrationChecks: CheckSuite {
         if store.dailyGoalItems.count != 2 || WorkType.learning.dailyGoal != 1_800 { problems.append("a new category goal was not added") }
         store.setCategoryGoal(WorkType.deepWork.rawValue, seconds: nil)
         if WorkType.deepWork.dailyGoal != nil || store.dailyGoalItems.count != 1 { problems.append("a removed goal stayed") }
+        // A full list refuses a new goal and saves nothing; a reset takes the goal with it.
+        let settings = SettingsModel(store: store, isTrackingEnabled: true, onChange: {}, onTrackingChanged: { _ in })
+        store.dailyGoalItems = (0..<DailyGoalList.maximum).map {
+            DailyGoalItem(target: .category("c\($0)"), kind: .target, seconds: 600)
+        }
+        let refused = settings.saveCategory(WorkTypeDefinition(id: WorkType.admin.rawValue, name: "Admin",
+                                                               symbolName: "tray.fill", hue: .orange, dailyGoal: 3_600))
+        if refused || WorkType.admin.dailyGoal != nil { problems.append("a goal past the cap was accepted or half saved") }
+        store.setCategoryGoal(WorkType.deepWork.rawValue, seconds: 7_200)
+        store.dailyGoalItems = [DailyGoalItem(target: .category(WorkType.deepWork.rawValue), kind: .target, seconds: 7_200)]
+        settings.resetCategory(id: WorkType.deepWork.rawValue)
+        if WorkType.deepWork.dailyGoal != nil || !store.dailyGoalItems.isEmpty { problems.append("a reset left the goal behind") }
+        store.dailyGoalItems = []
+        store.setCategoryGoal(WorkType.learning.rawValue, seconds: 1_800)
         // A paused goal is no goal for the card or the History rates.
         var items = store.dailyGoalItems
         items[0].isPaused = true
