@@ -30,6 +30,9 @@ struct SessionStoreCorrectionState: Codable, Identifiable, Equatable {
     /// When the person made the correction, so its notice stands at that
     /// moment rather than at the session's start. Nil on older journals.
     var madeAt: Date? = nil
+    /// For the person's own category change: what it added to the remembered choices, so Undo takes it
+    /// back with the change. Nil on every other correction and on older journals.
+    var remembered: [RememberedFiling]? = nil
 
     /// The span the correction concerns when its records are no longer in
     /// the archive to say so.

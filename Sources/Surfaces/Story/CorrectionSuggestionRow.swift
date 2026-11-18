@@ -5,6 +5,12 @@ import SwiftUI
 struct CorrectionFiling: Equatable {
     let category: WorkType
     let correctionID: UUID
+
+    /// This filing while its correction is still there to undo; nil once it was undone elsewhere
+    /// (Edit > Undo, the day's banner), so a card never says "Filed under" about a change that is gone.
+    func standing(in corrections: [SessionStoreCorrectionState]) -> CorrectionFiling? {
+        corrections.contains { $0.id == correctionID } ? self : nil
+    }
 }
 
 extension DaySession {

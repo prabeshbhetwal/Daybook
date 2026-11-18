@@ -13,10 +13,10 @@ enum CorrectionsStoreChecks: CheckSuite {
          oneChoicePerKind),
     ]
 
-    private static let typical = CategoryCorrectionChecks.fingerprint()
+    static let typical = CategoryCorrectionChecks.fingerprint()
 
     @MainActor
-    private static func make() -> (store: SessionStore, clock: TestClock, suite: String) {
+    static func make() -> (store: SessionStore, clock: TestClock, suite: String) {
         let suite = "fc-selftest-corrections-\(UUID().uuidString)"
         let clock = TestClock(SelfTest.anchoredNow())
         let archive = SessionArchive(directory: SelfTest.scratchDirectory(), now: { clock.value })
@@ -29,7 +29,7 @@ enum CorrectionsStoreChecks: CheckSuite {
 
     /// An ended session of ten minutes with `shape` stored for its record, and the row a day shows for it.
     @MainActor
-    private static func ended(_ store: SessionStore, _ clock: TestClock, shape: ActivityFingerprint? = typical,
+    static func ended(_ store: SessionStore, _ clock: TestClock, shape: ActivityFingerprint? = typical,
                               begin: (SessionEngine) -> Void) -> DaySession? {
         begin(store.engine)
         clock.advance(600)
@@ -41,12 +41,12 @@ enum CorrectionsStoreChecks: CheckSuite {
     }
 
     @MainActor
-    private static func automatic(_ name: String, _ type: WorkType = .deepWork) -> (SessionEngine) -> Void {
+    static func automatic(_ name: String, _ type: WorkType = .deepWork) -> (SessionEngine) -> Void {
         { $0.start(workType: type, intent: name, isAuto: true, nameByApp: true) }
     }
 
     @MainActor
-    private static func keep(_ shape: ActivityFingerprint?, for record: SessionRecord, in store: SessionStore) {
+    static func keep(_ shape: ActivityFingerprint?, for record: SessionRecord, in store: SessionStore) {
         guard let shape else { return }
         let bounds = DateInterval(start: record.start, end: record.end)
         store.metadataArchive.saveActivityShape(
@@ -57,12 +57,12 @@ enum CorrectionsStoreChecks: CheckSuite {
     }
 
     @MainActor
-    private static func stored(_ store: SessionStore) -> CategoryCorrections {
+    static func stored(_ store: SessionStore) -> CategoryCorrections {
         CorrectionsStore(directory: store.engine.archive.dataDirectoryURL).corrections
     }
 
     @MainActor
-    private static func record(_ session: DaySession, in store: SessionStore) -> SessionRecord? {
+    static func record(_ session: DaySession, in store: SessionStore) -> SessionRecord? {
         store.engine.archive.records.first { session.recordIDs.contains($0.id) }
     }
 

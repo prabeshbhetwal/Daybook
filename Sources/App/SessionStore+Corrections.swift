@@ -27,21 +27,34 @@ extension SessionStore {
     /// The person's own category change on a session: the ordinary correction, and the choice kept for
     /// next time. Kept once per kind of stretch however many stretches share it, and only for a finished
     /// session whose stretches have a stored shape, the one thing that says what kind of session it was.
+    /// What it adds to the remembered choices travels with the correction, so Undo can take it back.
     @discardableResult
     func fileSession(_ session: DaySession, as workType: WorkType) -> Bool {
         let ids = Set(session.recordIDs)
         let before = session.isRunning ? [] : engine.archive.records.filter { ids.contains($0.id) }
-        guard applyCorrection(threadID: session.threadID, correction: .workType(workType), claims: true) else {
-            return false
-        }
-        var kinds = Set<ActivityFingerprint>()
+        let moment = now()
+        var next = categoryCorrections.corrections
+        var kinds = Set<ActivityFingerprint>(), filings: [RememberedFiling] = []
         for record in before {
             guard let fingerprint = metadataArchive.metadata(for: record.id)?.activityShape?.fingerprint,
                   kinds.insert(fingerprint).inserted else { continue }
             // Leaving a category the person chose themselves is no veto of it.
             let left = record.effectiveCategorySource == .user ? nil : record.workType.rawValue
-            categoryCorrections.record(fingerprint: fingerprint, chosen: workType.rawValue, vetoed: left, at: now())
+            filings.append(next.record(fingerprint: fingerprint, chosen: workType.rawValue, vetoed: left, at: moment))
+        }
+        guard applyCorrection(threadID: session.threadID, correction: .workType(workType), claims: true,
+                              remembering: filings) else { return false }
+        if !filings.isEmpty, let why = categoryCorrections.save(next, at: moment) {
+            Diagnostics.log("Category choice not remembered: \(why)")
         }
         return true
+    }
+
+    /// Undo of a category change takes back what it taught: that kind of session is no longer offered
+    /// the category on its account.
+    func forgetRemembered(of state: SessionStoreCorrectionState) {
+        guard let filings = state.remembered, !filings.isEmpty,
+              let why = categoryCorrections.forget(filings, at: now()) else { return }
+        Diagnostics.log("Category choice not forgotten: \(why)")
     }
 }

@@ -13,13 +13,23 @@ struct CategoryCorrection: Codable, Equatable {
     var lastUsed: Date
 }
 
+/// What one filing did to one remembered choice: the entry as it stood before (nil when there was none)
+/// and as the filing left it. Kept with the correction it came from, so Undo can take it back.
+struct RememberedFiling: Codable, Equatable {
+    let before: CategoryCorrection?
+    let after: CategoryCorrection
+}
+
 /// The file model behind `corrections.json`, and the whole of the matching rules. Pure: the caller
 /// says what time it is, and a match is the fingerprint alone.
-struct CategoryCorrections: Codable, Equatable {
+struct CategoryCorrections: Equatable {
     static let categoryKind = "category"
 
     var version = 1
     var entries: [CategoryCorrection] = []
+    /// Entries this build cannot read: a kind it does not know, or a shape it does not. Kept as found
+    /// and written back, so one of them never costs the rest and a later Daybook still finds its own.
+    var unread: [JSONValue] = []
 
     /// The category to offer for a session of this kind, never one the person moved such a session
     /// out of, and none once the correction lapsed.
@@ -31,18 +41,39 @@ struct CategoryCorrections: Codable, Equatable {
 
     /// The person filed a session of this kind under `chosen`. `vetoed` is the category it was in,
     /// unless the person had chosen that one themselves: leaving their own choice is no veto.
-    mutating func record(fingerprint: ActivityFingerprint, chosen: String, vetoed: String?, at moment: Date) {
+    @discardableResult
+    mutating func record(fingerprint: ActivityFingerprint, chosen: String, vetoed: String?,
+                         at moment: Date) -> RememberedFiling {
         let index = entries.firstIndex { $0.kind == Self.categoryKind && $0.fingerprint == fingerprint }
-        var entry = index.map { entries[$0] }
+        let previous = index.map { entries[$0] }
+        var entry = previous
             ?? CategoryCorrection(kind: Self.categoryKind, fingerprint: fingerprint, chosen: chosen,
                                   vetoed: [], count: 0, lastUsed: moment)
-        entry.count = (entry.chosen == chosen ? entry.count : 0) + 1
+        let counted = entry.chosen == chosen ? entry.count : 0
+        entry.count = counted == .max ? counted : counted + 1   // a count already at the limit stays there
         entry.chosen = chosen
         // Choosing a category again is the person's own word: its veto lifts.
         entry.vetoed.removeAll { $0 == chosen }
         if let vetoed, vetoed != chosen, !entry.vetoed.contains(vetoed) { entry.vetoed.append(vetoed) }
         entry.lastUsed = moment
         if let index { entries[index] = entry } else { entries.append(entry) }
+        return RememberedFiling(before: previous, after: entry)
+    }
+
+    /// Takes one filing back. An entry still as that filing left it goes back to how it stood (gone when
+    /// there was none), vetoes included. One filed again since keeps those later choices: it loses one
+    /// count, and goes at zero. shortcut: that second case leaves vetoes as they are, since a later
+    /// filing may rest on them; upgrade if a veto left by an undone choice proves to matter.
+    mutating func forget(_ filing: RememberedFiling) {
+        guard let index = entries.firstIndex(where: {
+            $0.kind == Self.categoryKind && $0.fingerprint == filing.after.fingerprint
+        }), entries[index].chosen == filing.after.chosen else { return }
+        if entries[index] == filing.after {
+            if let before = filing.before { entries[index] = before } else { entries.remove(at: index) }
+        } else {
+            entries[index].count = max(entries[index].count, 1) - 1
+            if entries[index].count == 0 { entries.remove(at: index) }
+        }
     }
 
     /// Drops what lapsed. Done on every write, so the file never keeps a choice past its time.
@@ -57,5 +88,38 @@ struct CategoryCorrections: Codable, Equatable {
     /// Whole seconds, not calendar days, so a time zone or a clock change cannot move the edge.
     private static func lapsed(_ entry: CategoryCorrection, now: Date) -> Bool {
         now.timeIntervalSince(entry.lastUsed).rounded(.down) > TimeInterval(ActivityConstants.correctionExpiryDays * 86_400)
+    }
+}
+
+/// The file as JSON. An entry that is not a category choice this build reads, whether newer or
+/// malformed, is kept in `unread` instead of failing the whole file.
+extension CategoryCorrections: Codable {
+    private enum CodingKeys: String, CodingKey { case version, entries }
+
+    private struct Slot: Decodable {
+        let entry: CategoryCorrection?
+        let unread: JSONValue?
+
+        init(from decoder: Decoder) throws {
+            let read = try? CategoryCorrection(from: decoder)
+            entry = read?.kind == CategoryCorrections.categoryKind ? read : nil
+            unread = entry == nil ? try JSONValue(from: decoder) : nil
+        }
+    }
+
+    init(from decoder: Decoder) throws {
+        let root = try decoder.container(keyedBy: CodingKeys.self)
+        version = try root.decode(Int.self, forKey: .version)
+        for slot in try root.decode([Slot].self, forKey: .entries) {
+            if let entry = slot.entry { entries.append(entry) } else if let other = slot.unread { unread.append(other) }
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var root = encoder.container(keyedBy: CodingKeys.self)
+        try root.encode(version, forKey: .version)
+        var list = root.nestedUnkeyedContainer(forKey: .entries)
+        for entry in entries { try list.encode(entry) }
+        for other in unread { try list.encode(other) }
     }
 }

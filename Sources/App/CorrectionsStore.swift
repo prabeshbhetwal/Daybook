@@ -37,20 +37,34 @@ final class CorrectionsStore {
         corrections.suggestion(for: fingerprint, now: now)
     }
 
-    /// Remembers a choice and prunes what lapsed in the same write. Nil when saved, else why it was not.
+    /// Remembers a choice. Nil when saved, else why it was not.
     @discardableResult
     func record(fingerprint: ActivityFingerprint, chosen: String, vetoed: String?, at moment: Date) -> String? {
-        if let failure { return failure }
         var next = corrections
         next.record(fingerprint: fingerprint, chosen: chosen, vetoed: vetoed, at: moment)
-        next.pruned(now: moment)
+        return save(next, at: moment)
+    }
+
+    /// Takes back what filings added, as Undo of the change that made them.
+    @discardableResult
+    func forget(_ filings: [RememberedFiling], at moment: Date) -> String? {
+        var next = corrections
+        for filing in filings.reversed() { next.forget(filing) }
+        return next == corrections ? nil : save(next, at: moment)
+    }
+
+    /// Writes `next` and prunes what lapsed in the same write. Nil when saved, else why it was not.
+    /// Nothing here logs: the caller does, once, with the reason.
+    func save(_ next: CategoryCorrections, at moment: Date) -> String? {
+        if let failure { return failure }
+        var written = next
+        written.pruned(now: moment)
         do {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try JSONEncoder().encode(next).write(to: url, options: .atomic)
-            corrections = next
+            try JSONEncoder().encode(written).write(to: url, options: .atomic)
+            corrections = written
             return nil
         } catch {
-            Diagnostics.log("corrections.json not saved: \(error)")
             return "Daybook couldn't remember how you filed that session. \(error.localizedDescription.endingInFullStop) Check free space and folder access."
         }
     }

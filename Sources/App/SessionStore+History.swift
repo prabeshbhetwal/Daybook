@@ -654,7 +654,8 @@ extension SessionStore {
 
     /// `claims`: made in the session's own card, so a running automatic
     /// session becomes the person's (see `stageActiveCorrection`).
-    func applyCorrection(threadID: UUID, correction: SessionCorrection, claims: Bool = false) -> Bool {
+    func applyCorrection(threadID: UUID, correction: SessionCorrection, claims: Bool = false,
+                         remembering filings: [RememberedFiling] = []) -> Bool {
         guard engine.prepareCorrection() else {
             publishCorrectionError(engine.awayDecisionError); return false
         }
@@ -709,10 +710,9 @@ extension SessionStore {
 
         let receipt = SessionStoreCorrectionState(sequence: (before.correctionGeneration ?? 0) + 1,
                                threadID: threadID, correction: correction,
-                               archiveSnapshot: archiveSnapshot,
-                               originalFields: originalFields,
+                               archiveSnapshot: archiveSnapshot, originalFields: originalFields,
                                archiveRecordIDs: archiveRecordIDs,
-                               madeAt: now())
+                               madeAt: now(), remembered: filings.isEmpty ? nil : filings)
         engine.stageActiveCorrection(correction, threadID: threadID, claims: claims)
         guard engine.commitCorrection(before: before, removing: removed, adding: added,
                                       fields: corrections + [receipt]) else {
@@ -802,8 +802,8 @@ extension SessionStore {
             return false
         }
         publishCanUndoCorrection(!corrections.isEmpty || engine.canUndoAwayDecision)
-        publishCorrectionError(nil)
-        correctionRetry = nil
+        publishCorrectionError(nil); correctionRetry = nil
+        forgetRemembered(of: state)
         refresh()
         return true
     }

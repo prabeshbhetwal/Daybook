@@ -27,13 +27,15 @@ struct SessionReportCard: View {
     @State private var filed: CorrectionFiling?
 
     var body: some View {
-        let shown = filed.map { session.recategorised(as: $0.category) } ?? session
+        let filing = filed?.standing(in: store.corrections)
+        let shown = filing.map { session.recategorised(as: $0.category) } ?? session
         let (report, list) = cache.build(for: shown, store: store)
         StorySheet(title: "Session report", onClose: onClose) {
             ScrollView {
                 VStack(alignment: .leading, spacing: Tokens.Space.xl) {
-                    if filed != nil || report.suggestion != nil {
-                        CorrectionSuggestionRow(store: store, session: session, offer: report.suggestion, filed: $filed)
+                    if filing != nil || report.suggestion != nil {
+                        CorrectionSuggestionRow(store: store, session: session, offer: report.suggestion,
+                                                filed: Binding(get: { filing }, set: { filed = $0 }))
                     }
                     SessionReportView(report: report, activityList: list)
                 }
