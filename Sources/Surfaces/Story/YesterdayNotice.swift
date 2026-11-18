@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// Yesterday on Today's rail: its figures, the day's note and a Done that
-/// closes the notice for that date. Gone while the model is unusable.
+/// Yesterday on Today's rail: its figures, a glanceable recap of the day and a
+/// Done that closes the notice for that date. Gone while the model is unusable,
+/// since the card is a feature of on-device AI notes.
 ///
 /// The rail works out `place` and `figures` when it offers the notice, since
 /// both read projections, and holds them. `onDone` is the rail's to answer:
@@ -15,16 +16,13 @@ struct YesterdayNotice: View {
     let onDone: () -> Void
     /// Read when the rail builds the notice; see `PeriodNote.usable`.
     private let usable: Bool
-    /// Read when the rail builds the notice, so the note under the figures
-    /// checks its facts again when the archive changes; see `PeriodNote.evidence`.
-    private let evidence: SessionStore.NoteEvidence
-
-    init(writer: NoteWriter, place: HistoryPlace, figures: String, evidence: SessionStore.NoteEvidence,
+    let recap: DayRecap?
+    init(writer: NoteWriter, place: HistoryPlace, figures: String, recap: DayRecap?,
          onDone: @escaping () -> Void) {
         self.writer = writer
         self.place = place
         self.figures = figures
-        self.evidence = evidence
+        self.recap = recap
         self.onDone = onDone
         usable = writer.isUsable
     }
@@ -39,11 +37,14 @@ struct YesterdayNotice: View {
                     .font(Tokens.Typography.body.monospacedDigit())
                     .foregroundStyle(StoryStyle.supportingInk)
                     .padding(.top, Tokens.Space.xs)
-                PeriodNote(writer: writer, place: place, evidence: evidence, trigger: .automatic,
-                           insets: EdgeInsets(top: Tokens.Space.s, leading: 0, bottom: 0, trailing: 0))
-                Button("Done", action: onDone)
-                    .buttonStyle(StoryLinkStyle(tint: StoryStyle.supportingInk))
-                    .padding(.top, Tokens.Space.xs)
+                if let recap {
+                    DayRecapView(recap: recap).padding(.top, Tokens.Space.s)
+                }
+                HStack {
+                    Spacer(minLength: 0)
+                    Button("Done", action: onDone).buttonStyle(StoryActionStyle())
+                }
+                .padding(.top, Tokens.Space.s)
             }
             .noteCard()
             .accessibilityElement(children: .contain)

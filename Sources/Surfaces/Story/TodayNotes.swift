@@ -9,6 +9,7 @@ import SwiftUI
 struct TodayNoteOffers: Equatable {
     var yesterday: HistoryPlace?
     var yesterdayFigures = ""
+    var yesterdayRecap: DayRecap?
     var wrapUp: HistoryPlace?
 
     init() {}
@@ -18,6 +19,7 @@ struct TodayNoteOffers: Equatable {
         if let place = store.yesterdayNotePlace() {
             yesterday = place
             yesterdayFigures = store.noteFiguresLine(for: place)
+            yesterdayRecap = store.noteRecap(for: place)
         }
         if store.wrapUpOffered { wrapUp = store.notePlace(forDayContaining: store.now()) }
     }
@@ -68,8 +70,7 @@ struct TodayNotes: View {
     var body: some View {
         if let writer, usable {
             if let place = offers.yesterday {
-                YesterdayNotice(writer: writer, place: place, figures: offers.yesterdayFigures,
-                                evidence: evidence) {
+                YesterdayNotice(writer: writer, place: place, figures: offers.yesterdayFigures, recap: offers.yesterdayRecap) {
                     store.dismissYesterdayNote(place)
                     offers.yesterday = nil
                 }

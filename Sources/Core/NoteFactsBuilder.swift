@@ -76,9 +76,7 @@ extension NoteFacts {
         }
         // The part that held the most focus, worth saying once it holds a fair share of it. The
         // share is of the parts' own sum: on a day with no midnight the day's total runs an hour long.
-        let partsTotal = input.focusByPart.values.reduce(0, +)
-        if let best = NoteDayPart.allCases.map({ (part: $0, focused: input.focusByPart[$0] ?? 0) })
-            .max(by: { $0.focused < $1.focused }), best.focused >= 60, best.focused >= partsTotal * 0.4 {
+        if let best = NoteDayPart.peak(of: input.focusByPart) {
             observations.append("The most focus came \(best.part.phrase()): \(compact(best.focused))")
         }
         let stretchCount = input.sessions.reduce(0) { $0 + $1.stretches }
