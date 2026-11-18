@@ -145,11 +145,11 @@ extension SettingsHelpText {
             session's summary. Off, nothing new is noted.
             """),
         HelpEntry("Apps shown in a card", """
-            How many apps the Your apps card lists in the Story and History. If you set 4, you see your top \
+            How many apps the Top apps card lists in the Story and History. If you set 4, you see your top \
             4 apps.
             """),
         HelpEntry("Recent app visits", """
-            When you click an app in the Your apps card, this many of its latest visits are listed. If you \
+            When you click an app in the Top apps card, this many of its latest visits are listed. If you \
             set 5, you see 5, and a Show All button lists the rest.
             """)
     ]

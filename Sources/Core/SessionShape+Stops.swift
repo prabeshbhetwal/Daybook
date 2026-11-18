@@ -23,11 +23,12 @@ extension SessionShape {
             case nil: break
             }
         }
-        var parts = idle > 0 ? ["input stopped \(times(idle))"] : []
-        // Most telling first, one clause per subject: "the Mac slept 2 times
-        // and locked once".
-        var subjects: [String] = []
-        var verbs: [String: [String]] = [:]
+        var parts: [String] = []
+        // Most telling first, one clause per subject: "the Mac went idle
+        // once, slept 2 times and locked once". "Input stopped" was the
+        // tracker's word for idle; nobody reading the card used it.
+        var subjects: [String] = idle > 0 ? ["the Mac"] : []
+        var verbs: [String: [String]] = idle > 0 ? ["the Mac": ["went idle \(times(idle))"]] : [:]
         for kind in MachineEvent.Kind.gapCauses.map(\.kind) {
             let count = explained.filter { $0.kind == kind }.count + (kind == .lock ? assumedLocks : 0)
             guard count > 0 else { continue }

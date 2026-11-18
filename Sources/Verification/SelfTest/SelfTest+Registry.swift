@@ -204,6 +204,8 @@ extension SelfTest {
             + ActivitySnapshotChecks.tests
             + SessionPhaseStripChecks.tests
             + ActivityReviewFixChecks.tests
+            + DayRecapChecks.tests
+            + GlanceableRailChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

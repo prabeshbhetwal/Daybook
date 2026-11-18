@@ -358,6 +358,7 @@ struct DayStory: View {
                                      apps: detail?.apps ?? [],
                                      shape: detail?.text,
                                      shapeCaption: detail?.caption,
+                                     gapNote: detail?.reportNote,
                                      activity: detail?.activity, phases: detail?.phases,
                                      canContinue: canContinueSession,
                                      // A stretch of the thread running now is neither continued
@@ -501,6 +502,8 @@ struct SessionEntryCard: View {
     /// What the recording shows, when it shows anything.
     var shape: String?
     var shapeCaption: String?
+    /// "Nothing was recorded for 5m.", for the strip's info.
+    var gapNote: String?
     var activity: RecordedActivity?
     var phases: SessionActivityShape?
     var canContinue = false

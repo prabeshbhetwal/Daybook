@@ -463,7 +463,6 @@ struct StoryRail: View {
     private var reading: StoryRailDay? { day.map { store.storyRailDay(on: $0) } }
     private var railGoal: GoalProgress { reading?.goal ?? store.selectedDayGoal }
     private var rhythmHours: [RhythmHour] { reading?.rhythm ?? store.rhythm }
-    private var rhythmPeak: String? { day == nil ? store.rhythmPeak : reading?.rhythmPeak }
 
     // MARK: - On this Mac
 
@@ -547,12 +546,14 @@ struct StoryRail: View {
     private var apps: [AppRank] { reading?.apps ?? store.rankedApps }
 
     private var appsTile: some View {
-        // The title says what the list is; the trailing figure says how many
-        // it was cut from. "Apps · Top 4 of 10" made the reader assemble that.
+        // The trailing label is the period, as on the goal tile; the info mark
+        // says what counts and how many apps the list was cut from. "10
+        // recorded" beside the title left readers asking: a day, week or month?
         let limit = store.engine.store.menuAppCount
-        return StoryTile(title: apps.count > limit ? "Your top \(limit) apps" : "Your apps",
-                  trailing: apps.isEmpty ? "None recorded"
-                    : apps.count == 1 ? "1 recorded" : "\(apps.count) recorded") {
+        let dayLabel = day.map { Tokens.dayLabel($0) } ?? store.dayLabel
+        return StoryTile(title: "Top apps", trailing: dayLabel,
+                         info: StoryRailFigures.appsHelp(shown: min(limit, apps.count),
+                                                         total: apps.count, dayLabel: dayLabel)) {
             ForEach(Array(apps.prefix(limit).enumerated()), id: \.element.id) { _, app in
                 StoryAppRow(app: app) { selectedApp.text = app.bundleID }
                     .popover(isPresented: Binding(
@@ -568,41 +569,69 @@ struct StoryRail: View {
 
     // MARK: - Rhythm
 
+    /// Eight 3-hour columns with focus told apart from other app use, under
+    /// a headline naming when focus peaked. Hourly bars of any app use could
+    /// not say when someone was most productive.
     private var rhythmTile: some View {
-        StoryTile(title: "Rhythm", trailing: "by hour") {
-            RhythmChart(hours: rhythmHours, height: 54.zoomed, compactLabels: true)
-            if let peak = rhythmPeak {
-                Text("Most recorded app use: \(peak).")
+        let blocks = store.storyRailDay(on: shownDay).blocks
+        return StoryTile(title: "Time of day", trailing: day.map { Tokens.dayLabel($0) } ?? store.dayLabel,
+                         info: TimeOfDayChart.help) {
+            if let headline = TimeOfDayChart.headline(blocks) {
+                Text(headline)
                     .font(Tokens.Typography.body)
-                    .foregroundStyle(StoryStyle.supportingInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            TimeOfDayChart(blocks: blocks)
         }
     }
 
     // MARK: - Streak
 
     private var streakTile: some View {
-        let days = store.streakDays()
-        return StoryTile(title: "Current streak",
-                  trailing: store.streak == 1 ? "1 day" : "\(store.streak) days") {
+        let minimum = store.engine.store.streakMinimum
+        // Today's focus with the running session in it, as the streak figure
+        // counts it; the archive alone left today's dot empty mid-session.
+        let today = store.todayTotal
+        let todayCounts = today >= minimum
+        let past = store.streakDays().dropLast()
+        let minimumText = Tokens.preciseDuration(minimum)
+        return StoryTile(title: "Focus streak",
+                         trailing: store.streak == 1 ? "1 day" : "\(store.streak) days",
+                         info: [HelpEntry("What counts",
+                                          "Days in a row with at least \(minimumText) of focus. "
+                                          + "Today only breaks the streak if it ends short."),
+                                HelpEntry("The dots",
+                                          "Each dot is a day, oldest on the left; a tick means it counted. "
+                                          + "Today's dot fills as you focus."
+                                          + (StreakStatus.outrunsDots(streak: store.streak, todayCounts: todayCounts,
+                                                                      dots: past.count + 1)
+                                             ? " Showing the last \(past.count + 1) days." : ""))]) {
             HStack(spacing: 3.zoomed) {
-                ForEach(Array(days.enumerated()), id: \.offset) { _, entry in
-                    RoundedRectangle(cornerRadius: Tokens.Radius.mark, style: .continuous)
-                        .fill(entry.met ? Tokens.Colour.focus : Tokens.Colour.elevated)
-                        .frame(height: 8.zoomed)
+                ForEach(Array(past.enumerated()), id: \.offset) { _, entry in
+                    streakDot(filled: entry.met ? 1 : 0)
                 }
+                streakDot(filled: min(1, today / max(1, minimum)), isToday: true)
             }
             // The strip's news is which days met the minimum; the streak
             // length is already the card's trailing figure.
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Days met")
-            .accessibilityValue("\(days.filter(\.met).count) of the last \(days.count)")
+            .accessibilityValue("\(past.filter(\.met).count + (todayCounts ? 1 : 0)) of the last \(past.count + 1)"
+                                + (todayCounts ? ", today included" : ", today still open"))
+            if let first = past.first {
+                HStack {
+                    Text(Tokens.dayLabel(first.day))
+                    Spacer(minLength: Tokens.Space.xs)
+                    Text("Today")
+                }
+                .font(Tokens.Typography.caption)
+                .foregroundStyle(StoryStyle.supportingInk)
+                .accessibilityHidden(true)
+            }
             // The link has its own line beneath the sentence: beside it, it
             // read as the sentence's last words once the sentence wrapped.
             VStack(alignment: .leading, spacing: Tokens.Space.xs) {
-                Text(durations: "Last 14 days. A day counts once it has "
-                     + "\(Tokens.preciseDuration(store.engine.store.streakMinimum)) of focus.")
+                Text(durations: StreakStatus.line(streak: store.streak, today: today, minimum: minimum))
                     .font(Tokens.Typography.body)
                     .foregroundStyle(StoryStyle.supportingInk)
                     .fixedSize(horizontal: false, vertical: true)
@@ -615,6 +644,29 @@ struct StoryRail: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+
+    /// One day of the streak. A counted day is filled and ticked, so it reads
+    /// without colour; today is outlined and fills as focus accrues, so an
+    /// unfinished today never looks like a missed day.
+    private func streakDot(filled: Double, isToday: Bool = false) -> some View {
+        let shape = Capsule(style: .continuous)
+        return shape.fill(Tokens.Colour.elevated)
+            .overlay(alignment: .leading) {
+                GeometryReader { geometry in
+                    shape.fill(Tokens.Colour.focus).frame(width: geometry.size.width * filled)
+                }
+            }
+            .overlay {
+                if filled >= 1 {
+                    Image(systemName: "checkmark")
+                        .font(Tokens.Typography.micro)
+                        .foregroundStyle(Tokens.Colour.onFocus)
+                }
+            }
+            .overlay { if isToday { shape.strokeBorder(Tokens.Colour.focus, lineWidth: 1.5.zoomed) } }
+            .clipShape(shape)
+            .frame(height: 12.zoomed)
     }
 }
 
@@ -655,6 +707,9 @@ struct TileDropDelegate: DropDelegate {
 struct StoryTile<Content: View>: View {
     let title: String
     let trailing: String?
+    /// What the tile means, behind a circled "i" beside the trailing label:
+    /// the explanation is one click away instead of lines under the chart.
+    var info: [HelpEntry] = []
     @ViewBuilder let content: Content
     @Environment(\.focusInterfaceDensity) private var density
     @Environment(\.storyTileMoves) private var moves
@@ -674,6 +729,7 @@ struct StoryTile<Content: View>: View {
                         .foregroundStyle(StoryStyle.supportingInk)
                         .lineLimit(1)
                 }
+                if !info.isEmpty { InfoMark(title: title, entries: info) }
                 if let moves {
                     IconButton(systemImage: "arrow.up", help: "Move \(moves.name) up") {
                         moves.move(-1)

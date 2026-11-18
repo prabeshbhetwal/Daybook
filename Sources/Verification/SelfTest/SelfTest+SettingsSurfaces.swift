@@ -28,9 +28,9 @@ extension SelfTest {
         let joined = mixed.joined(separator: " ")
         expect(joined.contains("Xcode was in front for 50m of the 1h recorded"),
                "the leading app is stated against recorded time", &problems)
-        expect(joined.contains("You moved between apps 2 times."),
+        expect(joined.contains("You switched apps 2 times."),
                "only real identity changes count as switches", &problems)
-        expect(joined.contains("input stopped once"),
+        expect(joined.contains("went idle once"),
                "a recorded idle end is reported", &problems)
         expect(!joined.contains("watching"),
                "deep work never claims watching counts as the work", &problems)

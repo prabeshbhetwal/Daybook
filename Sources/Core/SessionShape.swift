@@ -259,8 +259,8 @@ enum SessionShape {
         }
         guard switches > 0 else { return nil }
         return switches == 1
-            ? "You moved between apps once."
-            : "You moved between apps \(switches) times."
+            ? "You switched apps once."
+            : "You switched apps \(switches) times."
     }
 
     /// Why time without input still counted. Only said when there was such

@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// A compact elapsed-time strip of the foreground app evidence. It is not a
-/// typing waveform: filled runs are observed apps and outlined runs are
+/// typing waveform: filled runs are observed apps and hatched runs are
 /// explicitly named gaps in the supplied session span. Every app wears the one
 /// app-use accent; a thin divider in the card colour shows each switch, and a
 /// run wide enough carries the app's icon.
@@ -97,6 +97,7 @@ struct StoryShapeChart: View {
                 .foregroundStyle(StoryStyle.supportingInk)
                 .accessibilityHidden(true)
             }
+            if !compact { legend }
         }
         .accessibilityElement(children: runsListedBelow ? .ignore : .contain)
         .accessibilityLabel("App use: recorded app use, not typing intensity")
@@ -134,15 +135,11 @@ struct StoryShapeChart: View {
     }
 
     private func runView(_ run: SessionShape.Run, size: CGSize, help: String) -> some View {
+        // A gap is hatched, as the day's unexplained time is: a dashed grey
+        // outline read as a state of its own, and nobody could say which.
         Rectangle()
-            .fill(colour(run))
-            .overlay {
-                if run.isGap {
-                    Rectangle()
-                        .strokeBorder(Color.secondary.opacity(0.65), // ink: quiet, a drawn mark
-                                      style: StrokeStyle(lineWidth: 1, dash: [2.zoomed, 2.zoomed]))
-                }
-            }
+            .fill(Tokens.Palette.appUse)
+            .overlay { if run.isGap { HatchFill() } }
             .contentShape(Rectangle())
             .onHover { inside in
                 if inside { hovered.run = run } else if hovered.run?.id == run.id { hovered.run = nil }
@@ -158,8 +155,38 @@ struct StoryShapeChart: View {
         return "\(name) · \(Tokens.timeRange(run.start, run.end)) · \(Tokens.preciseDuration(run.isGap ? run.end.timeIntervalSince(run.start) : run.recordedSeconds))"
     }
 
-    private func colour(_ run: SessionShape.Run) -> Color {
-        run.isGap ? Tokens.Palette.untracked.opacity(0.22) : Tokens.Palette.appUse
+    /// The strip's explanation behind its info mark: the key, then what this
+    /// session's recording says.
+    static func help(shape: String?, gap: String?) -> [HelpEntry] {
+        let session = [shape, gap].compactMap { $0 }.joined(separator: " ")
+        return [HelpEntry("Blue blocks", "An app you had in front; its icon shows which. "
+                          + "A thin line is a switch to another app."),
+                HelpEntry("Hatched", "Nothing was recorded: the Mac was idle, asleep or locked, "
+                          + "or app recording was off.")]
+            + (session.isEmpty ? [] : [HelpEntry("This session", session)])
+    }
+
+    /// The two marks the strip draws, named under it so the strip reads
+    /// without its info.
+    private var legend: some View {
+        HStack(spacing: Tokens.Space.m) {
+            legendItem("App in use") { Tokens.Palette.appUse }
+            if activity.intervals.contains(where: { $0.bundleID == nil }) {
+                legendItem("Nothing recorded") { HatchFill() }
+            }
+        }
+        .font(Tokens.Typography.caption)
+        .foregroundStyle(StoryStyle.supportingInk)
+        .accessibilityHidden(true)
+    }
+
+    private func legendItem(_ label: String, @ViewBuilder swatch: () -> some View) -> some View {
+        HStack(spacing: Tokens.Space.xs) {
+            swatch()
+                .frame(width: 10.zoomed, height: 10.zoomed)
+                .clipShape(RoundedRectangle(cornerRadius: Tokens.Radius.bar, style: .continuous))
+            Text(label)
+        }
     }
 
     private var appNames: [String: String] {

@@ -9,13 +9,21 @@ extension SessionEntryCard {
                 sectionLabel("Phases")
                 SessionPhaseStrip(shape: phases, tint: Tokens.Palette.workType(session.workType))
             }
-            sectionLabel("App use")
+            HStack(spacing: Tokens.Space.xs) {
+                sectionLabel("Apps used")
+                InfoMark(title: "Apps used", entries: StoryShapeChart.help(shape: shape, gap: gapNote))
+                Spacer(minLength: 0)
+            }
             if let activity {
                 StoryShapeChart(activity: activity)
             }
-            factualCaption
+            if let shapeCaption {
+                Text(shapeCaption)
+                    .font(Tokens.Typography.body)
+                    .foregroundStyle(StoryStyle.supportingInk)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
-        .help(shape ?? "Shows recorded app use, not typing.")
     }
 
     @ViewBuilder var factualCaption: some View {
