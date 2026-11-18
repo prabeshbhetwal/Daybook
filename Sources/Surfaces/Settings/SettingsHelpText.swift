@@ -15,7 +15,7 @@ enum SettingsHelpText {
             "Reminders": reminders, "Weekday plan": weekdayPlan, "Overrides": overrides,
             "Working hours": workingHours, "Eyes and long stretches": eyesAndStretches,
             "When a break ends": breakEnds,
-            "App use": appUse, "Privacy": privacy, "Backups": backups, "Updates": updates
+            "App use": appUse, "Daily goals": dailyGoals, "Privacy": privacy, "Backups": backups, "Updates": updates
         ]
     }
 
@@ -110,6 +110,18 @@ enum SettingsHelpText {
 
     // MARK: - Sessions
 
+    static let dailyGoals: [HelpEntry] = [
+        HelpEntry("Add Goal", """
+            Adds a goal for a category, such as Coding, or an app. A category goal counts focus with an \
+            app in use, as your daily goal does. Each goal's menu sets its amount, pauses it or removes it. \
+            You can keep up to eight goals.
+            """),
+        HelpEntry("App limit", """
+            Time to keep an app under, such as a video app. It counts all the time the app was in front \
+            that day, in a session or not. If you set 2 hours, you have 1 hour 15 minutes left after 45 \
+            minutes.
+            """)
+    ]
     static let goal: [HelpEntry] = [
         HelpEntry("Daily goal", """
             How much focus you aim for each day. Focus is time in focus sessions, the stretches of work \

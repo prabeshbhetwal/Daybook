@@ -375,7 +375,7 @@ struct StoryRail: View {
                              accessibilityTitle: "Share of goal")
                 }
             }
-            if !categoryGoals.isEmpty {
+            if !categoryGoals.isEmpty || !appLimits.isEmpty {
                 categoryGoalRows
             }
             // Today's tile only: the tidy-up is about the record as it is now.
@@ -404,8 +404,10 @@ struct StoryRail: View {
     private func goalsHelp(logged: TimeInterval, counted: TimeInterval) -> [HelpEntry] {
         var entries = [HelpEntry("The ring", "Your focus for the day against your daily goal. Only focus time "
                                  + "with an app in use counts."),
-                       HelpEntry("Goal rows", "Each row is one goal, counted the same way, so it never "
-                                 + "adds up to more than the ring.")]
+                       HelpEntry("Goals", "Each goal row with a bar is a target, counted the same way, so "
+                                 + "it never adds up to more than the ring."),
+                       HelpEntry("Limits", "A row marked as a limit is an app you want to keep under a time. "
+                                 + "It counts all the time the app was in front, in a session or not.")]
         if let equation = StoryRailFigures.goalEquation(logged: logged, counted: counted) {
             entries.append(HelpEntry("Today", equation + "."))
         }
@@ -454,7 +456,60 @@ struct StoryRail: View {
                 .help("Counts sessions filed under \(item.type.displayName)")
                 .accessibilityHint("Counts sessions filed under \(item.type.displayName)")
             }
+            ForEach(appLimits, id: \.bundleID) { limit in limitRow(limit) }
         }
+    }
+
+    /// Today's limits only: a past day is shown by what it recorded, and a limit
+    /// added, changed or removed since would otherwise rewrite it.
+    private var appLimits: [(bundleID: String, name: String, limit: TimeInterval, used: TimeInterval)] {
+        day == nil ? store.appLimits(ranked: apps) : []
+    }
+
+    /// An app kept under a limit: icon, name, "45m of 2h limit", a neutral bar
+    /// and what is left. Past the limit it reads "15m over" in the attention
+    /// ink, with no alarm: a limit is information, not a verdict.
+    private func limitRow(_ item: (bundleID: String, name: String, limit: TimeInterval, used: TimeInterval))
+        -> some View {
+        let status = DailyGoalList.limitStatus(used: item.used, limit: item.limit)
+        let share = min(1, item.used / max(1, item.limit))
+        return VStack(alignment: .leading, spacing: Tokens.Space.xs) {
+            HStack(spacing: Tokens.Space.xs) {
+                AppIcon(bundleID: item.bundleID, size: 14.zoomed, appName: item.name)
+                Text(item.name)
+                    .font(Tokens.Typography.body)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Spacer(minLength: Tokens.Space.s)
+                Text(store.isTrackingEnabled ? status.figure : "\(Tokens.duration(item.limit)) limit")
+                    .font(Tokens.Typography.body.monospacedDigit())
+                    .fixedSize()
+                    .foregroundStyle(StoryStyle.supportingInk)
+            }
+            if store.isTrackingEnabled {
+                GeometryReader { geometry in
+                    Capsule().fill(StoryStyle.line)
+                        .overlay(alignment: .leading) {
+                            Capsule().fill(status.isOver ? StoryStyle.attentionInk : StoryStyle.supportingInk)
+                                .frame(width: geometry.size.width * share)
+                        }
+                }
+                .frame(height: 3.zoomed)
+                Text(status.detail)
+                    .font(Tokens.Typography.caption)
+                    .foregroundStyle(status.isOver ? StoryStyle.attentionInk : StoryStyle.supportingInk)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            } else {
+                // Nothing is being recorded, so no allowance can be worked out.
+                Text("App recording is off")
+                    .font(Tokens.Typography.caption)
+                    .foregroundStyle(StoryStyle.supportingInk)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(DurationText.spoken(in: "\(item.name): \(status.figure), \(status.detail)"))
+        .help("Counts all the time \(item.name) was in front today, in a session or not")
     }
 
     private var goalShare: Double? {

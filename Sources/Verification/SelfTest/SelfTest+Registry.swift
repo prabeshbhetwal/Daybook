@@ -209,6 +209,7 @@ extension SelfTest {
             + ActivityCoverageChecks.tests
             + DailyGoalListChecks.tests
             + DailyGoalMigrationChecks.tests
+            + AppLimitChecks.tests
             + ProvenanceChecks.tests + ProvenanceEngineChecks.tests
             + CategoryCorrectionChecks.tests + CorrectionsFileChecks.tests + CorrectionsStoreChecks.tests
             + ProvenanceCarryChecks.tests + ProvenanceLiveEditChecks.tests

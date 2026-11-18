@@ -7,6 +7,8 @@ import SwiftUI
 struct SettingsGroups: View {
     @ObservedObject var model: SettingsModel
     @State var copiedAgentSetup = false
+    /// The app chooser of the Daily goals panel.
+    @State var choosingGoalApp = false
     let section: SettingsSection
     @Environment(\.focusInterfaceDensity) private var density
     /// What the last Try reached, shown under its button until the next one.
@@ -116,6 +118,12 @@ struct SettingsGroups: View {
     }
 
     private var focus: some View {
+        VStack(alignment: .leading, spacing: layout.panelSpacing) {
+            focusPanel
+            dailyGoalsPanel
+        }
+    }
+    private var focusPanel: some View {
         SurfacePanel(title: "Goal", layout: layout) {
             preferenceRow("Daily goal", detail: "Counts focus only while you're at the Mac.") {
                 RowMenu("Daily goal", selection: $model.dailyGoal,

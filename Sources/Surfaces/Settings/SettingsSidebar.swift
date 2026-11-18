@@ -152,7 +152,7 @@ extension SettingsSection {
                                "Start or end a session from any app", "Confirmations",
                                "Ask before changing how a break counts", "Ask before removing a session",
                                "Ask Daybook", "Show Ask in the toolbar", "Open Ask", "Open Ask in"]
-        case .focus: return ["Daily goal", "Usual pace compares with", "Suggest activities from",
+        case .focus: return ["Daily goal", "Daily goals", "Add Goal", "App limit", "Usual pace compares with", "Suggest activities from",
                              "Streak counts a day after", "New sessions start as",
                              "Keep sessions longer than", "Offer to continue for"]
         case .categories: return ["Categories", "New Category", "Category name", "Icon", "Colour", "Retire", "Restore",
