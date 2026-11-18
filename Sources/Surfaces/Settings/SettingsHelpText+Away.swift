@@ -160,8 +160,9 @@ extension SettingsHelpText {
     static var privacy: [HelpEntry] {
         [
             HelpEntry("Storage", """
-                Where your history is kept. Local only means it stays on this Mac. It says backed up to \
-                iCloud while automatic backups go to iCloud Drive.
+                Where your history is kept: Local only, or backed up to iCloud while automatic backups go to \
+                iCloud Drive. Each session notes how it began and where its category came from. A remembered \
+                category choice lapses after 90 days unused.
                 """),
             HelpEntry("App use measured precisely since", """
                 From this date, recorded app use leaves out time you were away. Records from before it may \

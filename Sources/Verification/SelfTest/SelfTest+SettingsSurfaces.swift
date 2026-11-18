@@ -188,6 +188,13 @@ extension SelfTest {
             "privacy copy states that Daybook-entered text is stored locally", &problems)
         expect(!disclosure.storageDetail.contains("anything you type"),
                "privacy copy makes no blanket claim about typed text", &problems)
+        expect(disclosure.storageDetail.contains("how it began")
+               && disclosure.storageDetail.contains("corrections.json")
+               && disclosure.storageDetail.contains("90 days")
+               && disclosure.storageDetail.contains("Backups include the sessions and this file"),
+               "privacy copy names what a session records of its origin and the corrections file", &problems)
+        expect(!disclosure.storageDetail.lowercased().contains("leisure"),
+               "privacy copy mentions only what is built", &problems)
         return problems
     }
 
