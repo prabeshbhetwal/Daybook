@@ -12,6 +12,8 @@ extension SessionStore {
         guard evidence.enabled, !engine.archive.isReadOnly else { return }
         let records = engine.archive.records
         guard evidence.splitSeen != nil else { evidence.splitSeen = Set(records.map(\.id)); return }
+        // An open away question refuses every cut: the session is judged once it is answered, not lost.
+        guard !hasUnresolvedAwayDecision else { return }
         let moment = now()
         for record in records where record.end <= moment {
             // Read each time: a cut refreshes, and the pass that refresh starts may have judged this record.
@@ -22,9 +24,14 @@ extension SessionStore {
             guard record.splitsItself, let at = splitMoment(in: record) else { continue }
             let proposal = tailProposal(for: record, at: at)
             guard case .chosen = proposal.choice else { continue }
-            // Nobody asked for this write, so a refusal is not put in front of the person.
+            // Nobody asked for this write: the person's own error and Retry stay as they were, and a refusal
+            // is not put in front of them, but turns the cut into an offer (`splitOffer`).
             let error = correctionError, retry = correctionRetry
-            if !acceptSplit(proposal) { publishCorrectionError(error); correctionRetry = retry }
+            if !acceptSplit(proposal, byPerson: false), engine.archive.records.contains(record) {
+                evidence.splitRefused.insert(record.id)
+            }
+            publishCorrectionError(error)
+            correctionRetry = retry
         }
     }
 }

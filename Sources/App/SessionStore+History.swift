@@ -676,7 +676,7 @@ extension SessionStore {
             switch correction {
             case .rename(let name): changed.rename(to: name)
             case .workType(let type): changed.recategorise(to: type)
-            case .removed, .split, .merge: continue   // each has its own path
+            case .removed: continue   // each has its own path
             }
             if changed != record { removed.append(record); added.append(changed) }
         }
@@ -686,7 +686,7 @@ extension SessionStore {
             switch correction {
             case .rename(let name): return value.name != name
             case .workType(let type): return value.workType != type
-            case .removed, .split, .merge: return false
+            case .removed: return false
             }
         } ?? false
         guard archiveSnapshot != nil || activeChanged else {
@@ -733,7 +733,7 @@ extension SessionStore {
             return false
         }
         let before = engine.snapshot()
-        if state.correction.restoresRecords { return undoRestoringRecords(state, before: before) }
+        if state.correction == .removed { return undoRestoringRecords(state, before: before) }
         let originals = Dictionary(uniqueKeysWithValues: (state.archiveSnapshot?.fields ?? []).map { ($0.recordID, $0) })
         let existingIDs = Set(engine.archive.records.map(\.id))
         guard Set(originals.keys).isSubset(of: existingIDs) else {
@@ -756,7 +756,7 @@ extension SessionStore {
                 guard record.workType == expected || record.workType == original.workType else { return correctionConflict(state) }
                 changed.workType = original.workType
                 if let kept = original.provenance { changed.categorySource = kept.categorySource }
-            case .removed, .split, .merge: continue
+            case .removed: continue
             }
             if changed != record { removed.append(record); added.append(changed) }
         }
@@ -772,7 +772,7 @@ extension SessionStore {
                     return correctionConflict(state)
                 }
                 engine.stageActiveCorrection(.workType(state.originalFields.workType), threadID: state.threadID, fromUndo: true, restoring: state.originalFields.provenance)
-            case .removed, .split, .merge: break
+            case .removed: break
             }
         }
         guard engine.commitCorrection(before: before, removing: removed, adding: added,

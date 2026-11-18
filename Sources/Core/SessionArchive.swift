@@ -209,7 +209,7 @@ final class SessionArchive {
                 fields.append(.init(record: record))
                 candidate[index].recategorise(to: proposed)
                 changed = true
-            case .removed, .split, .merge:
+            case .removed:
                 // Removal, split and merge are journal transactions over whole
                 // records, never a field edit; nothing to apply here.
                 return .unchanged

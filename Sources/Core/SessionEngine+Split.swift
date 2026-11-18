@@ -17,7 +17,7 @@ extension SessionEngine {
             awayDecisionError = "That moment is not inside this session's work, so it can't be split there. Reopen the day and try again."
             return false
         }
-        return commitRestructure(.split, name: record.name, removing: [record], adding: [cut.head, cut.tail])
+        return commitRestructure(name: record.name, removing: [record], adding: [cut.head, cut.tail])
     }
 
     /// Joins `tail` back onto `head` when they touch, in that order: one record again, the head's. False,
@@ -31,14 +31,14 @@ extension SessionEngine {
             awayDecisionError = "Those two parts no longer follow one another, so they can't be merged. Reopen the day and try again."
             return false
         }
-        return commitRestructure(.merge, name: head.name, removing: [head, tail], adding: [joined])
+        return commitRestructure(name: head.name, removing: [head, tail], adding: [joined])
     }
 
-    private func commitRestructure(_ kind: SessionCorrection, name: String, removing: [SessionRecord],
-                                   adding: [SessionRecord]) -> Bool {
+    /// Saved as a removal that also holds what it wrote in, so an older build still reads the history.
+    private func commitRestructure(name: String, removing: [SessionRecord], adding: [SessionRecord]) -> Bool {
         let before = snapshot()
         var receipt = SessionStoreCorrectionState(
-            sequence: (before.correctionGeneration ?? 0) + 1, threadID: removing[0].threadID, correction: kind,
+            sequence: (before.correctionGeneration ?? 0) + 1, threadID: removing[0].threadID, correction: .removed,
             archiveSnapshot: nil, originalFields: .init(name: name, workType: removing[0].workType),
             archiveRecordIDs: Set((removing + adding).map(\.id)))
         receipt.removedRecords = removing

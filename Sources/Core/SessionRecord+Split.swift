@@ -34,7 +34,10 @@ extension SessionRecord {
     func split(at moment: Date, tail choice: SplitTail, tailID: UUID = UUID(),
                tailThread: UUID = UUID()) -> (head: SessionRecord, tail: SessionRecord)? {
         guard canSplit(at: moment) else { return nil }
-        let headWork = max(0, min(workSeconds, workSeconds(in: (start: start, end: moment))))
+        // Held to a multiple of the work's own precision, so the two halves add back to exactly this record's
+        // work (any other split of a double can round the sum one step off): Merge Back restores it bit for bit.
+        let step = workSeconds.ulp
+        let headWork = (max(0, min(workSeconds, workSeconds(in: (start: start, end: moment)))) / step).rounded() * step
         var head = self
         head.end = moment
         head.workSeconds = headWork

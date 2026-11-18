@@ -25,7 +25,8 @@ extension SessionStore {
     func splitOffer(for session: DaySession) -> SplitOffer? {
         guard !session.isRunning, !hasUnresolvedAwayDecision, !engine.archive.isReadOnly else { return nil }
         let records = engine.archive.records.filter { session.recordIDs.contains($0.id) }.sorted { $0.start < $1.start }
-        for record in records where !record.splitsItself {
+        // An automatic session splits itself, unless that was refused (`splitFinishedAutomaticSessions`).
+        for record in records where !record.splitsItself || activityEvidence.splitRefused.contains(record.id) {
             if let moment = splitMoment(in: record) { return tailProposal(for: record, at: moment) }
         }
         return nil
@@ -40,9 +41,10 @@ extension SessionStore {
     }
 
     /// Split: the tail begins as Daybook chose, or as `picked` when the offer asked the person to pick,
-    /// which makes the category theirs.
+    /// which makes the category theirs. The tail of a cut the person accepted is theirs too: it is never
+    /// judged for a split of its own. `byPerson` is false for the cut Daybook makes itself.
     @discardableResult
-    func acceptSplit(_ offer: SplitOffer, as picked: WorkType? = nil) -> Bool {
+    func acceptSplit(_ offer: SplitOffer, as picked: WorkType? = nil, byPerson: Bool = true) -> Bool {
         guard let record = engine.archive.records.first(where: { $0.id == offer.recordID }) else { return false }
         let (type, source): (WorkType, DecisionSource)
         switch offer.choice {
@@ -50,7 +52,9 @@ extension SessionStore {
         case .ask(let preset): (type, source) = (picked ?? preset, .user)
         }
         let tail = SplitTail(after: record, workType: type, source: source, purpose: offer.purpose, topApp: offer.topApp)
-        return splitSession(recordID: offer.recordID, at: offer.at, tail: tail)
+        let tailID = UUID()
+        if byPerson { activityEvidence.splitSeen?.insert(tailID) }
+        return splitSession(recordID: offer.recordID, at: offer.at, tail: tail, tailID: tailID)
     }
 
     /// Keep Together: this moment is not offered again for this session.

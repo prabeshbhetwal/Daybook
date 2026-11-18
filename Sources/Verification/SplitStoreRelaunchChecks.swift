@@ -44,7 +44,7 @@ enum SplitStoreRelaunchChecks: CheckSuite {
                    "the halves did not come back after a relaunch", &problems)
             expect(store.canMergeBack(recordID: split.tail.id) && store.sessionMetadata(for: split.tail.id)?.splitFrom?.head == split.head.id,
                    "the link did not survive a relaunch", &problems)
-            expect(store.corrections.last?.correction == .split && store.canUndoCorrection,
+            expect(store.corrections.last?.restructure == .split && store.canUndoCorrection,
                    "Undo did not survive a relaunch", &problems)
             expect(store.undoLastCorrection(), "Undo after a relaunch was refused: \(store.correctionError ?? "")", &problems)
             expect(store.engine.archive.records == [record], "Undo after a relaunch did not give back the one record", &problems)

@@ -6,31 +6,31 @@ import Foundation
 extension SessionStore {
     /// Cuts the ended record `recordID` at `moment`; the tail begins as `choice` says. One correction,
     /// reversed by Undo. False, with the reason published, when the moment is not inside the session's work
-    /// or the write is refused, and then nothing was changed.
+    /// or the write is refused, and then nothing was changed. A write that landed with only its journal
+    /// save refused returns false too, with the error and Retry shown, and has its link and readings.
     @discardableResult
-    func splitSession(recordID: UUID, at moment: Date, tail choice: SplitTail) -> Bool {
+    func splitSession(recordID: UUID, at moment: Date, tail choice: SplitTail, tailID: UUID = UUID()) -> Bool {
         guard !hasUnresolvedAwayDecision else {
             publishCorrectionError("Answer the away question first."); return false
         }
         guard let record = engine.archive.records.first(where: { $0.id == recordID }),
-              let cut = record.split(at: moment, tail: choice) else {
+              let cut = record.split(at: moment, tail: choice, tailID: tailID) else {
             publishCorrectionError("That moment is not inside this session's work, so it can't be split there.")
             return false
         }
-        guard engine.splitRecord(id: recordID, at: moment, tail: choice, tailID: cut.tail.id) else {
-            publishCorrectionError(engine.awayDecisionError)
-            correctionRetry = .correction(threadID: record.threadID, correction: .split)
-            return false
+        let done = engine.splitRecord(id: recordID, at: moment, tail: choice, tailID: tailID)
+        let landed = done || engine.archive.records.contains { $0.id == tailID }
+        if landed {
+            logSidecar(metadataArchive.saveSplitLink(SplitLink(head: cut.head, tail: cut.tail), for: tailID), "split link")
+            // Beats may have expired: the tail then reads the part of the summary the whole kept that falls in it.
+            if let kept = metadataArchive.metadata(for: record.id)?.activityShape {
+                logSidecar(metadataArchive.saveActivityShape(kept.clipped(to: DateInterval(start: moment, end: record.end)),
+                                                       for: tailID), "tail summary")
+            }
+            movePower(head: record.id, tail: cut.tail, toTail: true)
         }
-        logSidecar(metadataArchive.saveSplitLink(SplitLink(head: cut.head, tail: cut.tail), for: cut.tail.id), "split link")
-        // Beats may have expired: the tail then reads the part of the summary the whole kept that falls in it.
-        if let kept = metadataArchive.metadata(for: record.id)?.activityShape {
-            logSidecar(metadataArchive.saveActivityShape(kept.clipped(to: DateInterval(start: moment, end: record.end)),
-                                                   for: cut.tail.id), "tail summary")
-        }
-        movePower(head: record.id, tail: cut.tail, toTail: true)
-        finishRestructure()
-        return true
+        return finishRestructure(done: done, landed: landed,
+                                 retry: .correction(threadID: record.threadID, correction: .removed))
     }
 
     /// The tail of a split, offered Merge Back: it touches its head, neither has been renamed or filed
@@ -44,14 +44,11 @@ extension SessionStore {
             publishCorrectionError("This session was changed after it was split, so it can't be merged back. Undo the change first.")
             return false
         }
-        guard engine.mergeRecords(head: pair.head.id, tail: tailID) else {
-            publishCorrectionError(engine.awayDecisionError)
-            correctionRetry = .correction(threadID: pair.head.threadID, correction: .merge)
-            return false
-        }
-        movePower(head: pair.head.id, tail: pair.tail, toTail: false)
-        finishRestructure()
-        return true
+        let done = engine.mergeRecords(head: pair.head.id, tail: tailID)
+        let landed = done || !engine.archive.records.contains { $0.id == tailID }
+        if landed { movePower(head: pair.head.id, tail: pair.tail, toTail: false) }
+        return finishRestructure(done: done, landed: landed,
+                                 retry: .correction(threadID: pair.head.threadID, correction: .removed))
     }
 
     func mergePair(tailID: UUID) -> (head: SessionRecord, tail: SessionRecord)? {
@@ -74,25 +71,26 @@ extension SessionStore {
             publishCorrectionError("That session is already back, or its stretches were rewritten since. Reopen the day to see it.")
             return false
         }
-        guard engine.commitCorrection(before: before, removing: out, adding: back,
-                                      fields: corrections.filter { $0.id != state.id }) else {
-            publishCorrectionError(engine.awayDecisionError)
-            correctionRetry = .undo(state)
-            return false
+        let done = engine.commitCorrection(before: before, removing: out, adding: back,
+                                           fields: corrections.filter { $0.id != state.id })
+        let landed = done || back.allSatisfy { engine.archive.records.contains($0) }
+        if landed, let parts = state.restructuredParts {
+            movePower(head: parts.head, tail: parts.tail, toTail: state.restructure == .merge)
         }
-        if let parts = state.restructuredParts { movePower(head: parts.head, tail: parts.tail, toTail: state.correction == .merge) }
-        publishCanUndoCorrection(!corrections.isEmpty || engine.canUndoAwayDecision)
-        publishCorrectionError(nil)
-        correctionRetry = nil
-        refresh()
-        return true
+        return finishRestructure(done: done, landed: landed, retry: .undo(state))
     }
 
-    private func finishRestructure() {
-        publishCanUndoCorrection(true)
-        publishCorrectionError(nil)
-        correctionRetry = nil
-        refresh()
+    /// How a restructure ended. One whose archive write landed with only its journal save refused shows the
+    /// change and keeps the error and Retry. Retry finishes that save and does no more, so the link and the
+    /// readings are written before it, never left to it.
+    private func finishRestructure(done: Bool, landed: Bool, retry: SessionCorrectionRetry) -> Bool {
+        publishCorrectionError(done ? nil : engine.awayDecisionError)
+        correctionRetry = done ? nil : retry
+        if landed {
+            publishCanUndoCorrection(!corrections.isEmpty || engine.canUndoAwayDecision)
+            refresh()
+        }
+        return done
     }
 
     /// The power readings from the cut on belong to the tail, and come back to the head when it is joined.
@@ -111,24 +109,24 @@ extension SessionStoreCorrectionState {
     /// The head's id and the tail's record, for a split or a merge.
     var restructuredParts: (head: UUID, tail: SessionRecord)? {
         let removed = removedRecords ?? [], added = addedRecords ?? []
-        switch correction {
-        case .split:
+        switch restructure {
+        case .split?:
             guard let head = removed.first?.id, let tail = added.first(where: { $0.id != head }) else { return nil }
             return (head, tail)
-        case .merge:
+        case .merge?:
             guard let head = added.first?.id, let tail = removed.first(where: { $0.id != head }) else { return nil }
             return (head, tail)
-        case .rename, .workType, .removed:
+        case .removal?, nil:
             return nil
         }
     }
 
     /// What the day's notice says of a correction that swapped whole records.
     var restructureTitle: String {
-        switch correction {
-        case .split: return "Session split"
-        case .merge: return "Sessions merged"
-        case .rename, .workType, .removed: return "Session removed"
+        switch restructure {
+        case .split?: return "Session split"
+        case .merge?: return "Sessions merged"
+        case .removal?, nil: return "Session removed"
         }
     }
 }

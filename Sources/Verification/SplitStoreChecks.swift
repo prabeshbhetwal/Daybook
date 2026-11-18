@@ -24,13 +24,14 @@ enum SplitStoreChecks: CheckSuite {
     /// after a relaunch.
     @MainActor
     static func rig(directory: URL = SelfTest.scratchDirectory(), suite: String? = nil, clock: TestClock? = nil,
-                    writeOverride: (([SessionRecord]) -> String?)? = nil) -> Rig {
+                    writeOverride: (([SessionRecord]) -> String?)? = nil,
+                    journal: (() -> String?)? = nil) -> Rig {
         let suite = suite ?? "fc-selftest-split-\(UUID().uuidString)"
         let clock = clock ?? TestClock(SelfTest.anchoredNow())
         let archive = SessionArchive(directory: directory, now: { clock.value }, writeOverride: writeOverride)
         let engine = SessionEngine(store: PersistenceStore(defaults: MemoryDefaults.suite(named: suite) ?? .standard),
                                    archive: archive, ownBundleID: "com.test", schedulesDwell: false,
-                                   now: { clock.value })
+                                   correctionWriteOverride: journal, now: { clock.value })
         return Rig(store: SessionStore(engine: engine, now: { clock.value }), clock: clock, directory: directory,
                    suite: suite)
     }
@@ -168,7 +169,7 @@ enum SplitStoreChecks: CheckSuite {
             expect(store.corrections.isEmpty && !store.canUndoCorrection, "the fixture began with a correction", &problems)
             guard store.splitSession(recordID: record.id, at: record.start.addingTimeInterval(2_400), tail: choice()),
                   let (head, tail) = halves(of: record, in: store) else { return ["the split was refused"] }
-            expect(store.corrections.count == 1 && store.lastCorrection?.correction == .split,
+            expect(store.corrections.count == 1 && store.lastCorrection?.restructure == .split,
                    "a split is not one correction: \(store.corrections.map(\.correction))", &problems)
             expect(store.canUndoCorrection && store.editUndoKind == .split("Report"),
                    "Edit > Undo says \(String(describing: store.editUndoKind))", &problems)
@@ -197,7 +198,7 @@ enum SplitStoreChecks: CheckSuite {
                   let (head, tail) = halves(of: record, in: store) else { return ["the split was refused"] }
             expect(store.mergeBack(tailID: tail.id), "Merge Back was refused: \(store.correctionError ?? "")", &problems)
             expect(store.engine.archive.records == [record], "the merge did not give back the one record", &problems)
-            expect(store.corrections.count == 2 && store.lastCorrection?.correction == .merge
+            expect(store.corrections.count == 2 && store.lastCorrection?.restructure == .merge
                    && store.editUndoKind == .merge("Report"), "a merge is not one more correction", &problems)
             expect(store.undoLastCorrection(), "Undo of the merge was refused: \(store.correctionError ?? "")", &problems)
             expect(Set(store.engine.archive.records.map(\.id)) == [head.id, tail.id]

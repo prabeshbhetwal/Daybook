@@ -53,7 +53,7 @@ extension SessionEngine {
             if fromUndo, let kept = restoring?.categorySource { activeProvenance.categorySource = kept }
             else if !fromUndo, type != activeWorkType { activeProvenance.categorySource = .user }
             activeWorkType = type
-        case .removed, .split, .merge: return   // never staged on a live stretch
+        case .removed: return   // never staged on a live stretch
         }
         if claims {
             activeIsAuto = false

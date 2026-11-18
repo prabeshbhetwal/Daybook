@@ -9,19 +9,10 @@ import Foundation
 enum SessionCorrection: Codable, Equatable {
     case rename(String)
     case workType(WorkType)
+    /// Also what a split and a merge are saved as, told apart by what they wrote in
+    /// (`SessionStoreCorrectionState.restructure`): a case of their own would be one a build from before
+    /// them cannot decode, and it would set the whole correction history aside.
     case removed
-    /// One record cut in two, and two cut records joined again. Like a removal they swap whole records,
-    /// and the correction keeps what it took out and what it wrote in, so Undo puts it back as it was.
-    case split
-    case merge
-
-    /// Corrections Undo reverses by swapping whole records instead of writing fields back.
-    var restoresRecords: Bool {
-        switch self {
-        case .removed, .split, .merge: return true
-        case .rename, .workType: return false
-        }
-    }
 }
 
 /// The original values of the records touched by one saved correction. Undo
