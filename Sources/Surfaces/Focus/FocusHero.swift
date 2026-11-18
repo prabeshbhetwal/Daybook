@@ -695,7 +695,8 @@ struct FocusHero: View {
                     .foregroundStyle(StoryStyle.supportingInk)
                     .fixedSize()
                 automaticIntentField
-                WorkTypePicker(selection: $store.workType)
+                WorkTypePicker(selection: $store.workType,
+                               height: AccessibilityMetrics.minimumTargetSize)
                 automaticAdoptButton
                 automaticUndoButton
                 Spacer(minLength: 0)
@@ -718,7 +719,8 @@ struct FocusHero: View {
             if compact {
                 automaticIntentField
                 HStack(spacing: Tokens.Space.s) {
-                    WorkTypePicker(selection: $store.workType)
+                    WorkTypePicker(selection: $store.workType,
+                                   height: AccessibilityMetrics.minimumTargetSize)
                     Spacer(minLength: Tokens.Space.xs)
                     automaticAdoptButton
                 }
@@ -726,7 +728,8 @@ struct FocusHero: View {
             } else {
                 HStack(spacing: Tokens.Space.s) {
                     automaticIntentField
-                    WorkTypePicker(selection: $store.workType)
+                    WorkTypePicker(selection: $store.workType,
+                                   height: AccessibilityMetrics.minimumTargetSize)
                     automaticAdoptButton
                     automaticUndoButton
                 }
