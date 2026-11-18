@@ -10,7 +10,7 @@ enum StoryTileKind: String, CaseIterable, Codable {
         switch self {
         case .focus: return "Daily goal"
         case .mac: return "On this Mac"
-        case .apps: return "Apps"
+        case .apps: return "Top apps"
         case .rhythm: return "Rhythm"
         case .streak: return "Streak"
         }

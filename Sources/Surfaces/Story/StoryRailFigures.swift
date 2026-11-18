@@ -21,6 +21,18 @@ enum StoryRailFigures {
             + "\(Tokens.duration(TimeInterval(gap * 60))) with no app use recorded"
     }
 
+    /// The top apps tile's explanation: the period and what counts, then how
+    /// many apps the list was cut from. `dayLabel` is the tile's trailing
+    /// label ("Today", "Yesterday", "Mon 17 Nov").
+    static func appsHelp(shown: Int, total: Int, dayLabel: String) -> [HelpEntry] {
+        let day = dayLabel == "Today" || dayLabel == "Yesterday" ? dayLabel.lowercased() : "on \(dayLabel)"
+        let count = total == 1 ? "The only app you used."
+            : shown < total ? "Showing \(shown) of the \(total) apps you used."
+            : "All \(total) apps you used."
+        return [HelpEntry("What it shows", "Your most-used apps \(day), in and out of focus sessions."),
+                HelpEntry("How many", count)]
+    }
+
     struct MacRows: Equatable {
         /// The goal's own figure: app use that counted as focus.
         let duringFocus: Int

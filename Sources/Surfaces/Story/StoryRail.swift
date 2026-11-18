@@ -547,12 +547,14 @@ struct StoryRail: View {
     private var apps: [AppRank] { reading?.apps ?? store.rankedApps }
 
     private var appsTile: some View {
-        // The title says what the list is; the trailing figure says how many
-        // it was cut from. "Apps · Top 4 of 10" made the reader assemble that.
+        // The trailing label is the period, as on the goal tile; the info mark
+        // says what counts and how many apps the list was cut from. "10
+        // recorded" beside the title left readers asking: a day, week or month?
         let limit = store.engine.store.menuAppCount
-        return StoryTile(title: apps.count > limit ? "Your top \(limit) apps" : "Your apps",
-                  trailing: apps.isEmpty ? "None recorded"
-                    : apps.count == 1 ? "1 recorded" : "\(apps.count) recorded") {
+        let dayLabel = day.map { Tokens.dayLabel($0) } ?? store.dayLabel
+        return StoryTile(title: "Top apps", trailing: dayLabel,
+                         info: StoryRailFigures.appsHelp(shown: min(limit, apps.count),
+                                                         total: apps.count, dayLabel: dayLabel)) {
             ForEach(Array(apps.prefix(limit).enumerated()), id: \.element.id) { _, app in
                 StoryAppRow(app: app) { selectedApp.text = app.bundleID }
                     .popover(isPresented: Binding(
@@ -655,6 +657,9 @@ struct TileDropDelegate: DropDelegate {
 struct StoryTile<Content: View>: View {
     let title: String
     let trailing: String?
+    /// What the tile means, behind a circled "i" beside the trailing label:
+    /// the explanation is one click away instead of lines under the chart.
+    var info: [HelpEntry] = []
     @ViewBuilder let content: Content
     @Environment(\.focusInterfaceDensity) private var density
     @Environment(\.storyTileMoves) private var moves
@@ -674,6 +679,7 @@ struct StoryTile<Content: View>: View {
                         .foregroundStyle(StoryStyle.supportingInk)
                         .lineLimit(1)
                 }
+                if !info.isEmpty { InfoMark(title: title, entries: info) }
                 if let moves {
                     IconButton(systemImage: "arrow.up", help: "Move \(moves.name) up") {
                         moves.move(-1)
