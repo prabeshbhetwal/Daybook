@@ -475,6 +475,40 @@ final class SettingsModel: ObservableObject {
         set { write { store.workTypeDefinitions = newValue } }
     }
 
+    /// The goal list, as stored; every change goes through here so the card and
+    /// the catalogue follow.
+    var dailyGoalItems: [DailyGoalItem] {
+        get { store.dailyGoalItems }
+        set { write { store.dailyGoalItems = newValue } }
+    }
+
+    /// Adds a goal if it is valid and the list has room. False when it did not fit.
+    @discardableResult
+    func addGoal(_ item: DailyGoalItem) -> Bool {
+        let items = dailyGoalItems
+        guard DailyGoalList.canAdd(item, to: items) else { return false }
+        dailyGoalItems = items + [item]
+        return true
+    }
+
+    func setGoalSeconds(_ id: UUID, _ seconds: TimeInterval) {
+        var items = dailyGoalItems
+        guard let index = items.firstIndex(where: { $0.id == id }), seconds > 0 else { return }
+        items[index].seconds = seconds
+        dailyGoalItems = items
+    }
+
+    func setGoalPaused(_ id: UUID, _ paused: Bool) {
+        var items = dailyGoalItems
+        guard let index = items.firstIndex(where: { $0.id == id }) else { return }
+        items[index].isPaused = paused
+        dailyGoalItems = items
+    }
+
+    func removeGoal(_ id: UUID) {
+        dailyGoalItems = dailyGoalItems.filter { $0.id != id }
+    }
+
     /// Keeps one entry per category: an edited built-in or a made category is
     /// replaced in place, a new one is appended.
     /// False, with nothing saved, when the goal list is full and cannot take a
@@ -483,7 +517,10 @@ final class SettingsModel: ObservableObject {
     func saveCategory(_ definition: WorkTypeDefinition) -> Bool {
         // The goal lives in the goal list; the definition no longer carries it.
         // Not its own write: the definitions' write below is the one refresh.
-        guard store.setCategoryGoal(definition.id, seconds: definition.dailyGoal) else { return false }
+        // Only when the editor changed the goal: a paused goal reads as none, so an
+        // unrelated edit (a rename, a colour) must not remove it.
+        if definition.dailyGoal != WorkType(rawValue: definition.id).dailyGoal,
+           !store.setCategoryGoal(definition.id, seconds: definition.dailyGoal) { return false }
         var definition = definition
         if store.goalsMigrated { definition.dailyGoal = nil }
         var definitions = workTypeDefinitions

@@ -125,7 +125,7 @@ enum DailyGoalList {
     static func usable(_ items: [DailyGoalItem]) -> [DailyGoalItem] {
         var seen = Set<UUID>()
         let kept = items.filter { item in
-            guard seen.insert(item.id).inserted, item.seconds > 0, item.seconds.isFinite,
+            guard seen.insert(item.id).inserted, item.seconds > 0, item.seconds <= 24 * 3_600,
                   let required = item.target.requiredKind else { return false }
             return item.kind == required
         }
@@ -135,7 +135,8 @@ enum DailyGoalList {
     /// Whether the editor may add `item` to `items`: valid on its own and
     /// within the cap, counting the goals it cannot read.
     static func canAdd(_ item: DailyGoalItem, to items: [DailyGoalItem]) -> Bool {
-        items.count < maximum && usable([item]) == [item] && !items.contains { $0.id == item.id }
+        items.count < maximum && usable([item]) == [item]
+            && !items.contains { $0.id == item.id || $0.target == item.target }
     }
 
     /// The goals that count today: usable and not paused.
@@ -185,5 +186,35 @@ enum DailyGoalList {
             }
         }
         return seconds
+    }
+
+    /// Where an app limit stands, in the minutes as they are printed, so "45m
+    /// of 2h limit" and "1h 15m left" always add up. A limit is never "met":
+    /// it is kept, or it is over.
+    struct LimitStatus: Equatable {
+        let used: Int
+        let limit: Int
+        var isOver: Bool { used > limit }
+        var remaining: Int { max(0, limit - used) }
+        var excess: Int { max(0, used - limit) }
+        /// "45m of 2h limit".
+        var figure: String { "\(Self.text(used)) of \(Self.text(limit)) limit" }
+        /// "1h 15m left", or "15m over".
+        var detail: String { isOver ? "\(Self.text(excess)) over" : "\(Self.text(remaining)) left" }
+
+        private static func text(_ minutes: Int) -> String {
+            minutes == 0 ? "0m" : DurationText.precise(TimeInterval(minutes * 60))
+        }
+    }
+
+    static func limitStatus(used: TimeInterval, limit: TimeInterval) -> LimitStatus {
+        let minutes = { (DurationText.wholeSeconds($0) ?? 0) / 60 }
+        return LimitStatus(used: minutes(used), limit: minutes(limit))
+    }
+
+    /// How an app is named when nothing better is known: the last part of its
+    /// bundle id. One rule for the card and for Settings, so they never differ.
+    static func fallbackAppName(_ bundleID: String) -> String {
+        bundleID.split(separator: ".").last.map(String.init) ?? bundleID
     }
 }

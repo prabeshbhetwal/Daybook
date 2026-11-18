@@ -231,7 +231,7 @@ final class PersistenceStore {
         var items = dailyGoalItems
         let index = items.firstIndex { $0.target == .category(id) && $0.kind == .target }
         if let seconds, seconds > 0 {
-            if let index { items[index].seconds = seconds } else {
+            if let index { items[index].seconds = seconds; items[index].isPaused = false } else {
                 let item = DailyGoalItem(target: .category(id), kind: .target, seconds: seconds)
                 guard DailyGoalList.canAdd(item, to: items) else { return false }
                 items.append(item)
