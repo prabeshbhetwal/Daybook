@@ -64,14 +64,17 @@ final class SessionMetadataArchive {
 
     @discardableResult
     func saveNote(_ note: String?, for recordID: UUID) -> SessionMetadataWriteResult {
-        let value = note.flatMap { text in
-            text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : text
-        }
+        let value = note.flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 }
+        return update(recordID) { $0.note = value }
+    }
+
+    /// One change to a session's metadata; an entry with nothing left in it is removed.
+    @discardableResult
+    func update(_ recordID: UUID, _ change: (inout SessionMetadata) -> Void) -> SessionMetadataWriteResult {
         var candidate = cache
         var metadata = candidate[recordID] ?? SessionMetadata(recordID: recordID)
-        metadata.note = value
-        if metadata.note == nil && metadata.power.isEmpty { candidate.removeValue(forKey: recordID) }
-        else { candidate[recordID] = metadata }
+        change(&metadata)
+        candidate[recordID] = metadata.isEmpty ? nil : metadata
         return commit(candidate)
     }
 
@@ -92,11 +95,7 @@ final class SessionMetadataArchive {
             return .saved
         }
         metadata.power.append(observation)
-        metadata.power.sort {
-            if $0.timestamp != $1.timestamp { return $0.timestamp < $1.timestamp }
-            let left = boundaryOrder($0.boundary), right = boundaryOrder($1.boundary)
-            return left == right ? $0.id.uuidString < $1.id.uuidString : left < right
-        }
+        metadata.power.sort(by: observationsBefore)
         candidate[recordID] = metadata
         return commit(candidate, line: JournalLine(reading: .init(recordID: recordID, observation: observation)))
     }
@@ -138,7 +137,7 @@ final class SessionMetadataArchive {
             }
         }
         destination.power.sort(by: observationsBefore)
-        if source.note == nil && source.power.isEmpty { candidate.removeValue(forKey: sourceID) }
+        if source.isEmpty { candidate.removeValue(forKey: sourceID) }
         else { candidate[sourceID] = source }
         candidate[destinationID] = destination
         return commit(candidate)

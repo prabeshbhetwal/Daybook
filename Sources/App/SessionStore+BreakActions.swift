@@ -201,6 +201,8 @@ extension SessionStore {
     private func resumeTrackingAfterBreak(_ ended: EndedBreak) {
         if let front = frontmostApplication() {
             prepareTrackingResume(bundleID: front.bundleID, name: front.name)
+            // Activations were not delivered during the break; the beats go on with this app.
+            noteBeatActivation(bundleID: front.bundleID, at: now())
         }
         if ended.byPerson { _ = confirmPresence(at: ended.end) }
     }

@@ -112,7 +112,8 @@ enum DataBackup {
     /// app writes it so no file is caught mid-write. On APFS the copy is a
     /// clone: near-instant, and no extra space until the original changes.
     /// Nil when there is no data folder yet. The running app's lock file is
-    /// left out: it marks this Mac's running copy, not history.
+    /// left out: it marks this Mac's running copy, not history. So is the
+    /// beats folder (see `BeatArchive`).
     static func clone(of dataDirectory: URL, fileManager: FileManager = .default) throws -> URL? {
         guard fileManager.fileExists(atPath: dataDirectory.path) else { return nil }
         // Clones a quit or crash left before the copy finished. The temporary
@@ -135,6 +136,8 @@ enum DataBackup {
         // A running app's marker says it never quit; restored, it would be
         // read as a crash at the time of the backup.
         try? fileManager.removeItem(at: clone.appendingPathComponent(RunMarker.fileName))
+        // Evidence expires after 90 days; a backup in iCloud Drive would keep it for good.
+        try? fileManager.removeItem(at: clone.appendingPathComponent(BeatArchive.folderName))
         return clone
     }
 

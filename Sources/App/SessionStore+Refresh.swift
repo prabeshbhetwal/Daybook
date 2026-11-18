@@ -91,7 +91,12 @@ extension SessionStore {
     }
 
     func updateTicker() {
-        schedulesTicker && ticks ? startTicker() : stopTicker()
+        if schedulesTicker && ticks { return startTicker() }
+        stopTicker()
+        // The tick that would have ended recording is not coming (the setting went off, the session
+        // stopped with nothing else to watch), so it ends here, and the next start names the app in
+        // front again. A store whose ticks a check drives by hand ends it on its next tick.
+        if schedulesTicker { endBeatRecording(at: now()) }
     }
 
     /// Recomputes everything the surfaces display. One pass over each archive.
@@ -139,6 +144,9 @@ extension SessionStore {
             if insightsVisible { refreshInsights() } else { insightsRefreshPending = true }
             refreshBreak()
             updateTicker()
+            // The launch sweep first, so a record at the edge of the 90 days is written before its beats go.
+            writeActivitySnapshotsAfterStop()
+            pruneBeatsOncePerDay(at: moment)
         }
     }
 

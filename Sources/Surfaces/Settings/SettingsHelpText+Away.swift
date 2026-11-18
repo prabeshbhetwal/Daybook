@@ -140,8 +140,9 @@ extension SettingsHelpText {
 
     static let appUse: [HelpEntry] = [
         HelpEntry("Record app use", """
-            Daybook notes which app you are using and for how long, all day, and keeps it on this Mac: your \
-            recorded app use. Off, nothing new is noted and the Story shows sessions only. Earlier records stay.
+            On this Mac, Daybook notes the app you use, for how long, and key, click and scroll counts, never \
+            what you type. Counts last 90 days, outside Daybook's backups. A hidden notes file keeps each \
+            session's summary. Off, nothing new is noted.
             """),
         HelpEntry("Apps shown in a card", """
             How many apps the Your apps card lists in the Story and History. If you set 4, you see your top \

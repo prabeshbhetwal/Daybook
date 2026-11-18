@@ -114,7 +114,7 @@ extension SessionStore {
         var details: [UUID: StorySessionDetail] = [:]
         for entry in entries {
             if case .session(let session) = entry {
-                details[session.id] = storySessionDetail(session, on: day)
+                details[session.id] = storySessionDetail(session, on: day, withPhases: false)
             }
         }
         let integrityNote: String?

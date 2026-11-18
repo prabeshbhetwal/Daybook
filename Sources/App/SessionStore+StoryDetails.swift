@@ -1,19 +1,5 @@
 import Foundation
 
-struct StorySessionDetail {
-    let apps: [AppRank]
-    let text: String?
-    /// The card's line under its figures; nil when there is nothing to add.
-    let caption: String?
-    /// The report's line under its figures, which already include recorded
-    /// app use and the time range.
-    let reportNote: String?
-    /// Canonical app/gap timeline. The old bins remain during the chart
-    /// migration, but ranks, captions and prose all use this same evidence.
-    let activity: RecordedActivity
-    let bins: [SessionShape.Bin]
-}
-
 /// Presentation items keep confirmations in the chronology without inserting
 /// artificial sessions into the evidence archive.
 /// One row of the story: an item shown in full, a collapsed run of quiet
@@ -136,24 +122,10 @@ extension SessionStore {
     }
 
     /// The explicit day keeps historical projections independent of whichever
-    /// Story date happens to be selected by another workspace.
-    func storySessionDetail(_ session: DaySession, on day: Date) -> StorySessionDetail {
-        var segments: [TimelineSegment] = []
-        if let usage {
-            // The day's records only: this runs once per session in the day,
-            // and the timeline clips to the day anyway.
-            let timeline = DashboardStats(sessions: engine.archive, usage: usage,
-                usageSnapshot: effectiveUsageSnapshot?.restricted(to: day)).timeline(for: day)
-            for segment in timeline {
-                for span in session.spans {
-                    let start = max(segment.start, span.start), end = min(segment.end, span.end)
-                    guard end > start else { continue }
-                    segments.append(TimelineSegment(id: segment.id, bundleID: segment.bundleID,
-                        appName: segment.appName, start: start, end: end,
-                        endReason: end == segment.end ? segment.endReason : .appSwitch))
-                }
-            }
-        }
+    /// Story date happens to be selected by another workspace. A caller that wants only the prose
+    /// leaves the phases out with `withPhases: false` and pays nothing for them.
+    func storySessionDetail(_ session: DaySession, on day: Date, withPhases: Bool = true) -> StorySessionDetail {
+        let segments = timelineSegments(of: session, on: day)
         let activity = RecordedActivity(segments: segments, spans: session.spans)
         let apps = activity.appRanks
         // The session's own events, with the 2 s a stop at either end, or at
@@ -175,7 +147,8 @@ extension SessionStore {
             isTrackingEnabled: isTrackingEnabled,
             conflicting: activity.hasConflictingForegroundEvidence)
         return StorySessionDetail(apps: apps, text: text, caption: notes.card, reportNote: notes.report,
-                                  activity: activity, bins: bins)
+                                  activity: activity, bins: bins,
+                                  phases: withPhases ? sessionActivity(for: session, apps: activity) : nil)
     }
 
     /// What a session's recording says beyond the figures beside it. The card

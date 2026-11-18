@@ -1,0 +1,87 @@
+import Foundation
+
+/// What the existing sampler read for most of a beat's seconds. Recorded, never decided here.
+enum BeatPresence: String, Codable { case input, quiet, watched, agent, watchPause, paused }
+
+/// One app's stretch of a beat, with the input counts read while it was in front.
+struct BeatSlice: Codable, Equatable {
+    /// Bundle identifier; "" when none was in front.
+    let app: String
+    var seconds: Int
+    var keys: Int
+    var clicks: Int
+    var scrolls: Int
+
+    private enum CodingKeys: String, CodingKey {
+        case app = "a", seconds = "d", keys = "k", clicks = "c", scrolls = "w"
+    }
+}
+
+/// A compact record of one 30-second cell of the day: the evidence a later
+/// reader weighs, never a verdict. Stored a line each, with short keys. `Core` only.
+struct Beat: Codable, Equatable {
+    static let schemaVersion = 1
+
+    let version: Int
+    /// A multiple of 30 seconds from the reference date, so no calendar is involved.
+    let start: Date
+    /// Seconds into the cell where recording began; 0 unless the beat opened late.
+    var offset: Int
+    /// In the order they were in front, from `start + offset`.
+    var slices: [BeatSlice]
+    var presence: BeatPresence
+    /// Sorted; nil when the sampler did not read holders in this beat.
+    var watchedApps: [String]?
+
+    private enum CodingKeys: String, CodingKey {
+        case version = "v", start = "t", offset = "f", slices = "s", presence = "p"
+        case watchedApps = "h"
+    }
+
+    init(start: Date, offset: Int = 0, slices: [BeatSlice], presence: BeatPresence,
+         watchedApps: [String]? = nil) {
+        self.version = Self.schemaVersion
+        self.start = start
+        self.offset = offset
+        self.slices = slices
+        self.presence = presence
+        self.watchedApps = watchedApps
+    }
+
+    /// A partial beat ends early.
+    var end: Date {
+        start.addingTimeInterval(TimeInterval(offset + slices.reduce(0) { $0 + $1.seconds }))
+    }
+
+    /// floor(timeIntervalSinceReferenceDate / 30) * 30; no calendar involved.
+    static func gridStart(for date: Date) -> Date {
+        let length = ActivityConstants.beatLength
+        return Date(timeIntervalSinceReferenceDate: (date.timeIntervalSinceReferenceDate / length).rounded(.down) * length)
+    }
+
+    /// A line from a newer schema fails here, so `JournalFile.replay` passes it over.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let version = try container.decode(Int.self, forKey: .version)
+        guard version == Self.schemaVersion else {
+            throw DecodingError.dataCorruptedError(forKey: .version, in: container,
+                                                   debugDescription: "Beat schema \(version) is not one this build reads")
+        }
+        self.version = version
+        start = Date(timeIntervalSinceReferenceDate: TimeInterval(try container.decode(Int.self, forKey: .start)))
+        offset = try container.decodeIfPresent(Int.self, forKey: .offset) ?? 0
+        slices = try container.decode([BeatSlice].self, forKey: .slices)
+        presence = try container.decode(BeatPresence.self, forKey: .presence)
+        watchedApps = try container.decodeIfPresent([String].self, forKey: .watchedApps)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(version, forKey: .version)
+        try container.encode(Int(start.timeIntervalSinceReferenceDate.rounded()), forKey: .start)
+        if offset != 0 { try container.encode(offset, forKey: .offset) }
+        try container.encode(slices, forKey: .slices)
+        try container.encode(presence, forKey: .presence)
+        try container.encodeIfPresent(watchedApps, forKey: .watchedApps)
+    }
+}

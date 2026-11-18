@@ -2,24 +2,6 @@ import SwiftUI
 import AppKit
 import Combine
 
-enum SessionHotKeyActionResult: Equatable {
-    case started
-    case stopped
-    case stoppedPendingFinalisation
-    case showAwayDecision
-    case saveFailed
-
-    /// The HUD's title for a press that did not fully save, nil for one that
-    /// did. The shortcut says it itself: the window may well be closed.
-    var failureTitle: String? {
-        switch self {
-        case .saveFailed: return "Couldn't save the session"
-        case .stoppedPendingFinalisation: return "Session stopped, not fully saved"
-        case .started, .stopped, .showAwayDecision: return nil
-        }
-    }
-}
-
 /// The one bridge between `Core` and SwiftUI. Subscribes to the engine's
 /// callbacks and republishes them as `@Published` values; views never touch the
 /// engine directly. No `@State` anywhere in this app — the Command Line Tools
@@ -32,6 +14,8 @@ final class SessionStore: ObservableObject {
     /// Every break reminder shown and what became of it, and the rhythm each
     /// day. Beside the sessions, as the readings above are.
     let breakLog: BreakLog
+    /// Which app had the hands and the screen, beat by beat, while a session ran.
+    let activityEvidence: ActivityEvidence
     let powerMonitor: PowerSourceMonitoring?
     @Published var sessionNoteDrafts: [UUID: String] = [:]
     @Published var sessionNoteErrors: [UUID: String] = [:]
@@ -355,6 +339,9 @@ final class SessionStore: ObservableObject {
     /// activations during one, and the session that goes on has to be told.
     /// Self-tests hand the store a fixed answer.
     let frontmostApplication: () -> (bundleID: String?, name: String)?
+    /// Whether the display is awake, which decides if a low idle reading is a person at the Mac.
+    /// Self-tests hand the store a fixed answer.
+    let readDisplayAwake: () -> Bool
     /// Who holds the display awake right now: something watched — a video, a
     /// call, a presentation — or a keep-awake app. Set by the coordinator from
     /// powerd's assertion list; the default is neither.
@@ -416,6 +403,7 @@ final class SessionStore: ObservableObject {
          metadataArchive: SessionMetadataArchive? = nil,
          ambientPower: AmbientPowerLog? = nil,
          breakLog: BreakLog? = nil,
+         activityEvidence: ActivityEvidence? = nil,
          powerMonitor: PowerSourceMonitoring? = nil,
          applicationIsRunning: @escaping (String) -> Bool = {
              !NSRunningApplication.runningApplications(withBundleIdentifier: $0).isEmpty
@@ -429,12 +417,14 @@ final class SessionStore: ObservableObject {
          },
          now: @escaping () -> Date = Date.init,
          idle: IdleMonitor = IdleMonitor(),
+         readDisplayAwake: @escaping () -> Bool = { CGDisplayIsAsleep(CGMainDisplayID()) == 0 },
          frontmostApplication: @escaping () -> (bundleID: String?, name: String)? = {
              NSWorkspace.shared.frontmostApplication.map {
                  (bundleID: $0.bundleIdentifier, name: $0.localizedName ?? "Unknown")
              }
          }) {
         self.idle = idle
+        self.readDisplayAwake = readDisplayAwake
         self.frontmostApplication = frontmostApplication
         self.engine = engine
         self.workType = engine.store.defaultWorkType
@@ -449,6 +439,8 @@ final class SessionStore: ObservableObject {
             ?? AmbientPowerLog(directory: engine.archive.dataDirectoryURL)
         self.breakLog = breakLog
             ?? BreakLog(directory: engine.archive.dataDirectoryURL)
+        self.activityEvidence = activityEvidence ?? ActivityEvidence(
+            archive: BeatArchive(directory: engine.archive.dataDirectoryURL.appendingPathComponent(BeatArchive.folderName)))
         self.powerMonitor = powerMonitor
         let recoveredObservations = engine.store.pendingPowerObservations
         let recoveredTransferError = engine.store.pendingPowerMetadataError

@@ -358,6 +358,7 @@ extension SessionStore {
         engine.store.isUsageTrackingEnabled = enabled
         tracker?.setEnabled(enabled)
         isTrackingEnabled = enabled
+        if !enabled { endBeatRecording(at: now()) }
         refresh()
         onAutomationStateChanged?()
     }
@@ -368,7 +369,7 @@ extension SessionStore {
     /// segments that actually intersect it. Nil when nothing was recorded
     /// inside the session, which the surface says in its own words.
     func sessionShape(_ session: DaySession) -> String? {
-        storySessionDetail(session).text
+        storySessionDetail(session, on: selectedDay, withPhases: false).text
     }
 
     // MARK: - Correcting a recorded session

@@ -66,12 +66,27 @@ struct SessionMetadata: Codable, Equatable, Identifiable {
     let recordID: UUID
     var note: String?
     var power: [PowerObservation]
+    /// What the session's phases were, kept after the beats they came from expire. A sidecar
+    /// written before this existed decodes it as nil, and an older build ignores the key.
+    var activityShape: SessionActivityShape?
     var id: UUID { recordID }
+    /// Nothing left to keep: the archive drops an entry like this.
+    var isEmpty: Bool { note == nil && power.isEmpty && activityShape == nil }
 
     init(recordID: UUID, note: String? = nil, power: [PowerObservation] = []) {
         self.recordID = recordID
         self.note = note
         self.power = power
+    }
+
+    /// A summary this build cannot read (a case a newer build wrote) is lost alone: the note and the
+    /// power readings beside it, and every other entry, still load, and the sidecar stays writable.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        recordID = try container.decode(UUID.self, forKey: .recordID)
+        note = try container.decodeIfPresent(String.self, forKey: .note)
+        power = try container.decode([PowerObservation].self, forKey: .power)
+        activityShape = try? container.decodeIfPresent(SessionActivityShape.self, forKey: .activityShape)
     }
 }
 
