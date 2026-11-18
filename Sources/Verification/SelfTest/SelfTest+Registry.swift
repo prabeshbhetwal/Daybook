@@ -195,6 +195,7 @@ extension SelfTest {
             + SettingsHelpChecks.tests
             + ChromeAlignmentChecks.tests
             + StoryExpandAllChecks.tests
+            + DayRecapChecks.tests
             + GlanceableRailChecks.tests
     }
 
