@@ -201,15 +201,13 @@ final class SessionArchive {
                 let trimmed = proposed.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !trimmed.isEmpty else { return .unchanged }
                 guard record.name != trimmed else { continue }
-                fields.append(.init(recordID: record.id, name: record.name,
-                                    workType: record.workType))
-                candidate[index].name = trimmed
+                fields.append(.init(record: record))
+                candidate[index].rename(to: trimmed)
                 changed = true
             case .workType(let proposed):
                 guard record.workType != proposed else { continue }
-                fields.append(.init(recordID: record.id, name: record.name,
-                                    workType: record.workType))
-                candidate[index].workType = proposed
+                fields.append(.init(record: record))
+                candidate[index].recategorise(to: proposed)
                 changed = true
             case .removed:
                 // Removal is a journal transaction over whole records, never

@@ -37,16 +37,23 @@ extension SessionEngine {
     /// card, which claims it as Save in the automatic row does: Name no longer
     /// asks for a name it already has, and no rule ends or switches it. A
     /// tidy-up or an Undo changes the field and leaves ownership alone.
-    func stageActiveCorrection(_ correction: SessionCorrection, threadID: UUID, claims: Bool = false) {
+    func stageActiveCorrection(_ correction: SessionCorrection, threadID: UUID, claims: Bool = false,
+                               fromUndo: Bool = false) {
         guard state != .idle, activeThreadID == threadID else { return }
         switch correction {
-        case .rename(let name): store.sessionName = name
-        case .workType(let type): activeWorkType = type
+        case .rename(let name):
+            store.sessionName = name
+            // The person's own name or category. An Undo leaves provenance alone.
+            if !fromUndo { activeProvenance.nameByApp = false }
+        case .workType(let type):
+            if !fromUndo, type != activeWorkType { activeProvenance.categorySource = .user }
+            activeWorkType = type
         case .removed: return   // never staged on a live stretch
         }
         if claims {
             activeIsAuto = false
             activeAutomaticAction = nil
+            activeProvenance.categorySource = .user
         }
     }
 
@@ -125,6 +132,7 @@ extension SessionEngine {
         activeDetectedApp = saved.activeDetectedApp
         activeIsAuto = saved.isAuto ?? false
         activeAutomaticAction = saved.automaticActivityAction
+        activeProvenance = saved.provenance ?? .legacy(isAuto: activeIsAuto, action: activeAutomaticAction)
         activeBreak = saved.activeBreak
         awayDecisions = saved.awayDecisions ?? saved.awayDecision.map { [$0] } ?? []
         correctionGeneration = saved.correctionGeneration ?? 0
@@ -157,6 +165,7 @@ extension SessionEngine {
         result.activeRecordID = activeRecordID
         result.activeDetectedApp = activeDetectedApp
         result.automaticActivityAction = activeAutomaticAction
+        result.provenance = activeProvenance
         result.pendingRests = pendingRests.isEmpty ? nil : pendingRests
         result.activeBreak = activeBreak
         return result

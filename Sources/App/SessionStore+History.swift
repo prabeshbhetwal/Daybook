@@ -673,16 +673,14 @@ extension SessionStore {
         for record in engine.archive.records where record.threadID == threadID {
             var changed = record
             switch correction {
-            case .rename(let name): changed.name = name
-            case .workType(let type): changed.workType = type
+            case .rename(let name): changed.rename(to: name)
+            case .workType(let type): changed.recategorise(to: type)
             case .removed: continue   // has its own path, `removeSession`
             }
             if changed != record { removed.append(record); added.append(changed) }
         }
         let archiveSnapshot: SessionArchiveCorrectionSnapshot? = removed.isEmpty ? nil : .init(
-            threadID: threadID, correction: correction, fields: removed.map {
-                .init(recordID: $0.id, name: $0.name, workType: $0.workType)
-            })
+            threadID: threadID, correction: correction, fields: removed.map { .init(record: $0) })
         let activeChanged: Bool = activeBefore.map { value in
             switch correction {
             case .rename(let name): return value.name != name
@@ -773,9 +771,11 @@ extension SessionStore {
             case .rename(let expected):
                 guard record.name == expected || record.name == original.name else { return correctionConflict(state) }
                 changed.name = original.name
+                if let kept = original.provenance { changed.nameByApp = kept.nameByApp }
             case .workType(let expected):
                 guard record.workType == expected || record.workType == original.workType else { return correctionConflict(state) }
                 changed.workType = original.workType
+                if let kept = original.provenance { changed.categorySource = kept.categorySource }
             case .removed: continue
             }
             if changed != record { removed.append(record); added.append(changed) }
@@ -786,12 +786,12 @@ extension SessionStore {
                 guard engine.sessionName == expected || engine.sessionName == state.originalFields.name else {
                     return correctionConflict(state)
                 }
-                engine.stageActiveCorrection(.rename(state.originalFields.name), threadID: state.threadID)
+                engine.stageActiveCorrection(.rename(state.originalFields.name), threadID: state.threadID, fromUndo: true)
             case .workType(let expected):
                 guard engine.activeWorkType == expected || engine.activeWorkType == state.originalFields.workType else {
                     return correctionConflict(state)
                 }
-                engine.stageActiveCorrection(.workType(state.originalFields.workType), threadID: state.threadID)
+                engine.stageActiveCorrection(.workType(state.originalFields.workType), threadID: state.threadID, fromUndo: true)
             case .removed: break
             }
         }

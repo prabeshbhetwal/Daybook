@@ -209,6 +209,7 @@ extension SelfTest {
             + ActivityCoverageChecks.tests
             + DailyGoalListChecks.tests
             + DailyGoalMigrationChecks.tests
+            + ProvenanceChecks.tests + ProvenanceEngineChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

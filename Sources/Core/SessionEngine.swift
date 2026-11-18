@@ -141,6 +141,9 @@ final class SessionEngine {
     /// user. Only the app's own guesses may be undone automatically.
     var activeIsAuto = false
     var activeAutomaticAction: ActivityAutomaticAction?
+    /// How the running stretch began and who chose its category and name;
+    /// stamped onto every record the stretch writes.
+    var activeProvenance = SessionProvenance.manual
 
     var breakThreshold: TimeInterval {
         get { store.breakThreshold }

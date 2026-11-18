@@ -12,6 +12,7 @@ extension SessionEngine {
         // A session begun by activation is the user's, not the app's guess.
         activeIsAuto = false
         activeAutomaticAction = nil
+        activeProvenance = .manual
         cancelDwell()
         sessionStartDate = now()
         totalPausedDuration = 0

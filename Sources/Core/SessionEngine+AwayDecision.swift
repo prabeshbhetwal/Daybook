@@ -67,7 +67,8 @@ extension SessionEngine {
                     start: originalStart, end: min(max(awayStarted ?? now(), originalStart), now()),
                     workSeconds: beforeReturn, detectedApp: activeDetectedApp,
                     threadID: originalThread, isAuto: activeIsAuto,
-                    pausedSpans: trustedPausedSpans(until: awayStarted ?? now())))
+                    pausedSpans: trustedPausedSpans(until: awayStarted ?? now()))
+                    .stamped(activeProvenance))
             }
         }
         if let existing = archive.records.first(where: { $0.id == decisionID }),

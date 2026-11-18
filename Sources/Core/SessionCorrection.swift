@@ -21,6 +21,9 @@ struct SessionArchiveCorrectionSnapshot: Codable, Equatable {
         let recordID: UUID
         let name: String
         let workType: WorkType
+        /// Nil in snapshots written before provenance existed, and on the
+        /// stand-in fields Undo builds for a stretch added since.
+        var provenance: Provenance? = nil
     }
 
     let threadID: UUID
