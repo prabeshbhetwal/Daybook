@@ -69,11 +69,14 @@ migration that lands before the Settings editor reads the list would make
 edits in Categories silently ignored.
 
 - **PR 1, no visible change:** task 1 (model) and the storage half of task 2
-  (list, per-day record, migration). Nothing reads the list yet; the old
-  category goal field stays the one truth.
-- **PR 2, the visible release:** tasks 3, 4 and 5 together: counting, the
-  tile, and Settings and Categories both editing the list. The category
-  figure change and its explanation land in the same release.
+  (the list, the per-day record, backups). The list stays empty and nothing
+  migrates: the old category goal field remains the one truth, so an edit
+  made between PR 1 and PR 2 is never lost or resurrected.
+- **PR 2, the visible release:** the migration, then tasks 3, 4 and 5
+  together: counting, the tile, and Settings and Categories both editing the
+  list. The migration and its flag run at the first launch of this release,
+  when the list becomes authoritative. The category figure change and its
+  explanation land in the same release.
 - **PR 3:** tasks 6 and 7.
 
 ## Additions from review
@@ -83,10 +86,9 @@ edits in Categories silently ignored.
   met. Written when a day closes and refreshed while it is open; past days
   are read from it and never recomputed, so an edit or a deleted goal cannot
   change history. History (task 6) and awards read only this record.
-- **Migration guard (task 2).** A `goalsMigratedVersion` preference, set in
+- **Migration guard (task 2, run in PR 2).** A `goalsMigratedVersion` preference, set in
   the same write that saves the migrated list. A failed write leaves the
-  flag unset so the next launch retries; the category field is left
-  untouched until PR 2 ships. More than 8 categories with goals: the first
+  flag unset so the next launch retries. It runs in PR 2, never earlier. More than 8 categories with goals: the first
   8 in category order migrate and the rest stay on their category until the
   person adds them. Checks: failure retries, cap, relaunch is a no-op.
 - **Backups (task 2).** The list and `goalResultsByDay` join the backup set
