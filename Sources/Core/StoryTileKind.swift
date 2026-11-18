@@ -12,7 +12,7 @@ enum StoryTileKind: String, CaseIterable, Codable {
         case .mac: return "On this Mac"
         case .apps: return "Top apps"
         case .rhythm: return "Rhythm"
-        case .streak: return "Streak"
+        case .streak: return "Focus streak"
         }
     }
 

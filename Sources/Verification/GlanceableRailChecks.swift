@@ -5,7 +5,9 @@ import Foundation
 enum GlanceableRailChecks {
     static let tests: [(String, () -> [String])] = [
         ("The top apps tile says which day it covers and how many apps the list was cut from",
-         appsHelpStatesPeriod)
+         appsHelpStatesPeriod),
+        ("The streak line says what today still needs, and when the dots show only part of the streak",
+         streakStatusIsExact)
     ]
 
     static func appsHelpStatesPeriod() -> [String] {
@@ -21,5 +23,34 @@ enum GlanceableRailChecks {
                             HelpEntry("How many", item.count)]
             return help == expected ? nil : "for \(item.day) \(item.shown)/\(item.total) read \(help.map(\.text))"
         }
+    }
+
+    static func streakStatusIsExact() -> [String] {
+        var problems: [String] = []
+        let minimum: TimeInterval = 25 * 60
+        // 12m 40s printed as 12m: 13m more makes the printed 25m.
+        let pending = StreakStatus.line(streak: 15, today: 12 * 60 + 40, minimum: minimum)
+        if pending != "13m more focus today makes it 16 days." { problems.append("pending read \(pending)") }
+        let fresh = StreakStatus.line(streak: 0, today: 0, minimum: minimum)
+        if fresh != "25m more focus today makes it 1 day." { problems.append("a fresh day read \(fresh)") }
+        // 24m 59s prints 24m; never "0m more".
+        let almost = StreakStatus.line(streak: 3, today: 25 * 60 - 1, minimum: minimum)
+        if almost != "1m more focus today makes it 4 days." { problems.append("almost there read \(almost)") }
+        let met = StreakStatus.line(streak: 16, today: minimum, minimum: minimum)
+        if met != "Today counts. Keep it going tomorrow." { problems.append("met read \(met)") }
+        // 14 dots: 13 past days and today.
+        if StreakStatus.outrunsDots(streak: 13, todayCounts: false, dots: 14) {
+            problems.append("13 days pending fit the 13 past dots but were called partial")
+        }
+        if !StreakStatus.outrunsDots(streak: 14, todayCounts: false, dots: 14) {
+            problems.append("14 days pending outrun the 13 past dots but were not called partial")
+        }
+        if StreakStatus.outrunsDots(streak: 14, todayCounts: true, dots: 14) {
+            problems.append("14 days with today counted fit all 14 dots but were called partial")
+        }
+        if !StreakStatus.outrunsDots(streak: 15, todayCounts: true, dots: 14) {
+            problems.append("15 days outrun 14 dots but were not called partial")
+        }
+        return problems
     }
 }

@@ -585,26 +585,50 @@ struct StoryRail: View {
     // MARK: - Streak
 
     private var streakTile: some View {
-        let days = store.streakDays()
-        return StoryTile(title: "Current streak",
-                  trailing: store.streak == 1 ? "1 day" : "\(store.streak) days") {
+        let minimum = store.engine.store.streakMinimum
+        // Today's focus with the running session in it, as the streak figure
+        // counts it; the archive alone left today's dot empty mid-session.
+        let today = store.todayTotal
+        let todayCounts = today >= minimum
+        let past = store.streakDays().dropLast()
+        let minimumText = Tokens.preciseDuration(minimum)
+        return StoryTile(title: "Focus streak",
+                         trailing: store.streak == 1 ? "1 day" : "\(store.streak) days",
+                         info: [HelpEntry("What counts",
+                                          "Days in a row with at least \(minimumText) of focus. "
+                                          + "Today only breaks the streak if it ends short."),
+                                HelpEntry("The dots",
+                                          "Each dot is a day, oldest on the left; a tick means it counted. "
+                                          + "Today's dot fills as you focus."
+                                          + (StreakStatus.outrunsDots(streak: store.streak, todayCounts: todayCounts,
+                                                                      dots: past.count + 1)
+                                             ? " Showing the last \(past.count + 1) days." : ""))]) {
             HStack(spacing: 3.zoomed) {
-                ForEach(Array(days.enumerated()), id: \.offset) { _, entry in
-                    RoundedRectangle(cornerRadius: Tokens.Radius.mark, style: .continuous)
-                        .fill(entry.met ? Tokens.Colour.focus : Tokens.Colour.elevated)
-                        .frame(height: 8.zoomed)
+                ForEach(Array(past.enumerated()), id: \.offset) { _, entry in
+                    streakDot(filled: entry.met ? 1 : 0)
                 }
+                streakDot(filled: min(1, today / max(1, minimum)), isToday: true)
             }
             // The strip's news is which days met the minimum; the streak
             // length is already the card's trailing figure.
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Days met")
-            .accessibilityValue("\(days.filter(\.met).count) of the last \(days.count)")
+            .accessibilityValue("\(past.filter(\.met).count + (todayCounts ? 1 : 0)) of the last \(past.count + 1)"
+                                + (todayCounts ? ", today included" : ", today still open"))
+            if let first = past.first {
+                HStack {
+                    Text(Tokens.dayLabel(first.day))
+                    Spacer(minLength: Tokens.Space.xs)
+                    Text("Today")
+                }
+                .font(Tokens.Typography.caption)
+                .foregroundStyle(StoryStyle.supportingInk)
+                .accessibilityHidden(true)
+            }
             // The link has its own line beneath the sentence: beside it, it
             // read as the sentence's last words once the sentence wrapped.
             VStack(alignment: .leading, spacing: Tokens.Space.xs) {
-                Text(durations: "Last 14 days. A day counts once it has "
-                     + "\(Tokens.preciseDuration(store.engine.store.streakMinimum)) of focus.")
+                Text(durations: StreakStatus.line(streak: store.streak, today: today, minimum: minimum))
                     .font(Tokens.Typography.body)
                     .foregroundStyle(StoryStyle.supportingInk)
                     .fixedSize(horizontal: false, vertical: true)
@@ -617,6 +641,29 @@ struct StoryRail: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+
+    /// One day of the streak. A counted day is filled and ticked, so it reads
+    /// without colour; today is outlined and fills as focus accrues, so an
+    /// unfinished today never looks like a missed day.
+    private func streakDot(filled: Double, isToday: Bool = false) -> some View {
+        let shape = Capsule(style: .continuous)
+        return shape.fill(Tokens.Colour.elevated)
+            .overlay(alignment: .leading) {
+                GeometryReader { geometry in
+                    shape.fill(Tokens.Colour.focus).frame(width: geometry.size.width * filled)
+                }
+            }
+            .overlay {
+                if filled >= 1 {
+                    Image(systemName: "checkmark")
+                        .font(Tokens.Typography.micro)
+                        .foregroundStyle(Tokens.Colour.onFocus)
+                }
+            }
+            .overlay { if isToday { shape.strokeBorder(Tokens.Colour.focus, lineWidth: 1.5.zoomed) } }
+            .clipShape(shape)
+            .frame(height: 12.zoomed)
     }
 }
 
