@@ -99,23 +99,27 @@ extension SessionStore {
     // MARK: - Facts
 
     private func dayNoteFacts(_ place: HistoryPlace) -> NoteFacts? {
-        let calendar = periodCalendar
-        let day = storyDayProjection(on: place.start, calendar: calendar)
+        dayNoteInput(place).flatMap { NoteFacts.day($0, calendar: periodCalendar) }
+    }
+    /// What Yesterday's card shows beside its figures line, from the facts' own input.
+    func noteRecap(for place: HistoryPlace) -> DayRecap? {
+        place.level == .day ? dayNoteInput(place).map(DayRecap.init) : nil
+    }
+    private func dayNoteInput(_ place: HistoryPlace) -> NoteDayInput? {
+        let day = storyDayProjection(on: place.start, calendar: periodCalendar)
         let sessions = day.focusSessions
         guard !sessions.isEmpty else { return nil }
         let typical = NoteBaseline.typical(noteEarlierDays(before: place.start))
         // The Story's own longest stretch: a session's span counts its pauses, its work does not.
         let longest = storyLongestFocusStretch(in: place.span)
             .map { NoteStretch(name: $0.name, start: $0.start, worked: $0.seconds) }
-        return NoteFacts.day(NoteDayInput(date: place.start, isCurrent: noteIsCurrent(place), sessions: sessions,
-                                          sessionCount: day.focusSessionCount, apps: day.apps, focused: day.focused,
-                                          goal: engine.store.dailyGoal, goalCredit: day.goalCredit,
-                                          typicalFocused: typical.focused, typicalStretch: typical.stretch,
-                                          typicalDays: typical.days, longestStretch: longest,
-                                          focusByPart: noteFocusByPart(place.span)),
-                             calendar: calendar)
+        return NoteDayInput(date: place.start, isCurrent: noteIsCurrent(place), sessions: sessions,
+                            sessionCount: day.focusSessionCount, apps: day.apps, focused: day.focused,
+                            goal: engine.store.dailyGoal, goalCredit: day.goalCredit,
+                            typicalFocused: typical.focused, typicalStretch: typical.stretch,
+                            typicalDays: typical.days, longestStretch: longest,
+                            focusByPart: noteFocusByPart(place.span))
     }
-
     /// The baseline's days, the 14 whole days before `day`: each one's focus
     /// and how many focus stretches had work on it, counted as the Story
     /// counts a day's focus (each stretch's own work inside the day, the
