@@ -29,6 +29,12 @@ enum ActivityConstants {
     /// How long a remembered category choice steers suggestions after it was last made, in days. Like the
     /// retention above it is no rule, so it stays out of `signature`.
     static let correctionExpiryDays = 90
+    /// A label the person or a rule chose is held against the evidence (the report's contradiction line)
+    /// when what it stands for holds strictly under the low share of the credited time and one other purpose
+    /// strictly over the high one. They change what is said about a session, not how it is read, so they
+    /// stay out of `signature` too.
+    static let contradictionLow = 0.30
+    static let contradictionHigh = 0.60
 
     /// Every rule-bearing value above, joined with "|"; a check pins it to `algorithmVersion`.
     static var signature: String {

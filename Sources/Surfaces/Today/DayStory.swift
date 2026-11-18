@@ -338,6 +338,7 @@ struct DayStory: View {
             let noteFacts = SessionCardSignature.noteFacts(of: recordIDs, in: store)
             let canStartNew = store.canStartNewSession(session) && !store.isThreadRunning(session.threadID)
             let canContinueSession = store.canContinue(session)
+            let origin = store.originText(for: session)
             let signature = SessionCardSignature(
                 session: session, apps: detail?.apps ?? [], shape: detail?.text,
                 shapeCaption: detail?.caption, activity: detail?.activity, phases: detail?.phases,
@@ -346,7 +347,7 @@ struct DayStory: View {
                 notes: noteFacts.notes, editorsOpen: noteFacts.editorsOpen, metadataError: noteFacts.error,
                 isHistory: isHistory, canRemove: canRemove, removeBlockReason: removeBlockReason,
                 pauseTitle: live.pauseTitle, canControl: live.canControl,
-                minimumRecorded: store.engine.store.minimumRecordedSession)
+                minimumRecorded: store.engine.store.minimumRecordedSession, origin: origin)
             storyRow(time: session.start,
                      tint: Tokens.Palette.workType(session.workType),
                      dotSize: session.isRunning ? 13.zoomed : 11.zoomed,
@@ -380,7 +381,7 @@ struct DayStory: View {
                                      pauseTitle: live.pauseTitle,
                                      onPause: live.canControl && !isHistory ? { store.togglePause() } : nil,
                                      onEnd: live.canControl && !isHistory ? { store.stop() } : nil,
-                                     minimumRecorded: store.engine.store.minimumRecordedSession)
+                                     minimumRecorded: store.engine.store.minimumRecordedSession, origin: origin)
                 }).equatable()
             }
         case .rest(let rest):
@@ -527,6 +528,7 @@ struct SessionEntryCard: View {
     var onEnd: (() -> Void)?
     /// The shortest stretch the archive keeps, for the Stop button's help.
     var minimumRecorded: TimeInterval = FocusConstants.minimumRecordedSession
+    var origin: OriginText?
     /// Renaming happens in the card, in place, rather than in a sheet.
     @StateObject private var editing = BoolBox()
     @StateObject private var draft = TextBox()
@@ -579,13 +581,7 @@ struct SessionEntryCard: View {
                             Text(liveStatus ?? Tokens.timeRange(session.start, session.end))
                                 .font(Tokens.Typography.body)
                                 .foregroundStyle(StoryStyle.supportingInk)
-                            if session.stretches > 1 {
-                                Text("· \(session.stretches) stretches")
-                                    .font(Tokens.Typography.body)
-                                    .foregroundStyle(StoryStyle.supportingInk)
-                                    .help("This session ran as \(session.stretches) separate stretches; "
-                                          + "the gaps between them are not counted.")
-                            }
+                            stretchesCaption
                         }
                     }
                     .padding(StoryStyle.entryInsets(for: density))
@@ -653,6 +649,8 @@ struct SessionEntryCard: View {
                                 Label(powerSummary.headline, systemImage: powerSummary.symbolName)
                                     .font(Tokens.Typography.caption).foregroundStyle(StoryStyle.supportingInk)
                             }
+                            // Under the duration, where the left column's room is spent on the title and times.
+                            if let origin { OriginMark(text: origin) }
                         }
                         // One glyph turned, as History's rows do: the two
                         // glyphs differ in width and moved the time beside them.
@@ -756,6 +754,7 @@ struct SessionEntryCard: View {
         parts.append(Tokens.spent(session.worked))
         if session.stretches > 1 { parts.append("\(session.stretches) stretches") }
         if let powerSummary { parts.append(powerSummary.headline) }
+        if let origin { parts.append(origin.sentence) }
         return parts.joined(separator: ", ")
     }
 

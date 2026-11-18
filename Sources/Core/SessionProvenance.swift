@@ -28,6 +28,12 @@ extension SessionRecord {
     /// A missing source reads as the app's guess for an automatic session, else the person's.
     var effectiveCategorySource: DecisionSource { categorySource ?? (isAuto ? .builtIn : .user) }
 
+    /// How this record's session began, as the engine holds it for the running stretch.
+    var provenance: SessionProvenance {
+        SessionProvenance(origin: effectiveOrigin, ruleID: originRuleID, ruleName: originRuleName,
+                          categorySource: effectiveCategorySource, nameByApp: nameByApp ?? false)
+    }
+
     /// A copy carrying the running stretch's provenance.
     func stamped(_ provenance: SessionProvenance) -> SessionRecord {
         var copy = self

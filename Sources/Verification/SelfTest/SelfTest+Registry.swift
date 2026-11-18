@@ -213,6 +213,7 @@ extension SelfTest {
             + CategoryCorrectionChecks.tests + CorrectionsFileChecks.tests + CorrectionsStoreChecks.tests
             + ProvenanceCarryChecks.tests + ProvenanceLiveEditChecks.tests
             + CorrectionUndoChecks.tests + CorrectionUndoRuleChecks.tests
+            + ContradictionLineChecks.tests + OriginMarkChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.
