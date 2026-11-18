@@ -21,6 +21,9 @@ enum AppLimitChecks: CheckSuite {
         if under.used + under.remaining != under.limit { problems.append("the printed minutes did not add up") }
         let over = DailyGoalList.limitStatus(used: 2 * 3_600 + 15 * 60 + 30, limit: 2 * 3_600)
         if !over.isOver || over.detail != "15m over" { problems.append("over read \(over.detail)") }
+        if DailyGoalList.limitStatus(used: 0, limit: 2 * 3_600).figure != "0m of 2h limit" {
+            problems.append("no use printed as \(DailyGoalList.limitStatus(used: 0, limit: 2 * 3_600).figure)")
+        }
         // Seconds past the limit that print as the same minute are not "over".
         let edge = DailyGoalList.limitStatus(used: 2 * 3_600 + 30, limit: 2 * 3_600)
         if edge.isOver { problems.append("30 seconds past the limit read as over") }
@@ -43,12 +46,27 @@ enum AppLimitChecks: CheckSuite {
         if settings.addGoal(DailyGoalItem(target: .app("com.example.other"), kind: .target, seconds: 600)) {
             problems.append("an app goal of the wrong kind was added")
         }
+        if settings.addGoal(DailyGoalItem(target: .app("com.example.video"), kind: .limit, seconds: 600)) {
+            problems.append("a second limit on the same app was added")
+        }
         settings.setGoalSeconds(video.id, 3_600)
         if settings.dailyGoalItems.first?.seconds != 3_600 { problems.append("a changed amount was not kept") }
         settings.setGoalPaused(video.id, true)
         if !DailyGoalList.active(settings.dailyGoalItems).isEmpty { problems.append("a paused limit still counted") }
         settings.removeGoal(video.id)
         if !settings.dailyGoalItems.isEmpty { problems.append("a removed limit stayed") }
+        // A paused category goal survives an unrelated edit in the Categories editor.
+        let coding = DailyGoalItem(target: .category(WorkType.deepWork.rawValue), kind: .target, seconds: 7_200)
+        settings.addGoal(coding)
+        settings.setGoalPaused(coding.id, true)
+        settings.saveCategory(WorkTypeDefinition(id: WorkType.deepWork.rawValue, name: "Focus work",
+                                                 symbolName: WorkType.deepWork.symbolName, hue: .indigo))
+        if settings.dailyGoalItems.first?.target != coding.target { problems.append("a rename removed a paused goal") }
+        // Setting a goal on a paused category brings it back into use.
+        settings.saveCategory(WorkTypeDefinition(id: WorkType.deepWork.rawValue, name: "Focus work",
+                                                 symbolName: WorkType.deepWork.symbolName, hue: .indigo,
+                                                 dailyGoal: 3 * 3_600))
+        if DailyGoalList.active(settings.dailyGoalItems).first?.seconds != 3 * 3_600 { problems.append("a goal set on a paused category stayed paused") }
         return problems
     }
 
@@ -71,12 +89,12 @@ enum AppLimitChecks: CheckSuite {
             // No session is running: the app's time is outside any session and still counts.
             let ranked = [AppRank(bundleID: "com.example.video", appName: "Video", total: 45 * 60, share: 0.5, longest: 45 * 60),
                           AppRank(bundleID: "com.example.paused", appName: "Paused", total: 60, share: 0.1, longest: 60)]
-            let limits = store.appLimits(on: clock.value, ranked: ranked)
+            let limits = store.appLimits(ranked: ranked)
             if limits.count != 1 || limits[0].bundleID != "com.example.video" || limits[0].used != 45 * 60
                 || limits[0].limit != 7_200 {
                 problems.append("limits read \(limits.map { ($0.bundleID, $0.used) })")
             }
-            if !store.appLimits(on: clock.value, ranked: []).allSatisfy({ $0.used == 0 }) {
+            if !store.appLimits(ranked: []).allSatisfy({ $0.used == 0 }) {
                 problems.append("an app with no recorded use was not at zero")
             }
             return problems

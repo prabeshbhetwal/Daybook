@@ -517,7 +517,10 @@ final class SettingsModel: ObservableObject {
     func saveCategory(_ definition: WorkTypeDefinition) -> Bool {
         // The goal lives in the goal list; the definition no longer carries it.
         // Not its own write: the definitions' write below is the one refresh.
-        guard store.setCategoryGoal(definition.id, seconds: definition.dailyGoal) else { return false }
+        // Only when the editor changed the goal: a paused goal reads as none, so an
+        // unrelated edit (a rename, a colour) must not remove it.
+        if definition.dailyGoal != WorkType(rawValue: definition.id).dailyGoal,
+           !store.setCategoryGoal(definition.id, seconds: definition.dailyGoal) { return false }
         var definition = definition
         if store.goalsMigrated { definition.dailyGoal = nil }
         var definitions = workTypeDefinitions
