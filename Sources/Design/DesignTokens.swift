@@ -98,6 +98,9 @@ enum Tokens {
     enum Radius {
         static var panel: CGFloat { 16.zoomed }
         static var nested: CGFloat { 12.zoomed }
+        /// A card in the menu bar panel. The system panel's own corner is about
+        /// 16pt, so a 16pt card inside a 12pt margin bulges at the corners.
+        static var popoverCard: CGFloat { 12.zoomed }
         /// Larger than any shape, not a length: it does not follow the zoom.
         static let capsule: CGFloat = 999
         /// A well inside a card: the scope control, a notice, a month cell.

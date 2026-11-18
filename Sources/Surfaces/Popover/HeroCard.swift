@@ -12,6 +12,7 @@ struct HeroCard: View {
                   intentFocused: intentFocused,
                   compact: true,
                   wide: false)
-            .card(padding: dense ? Tokens.Space.m : Tokens.Space.l)
+            .card(padding: dense ? Tokens.Space.m : Tokens.Space.l,
+                  radius: Tokens.Radius.popoverCard)
     }
 }

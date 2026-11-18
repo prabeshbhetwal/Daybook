@@ -80,6 +80,8 @@ struct IntentField: View {
 /// is whole whichever item is selected and wherever the panel sits.
 struct WorkTypePicker: View {
     @Binding var selection: WorkType
+    /// Beside action buttons it takes their height.
+    var height: CGFloat = Tokens.Control.compactHeight
     @Environment(\.openCategoryEditor) private var openCategoryEditor
     /// Renames and new icons land here without a store in between.
     @ObservedObject private var catalog = WorkTypeCatalog.shared
@@ -109,7 +111,7 @@ struct WorkTypePicker: View {
                     .foregroundStyle(StoryStyle.supportingInk)
             }
             .padding(.horizontal, Tokens.Space.m)
-            .frame(height: Tokens.Control.compactHeight)
+            .frame(height: height)
             .background(Tokens.Colour.elevated,
                         in: RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: Tokens.Radius.nested, style: .continuous)

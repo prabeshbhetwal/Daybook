@@ -58,6 +58,8 @@ final class PersistenceStore {
         static let pendingPowerTransfers = "fc.pendingPowerTransfers"
         static let pendingPowerMetadataError = "fc.pendingPowerMetadataError"
         static let activityRules = "fc.activityRules"
+        static let dailyGoalItems = "fc.dailyGoalItems"
+        static let goalResultsByDay = "fc.goalResultsByDay"
         static let activityRuleAutomationEnabled = "fc.activityRuleAutomationEnabled"
         static let activityRuleVersion = "fc.activityRuleVersion"
         static let automaticActivityRecord = "fc.automaticActivityRecord"
@@ -298,6 +300,27 @@ final class PersistenceStore {
             guard let data = try? encoder.encode(normalised) else { return }
             defaults.set(data, forKey: Key.activityRules)
             bumpActivityRuleVersion()
+        }
+    }
+
+    /// The several goals of a day, in the person's order, exactly as stored:
+    /// use `DailyGoalList.usable` to read it. Empty until the goal list becomes
+    /// the one truth; the category goal field is still read.
+    var dailyGoalItems: [DailyGoalItem] {
+        get { decode([DailyGoalItem].self, forKey: Key.dailyGoalItems) ?? [] }
+        set {
+            guard let data = try? encoder.encode(newValue) else { return }
+            defaults.set(data, forKey: Key.dailyGoalItems)
+        }
+    }
+
+    /// What each goal came to on each day, keyed by `DailyGoalList.dayKey`.
+    /// A day's results are written with the day and never recomputed.
+    var goalResultsByDay: [String: [DailyGoalResult]] {
+        get { decode([String: [DailyGoalResult]].self, forKey: Key.goalResultsByDay) ?? [:] }
+        set {
+            guard let data = try? encoder.encode(newValue) else { return }
+            defaults.set(data, forKey: Key.goalResultsByDay)
         }
     }
 
@@ -961,6 +984,7 @@ final class PersistenceStore {
                     Key.showsTimelineLabels, Key.showsAskButton, Key.askPlacement, Key.pendingPowerObservations,
                     Key.pendingPowerTransfers,
                     Key.pendingPowerMetadataError, Key.activityRules,
+                    Key.dailyGoalItems, Key.goalResultsByDay,
                     Key.activityRuleAutomationEnabled, Key.activityRuleVersion,
                     Key.automaticActivityRecord, Key.activityRuleCooldownUntil,
                     Key.workTypes, Key.savedActivities, Key.categoryChoices,

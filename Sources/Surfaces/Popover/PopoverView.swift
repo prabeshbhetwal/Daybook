@@ -82,7 +82,8 @@ struct PopoverView: View {
             if store.focusSurfaceComposition.showsContinuationSection {
                 ContinueTodaySection(store: store, limit: 3)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .card(padding: metrics.dense ? Tokens.Space.m : Tokens.Space.l)
+                    .card(padding: metrics.dense ? Tokens.Space.m : Tokens.Space.l,
+                          radius: Tokens.Radius.popoverCard)
             }
             FocusBreakLine(store: store)
         }

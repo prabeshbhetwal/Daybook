@@ -6,14 +6,15 @@ import SwiftUI
 private struct CardModifier: ViewModifier {
     let padding: CGFloat
     let surface: Color
+    let radius: CGFloat
 
     func body(content: Content) -> some View {
         content
             .padding(padding)
-            .background(surface, in: RoundedRectangle(cornerRadius: Tokens.Radius.panel,
+            .background(surface, in: RoundedRectangle(cornerRadius: radius,
                                                       style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: Tokens.Radius.panel, style: .continuous)
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
                     .strokeBorder(Tokens.Colour.line, lineWidth: 1)
             )
     }
@@ -47,8 +48,9 @@ extension View {
     /// one hairline. Cards size to their content; the ground between them is
     /// the layout.
     func card(padding: CGFloat = Tokens.Space.l,
-              surface: Color = Tokens.Colour.surface) -> some View {
-        modifier(CardModifier(padding: padding, surface: surface))
+              surface: Color = Tokens.Colour.surface,
+              radius: CGFloat = Tokens.Radius.panel) -> some View {
+        modifier(CardModifier(padding: padding, surface: surface, radius: radius))
     }
 }
 
