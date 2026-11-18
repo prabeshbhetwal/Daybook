@@ -36,17 +36,22 @@ extension SessionEngine {
     /// `claims`: the person named or reclassified the running work in its
     /// card, which claims it as Save in the automatic row does: Name no longer
     /// asks for a name it already has, and no rule ends or switches it. A
-    /// tidy-up or an Undo changes the field and leaves ownership alone.
+    /// tidy-up changes the field and leaves ownership alone. An Undo puts back
+    /// the provenance it saved (`restoring`), or leaves it where an older
+    /// correction saved none.
     func stageActiveCorrection(_ correction: SessionCorrection, threadID: UUID, claims: Bool = false,
-                               fromUndo: Bool = false) {
+                               fromUndo: Bool = false,
+                               restoring: SessionArchiveCorrectionSnapshot.Fields.Provenance? = nil) {
         guard state != .idle, activeThreadID == threadID else { return }
         switch correction {
         case .rename(let name):
             store.sessionName = name
-            // The person's own name or category. An Undo leaves provenance alone.
+            // The person's own name or category.
             if !fromUndo { activeProvenance.nameByApp = false }
+            else if let kept = restoring?.nameByApp { activeProvenance.nameByApp = kept }
         case .workType(let type):
-            if !fromUndo, type != activeWorkType { activeProvenance.categorySource = .user }
+            if fromUndo, let kept = restoring?.categorySource { activeProvenance.categorySource = kept }
+            else if !fromUndo, type != activeWorkType { activeProvenance.categorySource = .user }
             activeWorkType = type
         case .removed: return   // never staged on a live stretch
         }

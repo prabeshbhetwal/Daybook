@@ -3,7 +3,10 @@ import Foundation
 extension SessionEngine {
     // MARK: - Side effects
 
-    func beginFreshSession() {
+    /// `carryingOn`: the stretch is the same session to the person (a break or
+    /// a declared away ended, an away answer that keeps the thread), so it keeps
+    /// how it began. A fresh session begins as the person's own.
+    func beginFreshSession(carryingOn: Bool = false) {
         // Every start from idle comes through here: Start, a quick start,
         // History's Continue, the legacy work-app start. A retired category is
         // offered nowhere new, so none of them may begin one. A stretch that
@@ -12,7 +15,7 @@ extension SessionEngine {
         // A session begun by activation is the user's, not the app's guess.
         activeIsAuto = false
         activeAutomaticAction = nil
-        activeProvenance = .manual
+        if !carryingOn { activeProvenance = .manual }
         cancelDwell()
         sessionStartDate = now()
         totalPausedDuration = 0
@@ -114,7 +117,7 @@ extension SessionEngine {
                                             start: began, end: now(), workSeconds: absence,
                                             threadID: UUID(), breakOrigin: .away))
         }
-        beginFreshSession()
+        beginFreshSession(carryingOn: true)
         activeThreadID = thread
     }
 

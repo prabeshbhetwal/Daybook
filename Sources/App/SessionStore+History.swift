@@ -664,7 +664,7 @@ extension SessionStore {
             .map(\.id))
         let activeBefore: SessionStoreCorrectionState.ActiveFields?
         if engine.state != .idle, engine.activeThreadID == threadID {
-            activeBefore = .init(name: engine.sessionName, workType: engine.activeWorkType)
+            activeBefore = .init(name: engine.sessionName, workType: engine.activeWorkType, provenance: engine.activeProvenance.undoable)
         } else {
             activeBefore = nil
         }
@@ -699,7 +699,7 @@ extension SessionStore {
         }
 
         guard let originalFields = activeBefore ?? archiveSnapshot?.fields.first.map({
-            SessionStoreCorrectionState.ActiveFields(name: $0.name, workType: $0.workType)
+            SessionStoreCorrectionState.ActiveFields(name: $0.name, workType: $0.workType, provenance: $0.provenance)
         }) else {
             // The success branches above necessarily carry a prior field value;
             // keep this fail-closed guard rather than inventing one for Undo.
@@ -764,7 +764,7 @@ extension SessionStore {
         var removed: [SessionRecord] = [], added: [SessionRecord] = []
         for record in engine.archive.records where record.threadID == state.threadID {
             guard let original = originals[record.id] ?? (!state.archiveRecordIDs.contains(record.id)
-                ? .init(recordID: record.id, name: state.originalFields.name, workType: state.originalFields.workType) : nil)
+                ? .init(recordID: record.id, name: state.originalFields.name, workType: state.originalFields.workType, provenance: state.originalFields.provenance) : nil)
             else { continue }
             var changed = record
             switch state.correction {
@@ -786,12 +786,12 @@ extension SessionStore {
                 guard engine.sessionName == expected || engine.sessionName == state.originalFields.name else {
                     return correctionConflict(state)
                 }
-                engine.stageActiveCorrection(.rename(state.originalFields.name), threadID: state.threadID, fromUndo: true)
+                engine.stageActiveCorrection(.rename(state.originalFields.name), threadID: state.threadID, fromUndo: true, restoring: state.originalFields.provenance)
             case .workType(let expected):
                 guard engine.activeWorkType == expected || engine.activeWorkType == state.originalFields.workType else {
                     return correctionConflict(state)
                 }
-                engine.stageActiveCorrection(.workType(state.originalFields.workType), threadID: state.threadID, fromUndo: true)
+                engine.stageActiveCorrection(.workType(state.originalFields.workType), threadID: state.threadID, fromUndo: true, restoring: state.originalFields.provenance)
             case .removed: break
             }
         }

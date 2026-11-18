@@ -51,6 +51,11 @@ category, Activity Rule or name the person made; nothing is changed silently.
 | B16 | A name is "chosen by the app" when `AutoSessionDetector.sessionName` produced it (automatic mode). A rule's name is the person's. Any rename clears `nameByApp`. | Spec "Origin is shown, quietly". |
 | B17 | `ActivityConstants` gains `leisureMinRun` 600, `correctionExpiryDays` 90, `contradictionLow` 0.30, `contradictionHigh` 0.60. `algorithmVersion` stays 1: no derivation rule changes. | Spec section 10. |
 | B18 | Visual treatment: one `OriginMark` component in `Design/Components`, `StoryStyle.supportingInk`, caption size, an SF Symbol plus a few words, with an accessibility label carrying the full sentence. Design review by the controller from `--snapshot` images. | Spec: quiet mark, design review before it ships. |
+| B19 | The engine holds one member, `activeProvenance` (a `SessionProvenance` struct), and `PersistedState` one optional key, `provenance`; a state without it reads from `isAuto` and the rule action. | One value to keep in step through pauses, away answers, corrections and relaunch, instead of five. |
+| B20 | No `SessionStore+Provenance` file: Core helpers `SessionRecord.rename(to:)` and `recategorise(to:)` carry the person's edits, and the store paths call them. | Keeps the rule in Core, beside the record, and the store files take no growth. |
+| B21 | An automatic start sets `nameByApp` to whether it was given a name (`!name.isEmpty`). | A start with no name has nothing the app chose. |
+| B22 | Choosing the category a session already has is a no-op: it does not make the source the person's. | Nothing was decided. |
+| B23 | A stretch that carries on keeps the provenance it had: a break that ends, a declared away that ends, an away answer that keeps the thread. Provenance resets to manual only where a fresh session begins (Start Fresh, an away answer that starts new work, a new session after a long absence) and on the legacy work-app start. Time counted back into a session (an away re-answer, a reclassified legacy break) takes that session's own provenance. | A continuation is the same session to the person; "Started by you" on an automatic one would be false. |
 
 ## Global Constraints
 

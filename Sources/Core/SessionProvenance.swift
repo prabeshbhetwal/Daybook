@@ -39,6 +39,18 @@ extension SessionRecord {
         return copy
     }
 
+    /// A copy that began as `source` did: for time counted back into a session
+    /// or filed under a session's name, which is that session's own time.
+    func carryingProvenance(of source: SessionRecord) -> SessionRecord {
+        var copy = self
+        copy.origin = source.origin
+        copy.originRuleID = source.originRuleID
+        copy.originRuleName = source.originRuleName
+        copy.categorySource = source.categorySource
+        copy.nameByApp = source.nameByApp
+        return copy
+    }
+
     /// The person's rename: the name is theirs from here. A record that never
     /// said (nil) stays as it was.
     mutating func rename(to proposed: String) {
@@ -86,6 +98,41 @@ struct SessionProvenance: Codable, Equatable {
     static func legacy(isAuto: Bool, action: ActivityAutomaticAction?) -> SessionProvenance {
         guard isAuto else { return .manual }
         return action.map(rule) ?? automatic(nameByApp: false)
+    }
+}
+
+extension SessionProvenance {
+    /// What Undo can put back on the running stretch.
+    var undoable: SessionArchiveCorrectionSnapshot.Fields.Provenance {
+        .init(categorySource: categorySource, nameByApp: nameByApp)
+    }
+
+    /// A value missing or malformed reads as the app's own, never the person's,
+    /// and never makes the saved state unreadable: the running session outlives
+    /// a later build's change here.
+    init(from decoder: Decoder) throws {
+        let keys = try? decoder.container(keyedBy: CodingKeys.self)
+        origin = keys?.lenient(SessionOrigin.self, .origin) ?? .automatic
+        ruleID = keys?.lenient(UUID.self, .ruleID)
+        ruleName = keys?.lenient(String.self, .ruleName)
+        categorySource = keys?.lenient(DecisionSource.self, .categorySource) ?? .builtIn
+        nameByApp = keys?.lenient(Bool.self, .nameByApp) ?? false
+    }
+}
+
+extension KeyedDecodingContainer {
+    /// A provenance value that is missing or malformed reads as nil, so a later
+    /// build's change to one never makes a record or the running state unreadable.
+    func lenient<T: Decodable>(_ type: T.Type, _ key: Key) -> T? {
+        try? decodeIfPresent(type, forKey: key)
+    }
+}
+
+extension SessionArchiveCorrectionSnapshot.Fields.Provenance {
+    init(from decoder: Decoder) throws {
+        let keys = try? decoder.container(keyedBy: CodingKeys.self)
+        categorySource = keys?.lenient(DecisionSource.self, .categorySource)
+        nameByApp = keys?.lenient(Bool.self, .nameByApp)
     }
 }
 

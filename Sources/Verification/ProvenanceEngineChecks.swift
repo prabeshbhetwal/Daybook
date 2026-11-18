@@ -121,6 +121,12 @@ enum ProvenanceEngineChecks: CheckSuite {
         return problems
     }
 
+    /// What a relaunch reads: the JSON the store wrote, not the snapshot in memory.
+    private static func saved(_ state: PersistedState, in engine: SessionEngine) -> PersistedState? {
+        engine.store.saveState(state)
+        return engine.store.loadState()
+    }
+
     private static func relaunchKeepsProvenance() -> [String] {
         var problems: [String] = []
         let clock = TestClock(SelfTest.base.addingTimeInterval(300))
@@ -130,7 +136,8 @@ enum ProvenanceEngineChecks: CheckSuite {
         clock.advance(600)
 
         let relaunched = SelfTest.makeEngine(clock)
-        relaunched.restore(from: engine.snapshot())
+        guard let written = saved(engine.snapshot(), in: engine) else { return ["the saved state did not read back"] }
+        relaunched.restore(from: written)
         expect(relaunched.activeProvenance == .rule(action), "a relaunch lost the rule's provenance", &problems)
 
         // A state saved before provenance existed: read from isAuto and the action.
@@ -140,7 +147,8 @@ enum ProvenanceEngineChecks: CheckSuite {
             old.provenance = nil
             old.automaticActivityAction = action
             let engineFromOld = SelfTest.makeEngine(clock)
-            engineFromOld.restore(from: old)
+            guard let oldWritten = saved(old, in: engine) else { return problems + ["the old state did not read back"] }
+            engineFromOld.restore(from: oldWritten)
             expect(engineFromOld.activeProvenance == expected,
                    "an old state read as \(engineFromOld.activeProvenance)", &problems)
         }
@@ -148,7 +156,8 @@ enum ProvenanceEngineChecks: CheckSuite {
         manual.provenance = nil
         manual.isAuto = false
         let engineFromManual = SelfTest.makeEngine(clock)
-        engineFromManual.restore(from: manual)
+        guard let manualWritten = saved(manual, in: engine) else { return problems + ["the manual state did not read back"] }
+        engineFromManual.restore(from: manualWritten)
         expect(engineFromManual.activeProvenance == .manual, "an old manual state read as automatic", &problems)
         return problems
     }

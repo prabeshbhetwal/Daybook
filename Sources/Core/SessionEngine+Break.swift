@@ -102,7 +102,7 @@ extension SessionEngine {
             guard archiveCurrentSession(endingAt: brk.start,
                                         alongside: startedBreakRecord(brk, endingAt: moment)) else { return nil }
             closeBreak(brk, at: moment)
-            beginFreshSession()
+            beginFreshSession(carryingOn: true)
             activeThreadID = thread
             sessionStartDate = moment
         } else {

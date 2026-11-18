@@ -8,6 +8,9 @@ struct SessionStoreCorrectionState: Codable, Identifiable, Equatable {
     struct ActiveFields: Codable, Equatable {
         let name: String
         let workType: WorkType
+        /// What the running stretch's provenance was, so Undo puts it back. Nil
+        /// in corrections made before provenance existed.
+        var provenance: SessionArchiveCorrectionSnapshot.Fields.Provenance? = nil
     }
 
     let threadID: UUID

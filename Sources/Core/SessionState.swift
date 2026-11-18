@@ -364,12 +364,13 @@ struct SessionRecord: Codable, Equatable, Identifiable {
         breakOrigin = try container.decodeIfPresent(String.self, forKey: .breakOrigin)
             .flatMap(BreakOrigin.init(rawValue:))
         plannedLength = try container.decodeIfPresent(TimeInterval.self, forKey: .plannedLength)
-        // Both enums read a value they do not know as the app's, never the person's.
-        origin = try container.decodeIfPresent(SessionOrigin.self, forKey: .origin)
-        originRuleID = try container.decodeIfPresent(UUID.self, forKey: .originRuleID)
-        originRuleName = try container.decodeIfPresent(String.self, forKey: .originRuleName)
-        categorySource = try container.decodeIfPresent(DecisionSource.self, forKey: .categorySource)
-        nameByApp = try container.decodeIfPresent(Bool.self, forKey: .nameByApp)
+        // Both enums read a value they do not know as the app's, never the person's,
+        // and a malformed value reads as nil: it never sets the record aside.
+        origin = container.lenient(SessionOrigin.self, .origin)
+        originRuleID = container.lenient(UUID.self, .originRuleID)
+        originRuleName = container.lenient(String.self, .originRuleName)
+        categorySource = container.lenient(DecisionSource.self, .categorySource)
+        nameByApp = container.lenient(Bool.self, .nameByApp)
     }
 }
 
