@@ -51,6 +51,21 @@ enum ChromeAlignmentChecks: CheckSuite {
             _ = InstalledAppCatalog.turnRunLoop(until: { close.frame.origin.y == middle }, timeout: 2)
             expect(close.frame.origin.y == middle,
                    "a button AppKit moved back sits at \(close.frame.origin.y), not \(middle)", &problems)
+            // The window the app opens has all three buttons, and each is level with the others.
+            let full = NSWindow(contentRect: NSRect(x: -10_000, y: -10_000, width: 400, height: 300),
+                                styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
+                                backing: .buffered, defer: false)
+            full.titlebarAppearsTransparent = true
+            full.titleVisibility = .hidden
+            let fullAnchor = TrafficLightCentreAnchor()
+            full.contentView?.addSubview(fullAnchor)
+            fullAnchor.height = 66
+            _ = InstalledAppCatalog.turnRunLoop(until: { false }, timeout: 0.3)
+            let all = [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton]
+                .compactMap { full.standardWindowButton($0) }
+            let centres = all.map { $0.frame.midY }
+            expect(all.count == 3 && Set(centres).count == 1,
+                   "the three window buttons are centred at \(centres), not level", &problems)
             return problems
         }
     }
