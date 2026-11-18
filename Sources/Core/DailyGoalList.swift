@@ -148,4 +148,42 @@ enum DailyGoalList {
         let parts = calendar.dateComponents([.year, .month, .day], from: date)
         return String(format: "%04d-%02d-%02d", parts.year ?? 0, parts.month ?? 0, parts.day ?? 0)
     }
+
+    /// The goals a category's own goal field held before the list was used,
+    /// in catalogue order, as target goals. A category that already has a goal
+    /// in `existing` is left to it, so running this twice, or after a restore
+    /// from a backup that predates the list, never doubles a goal.
+    static func migrated(from definitions: [WorkTypeDefinition],
+                         into existing: [DailyGoalItem]) -> [DailyGoalItem] {
+        var items = existing
+        for definition in definitions {
+            guard let seconds = definition.dailyGoal, seconds > 0,
+                  definition.workType.countsAsFocus,
+                  !items.contains(where: { $0.target == .category(definition.id) }) else { continue }
+            let item = DailyGoalItem(target: .category(definition.id), kind: .target, seconds: seconds)
+            guard canAdd(item, to: items) else { break }
+            items.append(item)
+        }
+        return items
+    }
+
+    /// Whether a category's own goal is still waiting to move: it has one, and
+    /// the list holds no goal for it.
+    static func hasUnmoved(_ definitions: [WorkTypeDefinition], in items: [DailyGoalItem]) -> Bool {
+        definitions.contains { definition in
+            (definition.dailyGoal ?? 0) > 0 && definition.workType.countsAsFocus
+                && !items.contains { $0.target == .category(definition.id) }
+        }
+    }
+
+    /// Each active category target by category id, for the catalogue.
+    static func categorySeconds(_ items: [DailyGoalItem]) -> [String: TimeInterval] {
+        var seconds: [String: TimeInterval] = [:]
+        for item in active(items) {
+            if case .category(let id) = item.target, item.kind == .target, seconds[id] == nil {
+                seconds[id] = item.seconds
+            }
+        }
+        return seconds
+    }
 }

@@ -59,6 +59,7 @@ final class PersistenceStore {
         static let pendingPowerMetadataError = "fc.pendingPowerMetadataError"
         static let activityRules = "fc.activityRules"
         static let dailyGoalItems = "fc.dailyGoalItems"
+        static let goalsMigratedVersion = "fc.goalsMigratedVersion"
         static let goalResultsByDay = "fc.goalResultsByDay"
         static let activityRuleAutomationEnabled = "fc.activityRuleAutomationEnabled"
         static let activityRuleVersion = "fc.activityRuleVersion"
@@ -107,6 +108,7 @@ final class PersistenceStore {
         // a new store installs what it holds — including nothing, which puts
         // every built-in back to its default.
         WorkTypeCatalog.shared.apply(customisations: workTypeDefinitions)
+        migrateCategoryGoals()
     }
 
     // MARK: - First run
@@ -186,8 +188,59 @@ final class PersistenceStore {
             } else if let data = try? encoder.encode(normalised) {
                 defaults.set(data, forKey: Key.workTypes)
             }
-            WorkTypeCatalog.shared.apply(customisations: normalised)
+            installCatalogue()
         }
+    }
+
+    /// Whether the goal list has taken over from the categories' own goal field.
+    var goalsMigrated: Bool { defaults.integer(forKey: Key.goalsMigratedVersion) >= 1 }
+
+    /// The catalogue with the user's categories and, once the list is the one
+    /// truth, each category's goal from it.
+    private func installCatalogue() {
+        WorkTypeCatalog.shared.apply(
+            customisations: workTypeDefinitions,
+            goals: goalsMigrated ? DailyGoalList.categorySeconds(dailyGoalItems) : nil)
+    }
+
+    /// Moves the goals set on categories into the goal list, once. The list is
+    /// written before the flag, so a write that fails or a launch cut short
+    /// leaves the flag unset and the next launch tries again; a goal already in
+    /// the list is never added twice.
+    private func migrateCategoryGoals() {
+        guard !goalsMigrated else { return installCatalogue() }
+        let existing = dailyGoalItems
+        let migrated = DailyGoalList.migrated(from: WorkTypeCatalog.shared.allDefinitions, into: existing)
+        if migrated != existing {
+            guard let data = try? encoder.encode(migrated) else { return }
+            defaults.set(data, forKey: Key.dailyGoalItems)
+            guard decode([DailyGoalItem].self, forKey: Key.dailyGoalItems) == migrated else { return }
+        }
+        // Only when every goal moved: one that did not fit stays on its category,
+        // and the next launch tries again.
+        if !DailyGoalList.hasUnmoved(WorkTypeCatalog.shared.allDefinitions, in: migrated) {
+            defaults.set(1, forKey: Key.goalsMigratedVersion)
+        }
+        installCatalogue()
+    }
+
+    /// Sets, changes or (for nil or zero) removes a category's daily goal in the
+    /// list. Refused when the list is full.
+    @discardableResult
+    func setCategoryGoal(_ id: String, seconds: TimeInterval?) -> Bool {
+        var items = dailyGoalItems
+        let index = items.firstIndex { $0.target == .category(id) && $0.kind == .target }
+        if let seconds, seconds > 0 {
+            if let index { items[index].seconds = seconds } else {
+                let item = DailyGoalItem(target: .category(id), kind: .target, seconds: seconds)
+                guard DailyGoalList.canAdd(item, to: items) else { return false }
+                items.append(item)
+            }
+        } else if let index {
+            items.remove(at: index)
+        }
+        dailyGoalItems = items
+        return true
     }
 
     // MARK: - Live state
@@ -311,6 +364,7 @@ final class PersistenceStore {
         set {
             guard let data = try? encoder.encode(newValue) else { return }
             defaults.set(data, forKey: Key.dailyGoalItems)
+            installCatalogue()
         }
     }
 
@@ -984,7 +1038,7 @@ final class PersistenceStore {
                     Key.showsTimelineLabels, Key.showsAskButton, Key.askPlacement, Key.pendingPowerObservations,
                     Key.pendingPowerTransfers,
                     Key.pendingPowerMetadataError, Key.activityRules,
-                    Key.dailyGoalItems, Key.goalResultsByDay,
+                    Key.dailyGoalItems, Key.goalResultsByDay, Key.goalsMigratedVersion,
                     Key.activityRuleAutomationEnabled, Key.activityRuleVersion,
                     Key.automaticActivityRecord, Key.activityRuleCooldownUntil,
                     Key.workTypes, Key.savedActivities, Key.categoryChoices,

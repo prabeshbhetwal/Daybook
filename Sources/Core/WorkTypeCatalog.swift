@@ -218,8 +218,17 @@ final class WorkTypeCatalog: ObservableObject {
     /// edited return to their defaults; nothing is ever removed from the
     /// resolved table, so a record filed under a retired category still knows
     /// its name.
-    func apply(customisations: [WorkTypeDefinition]) {
-        let merged = WorkTypeCatalog.merge(customisations)
+    ///
+    /// `goals` is the daily goal of each category by id, from the goal list: when
+    /// given, it replaces whatever goal the definitions carry, so the list is the
+    /// one truth. Nil leaves the definitions' own goals, as before the list was used.
+    func apply(customisations: [WorkTypeDefinition], goals: [String: TimeInterval]? = nil) {
+        var merged = WorkTypeCatalog.merge(customisations)
+        if let goals {
+            for id in merged.byID.keys where id != WorkType.breakTime.rawValue {
+                merged.byID[id]?.dailyGoal = goals[id]
+            }
+        }
         lock.lock()
         resolved = merged.byID
         order = merged.order

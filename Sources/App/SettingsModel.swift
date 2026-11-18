@@ -478,6 +478,13 @@ final class SettingsModel: ObservableObject {
     /// Keeps one entry per category: an edited built-in or a made category is
     /// replaced in place, a new one is appended.
     func saveCategory(_ definition: WorkTypeDefinition) {
+        // The goal lives in the goal list; the definition no longer carries it.
+        // Not its own write: the definitions' write below is the one refresh.
+        let moved = store.setCategoryGoal(definition.id, seconds: definition.dailyGoal)
+        // Only once the list is the truth, and only if it took the goal; before
+        // that, or if it was full, the definition keeps it.
+        var definition = definition
+        if store.goalsMigrated && moved { definition.dailyGoal = nil }
         var definitions = workTypeDefinitions
         if let index = definitions.firstIndex(where: { $0.id == definition.id }) {
             definitions[index] = definition
