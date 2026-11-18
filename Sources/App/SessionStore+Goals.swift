@@ -20,8 +20,9 @@ extension SessionStore {
         }
     }
 
-    /// Keeps today's goals in the day's snapshot, and once a day writes the
-    /// results of the last few closed days that have none. Today is not judged:
+    /// Keeps today's goals in the day's snapshot (as they stood at the day's last
+    /// edit), and once a day writes the results of the closed days of the last
+    /// fortnight that have none, so a Mac off for a long weekend loses none. Today is not judged:
     /// the card shows it live. A day is judged by the goals that stood on it, so
     /// goals added later never reach back, and is never recomputed afterwards. A
     /// day with no snapshot, or with nothing recorded on it, is left out rather
@@ -48,7 +49,7 @@ extension SessionStore {
         let snapshots = engine.store.goalSnapshotsByDay
         var recorded = engine.store.goalResultsByDay
         var changed = false
-        for offset in 1...3 {
+        for offset in 1...13 {
             guard let day = calendar.date(byAdding: .day, value: -offset, to: today) else { continue }
             let dayKey = DailyGoalList.dayKey(day, calendar: calendar)
             guard recorded[dayKey] == nil, let goals = snapshots[dayKey],

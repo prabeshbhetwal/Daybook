@@ -8,6 +8,8 @@ enum GoalDayResultsChecks: CheckSuite {
          judging),
         ("Runs need consecutive days, and the perfect week and each goal's run award follow from the recorded days",
          runsAndAwards),
+        ("A closed day is judged once by the goals that stood on it, not by goals added after, across midnight",
+         recorderAcrossMidnight),
         ("The Yesterday card knows a perfect day from the recorded results, and a day with none is not one",
          yesterdayKnowsPerfect),
     ]
@@ -117,6 +119,55 @@ enum GoalDayResultsChecks: CheckSuite {
             persistence.goalResultsByDay = [DailyGoalList.dayKey(yesterday, calendar: calendar):
                                                 [result(coding, met: true), result(video, met: false)]]
             if store.wasPerfectDay(place) { problems.append("a broken limit left the day perfect") }
+            return problems
+        }
+    }
+
+    private static func recorderAcrossMidnight() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            let calendar = Calendar.current
+            let clock = TestClock(SelfTest.anchoredNow())
+            let suite = "fc-selftest-recorder-\(UUID().uuidString)"
+            guard let defaults = MemoryDefaults.suite(named: suite) else { return ["could not create isolated defaults"] }
+            defer { MemoryDefaults.remove(named: suite); WorkTypeCatalog.shared.apply(customisations: []) }
+            let persistence = PersistenceStore(defaults: defaults)
+            let directory = SelfTest.scratchDirectory()
+            let engine = SessionEngine(store: persistence,
+                                       archive: SessionArchive(directory: directory, now: { clock.value }),
+                                       ownBundleID: "com.example.self", schedulesDwell: false, now: { clock.value })
+            let usage = AppUsageArchive(directory: directory, now: { clock.value })
+            let tracker = AppUsageTracker(archive: usage, ownBundleID: "com.example.self",
+                                          idle: .disabled, now: { clock.value })
+            let store = SessionStore(engine: engine, schedulesTicker: false, now: { clock.value })
+            store.attach(tracker: tracker, usage: usage)
+            let first = DailyGoalItem(target: .app("com.example.video"), kind: .limit, seconds: 3_600)
+            persistence.dailyGoalItems = [first]
+            let day = calendar.startOfDay(for: clock.value)
+            usage.record(AppUsageSession(bundleID: "com.example.video", appName: "Video",
+                                         start: day.addingTimeInterval(8 * 3_600 + 30 * 60),
+                                         end: day.addingTimeInterval(9 * 3_600), endReason: .appSwitch))
+            store.recordGoalResultsIfNewDay()
+            let dayKey = DailyGoalList.dayKey(day, calendar: calendar)
+            if persistence.goalSnapshotsByDay[dayKey]?.map(\.id) != [first.id] { problems.append("today's goals were not kept in its snapshot") }
+            if persistence.goalResultsByDay[dayKey] != nil { problems.append("today was judged before it closed") }
+            // A second goal is added late in the day; then midnight passes.
+            let second = DailyGoalItem(target: .app("com.example.other"), kind: .limit, seconds: 600)
+            persistence.dailyGoalItems = [first, second]
+            store.recordGoalResultsIfNewDay()
+            clock.advance(24 * 3_600)
+            store.updateTimeDrivenFigures()
+            let written = persistence.goalResultsByDay[dayKey]
+            if written?.map(\.goalID) != [first.id, second.id] {
+                problems.append("the closed day held \(written?.count ?? 0) results, not the two goals standing at its last edit")
+            }
+            // A goal added after the day closed never reaches back, and nothing is written twice.
+            let third = DailyGoalItem(target: .app("com.example.third"), kind: .limit, seconds: 600)
+            persistence.dailyGoalItems = [first, second, third]
+            store.updateTimeDrivenFigures()
+            store.recordGoalResultsIfNewDay()
+            if persistence.goalResultsByDay[dayKey] != written { problems.append("a closed day was rewritten or reached back") }
+            if persistence.goalResultsByDay.count != 1 { problems.append("a day without goals or evidence was judged") }
             return problems
         }
     }
