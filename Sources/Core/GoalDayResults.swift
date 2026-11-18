@@ -12,7 +12,12 @@ enum GoalDayResults {
     static func judge(_ items: [DailyGoalItem], credit: [String: TimeInterval],
                       appUse: [String: TimeInterval]) -> [DailyGoalResult] {
         let minutes = { (DurationText.wholeSeconds($0) ?? 0) / 60 }
-        return DailyGoalList.active(items).compactMap { item in
+        return DailyGoalList.usable(items).compactMap { item in
+            // A paused goal is recorded as paused, so the day is known to have skipped it.
+            if item.isPaused {
+                return DailyGoalResult(goalID: item.id, target: item.target, kind: item.kind,
+                                       amount: item.seconds, counted: 0, met: false, paused: true)
+            }
             switch item.target {
             case .category(let id) where item.kind == .target:
                 let counted = credit[id] ?? 0
@@ -29,10 +34,22 @@ enum GoalDayResults {
         }
     }
 
-    /// Every target met and every limit kept, with at least one goal. A day
-    /// with no goals is not a perfect day.
+    /// The results to record for a closed day, from the goals that stood on it.
+    /// Nil when nothing about the day was recorded: with no app use at all the
+    /// recording may have been off, and a limit would read as kept and a target
+    /// as missed on no evidence.
+    static func close(goals: [DailyGoalItem], credit: [String: TimeInterval],
+                      appUse: [String: TimeInterval]) -> [DailyGoalResult]? {
+        guard appUse.values.contains(where: { $0 > 0 }) || credit.values.contains(where: { $0 > 0 }) else { return nil }
+        let results = judge(goals, credit: credit, appUse: appUse)
+        return results.isEmpty ? nil : results
+    }
+
+    /// Every target met and every limit kept, with at least one goal in use. A
+    /// paused goal is left out, and a day with no goals in use is not perfect.
     static func isPerfect(_ results: [DailyGoalResult]) -> Bool {
-        !results.isEmpty && results.allSatisfy(\.met)
+        let counted = results.filter { $0.paused != true }
+        return !counted.isEmpty && counted.allSatisfy(\.met)
     }
 
     /// The longest run of consecutive calendar days among `days`.
@@ -71,7 +88,7 @@ enum GoalDayResults {
                                   + "Daybook has recorded goals for.",
                             symbolName: "checkmark.seal", paletteRank: 0, isEarned: perfect >= perfectWeekTarget)]
         for item in DailyGoalList.active(items) {
-            let run = longestRun(days { $0.contains { $0.goalID == item.id && $0.met } }, calendar: calendar)
+            let run = goalRun(item.id, in: results, calendar: calendar)
             let isLimit = item.kind == .limit
             awards.append(Award(
                 id: "goal-\(item.id.uuidString)",
@@ -82,5 +99,25 @@ enum GoalDayResults {
                 symbolName: isLimit ? "hourglass" : "target", paletteRank: 1, isEarned: run >= goalRunTarget))
         }
         return awards
+    }
+
+    /// The longest run of days a goal was met, in calendar order. A paused day
+    /// neither breaks the run nor adds to it; a missed day, or a day with no
+    /// record, breaks it.
+    static func goalRun(_ id: UUID, in results: [String: [DailyGoalResult]], calendar: Calendar) -> Int {
+        let days = results.compactMap { key, value -> (Date, DailyGoalResult)? in
+            guard let date = DailyGoalList.date(forKey: key, calendar: calendar),
+                  let result = value.first(where: { $0.goalID == id }) else { return nil }
+            return (date, result)
+        }.sorted { $0.0 < $1.0 }
+        var best = 0, run = 0
+        var previous: Date?
+        for (date, result) in days {
+            if let previous, let next = calendar.date(byAdding: .day, value: 1, to: previous),
+               !calendar.isDate(next, inSameDayAs: date) { run = 0 }
+            if result.paused == true { /* neither */ } else if result.met { run += 1; best = max(best, run) } else { run = 0 }
+            previous = date
+        }
+        return best
     }
 }

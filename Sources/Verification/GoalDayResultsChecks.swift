@@ -29,7 +29,18 @@ enum GoalDayResultsChecks: CheckSuite {
         var paused = video
         paused.isPaused = true
         let rest = GoalDayResults.judge([coding, paused], credit: ["deepWork": 2 * 3_600], appUse: ["com.example.video": 9_999])
-        if rest.count != 1 || !GoalDayResults.isPerfect(rest) { problems.append("a paused limit still counted") }
+        if rest.filter({ $0.paused != true }).count != 1 || rest.filter({ $0.paused == true }).count != 1
+            || !GoalDayResults.isPerfect(rest) { problems.append("a paused limit still counted, or was not recorded as paused") }
+        if GoalDayResults.isPerfect(GoalDayResults.judge([paused], credit: [:], appUse: [:])) {
+            problems.append("a day with every goal paused was perfect")
+        }
+        // A closed day with nothing recorded is not judged, and one with evidence is.
+        if GoalDayResults.close(goals: items, credit: [:], appUse: [:]) != nil {
+            problems.append("a day with no recording was judged")
+        }
+        if GoalDayResults.close(goals: items, credit: [:], appUse: ["com.example.other": 600])?.count != 2 {
+            problems.append("a day with evidence was not judged")
+        }
         if GoalDayResults.isPerfect(GoalDayResults.judge([], credit: [:], appUse: [:])) { problems.append("no goals made a perfect day") }
         return problems
     }
@@ -60,6 +71,19 @@ enum GoalDayResultsChecks: CheckSuite {
         if run?.isEarned != true || run?.title != "Coding goal, 5 days" { problems.append("the coding run read \(run?.title ?? "missing")") }
         let kept = awards.first { $0.id == "goal-\(video.id.uuidString)" }
         if kept?.title != "Kept to Video limit, 5 days" { problems.append("the limit award read \(kept?.title ?? "missing")") }
+        // A paused day neither breaks a run nor adds to it: three met, one paused, two met is five.
+        var bridged: [String: [DailyGoalResult]] = [:]
+        for (offset, state) in [(7, "met"), (6, "met"), (5, "met"), (4, "paused"), (3, "met"), (2, "met")] {
+            bridged[key(offset)] = [DailyGoalResult(goalID: coding.id, target: coding.target, kind: coding.kind,
+                                                    amount: coding.seconds, counted: 0, met: state == "met",
+                                                    paused: state == "paused" ? true : nil)]
+        }
+        if GoalDayResults.goalRun(coding.id, in: bridged, calendar: calendar) != 5 {
+            problems.append("a paused day changed the run to \(GoalDayResults.goalRun(coding.id, in: bridged, calendar: calendar))")
+        }
+        // A day with no record between two met days breaks it.
+        bridged[key(4)] = nil
+        if GoalDayResults.goalRun(coding.id, in: bridged, calendar: calendar) != 3 { problems.append("a gap did not break the run") }
         // A break on day four stops the perfect week and shortens the coding run's partner.
         results[key(4)] = [result(coding, met: true), result(video, met: false)]
         let broken = GoalDayResults.awards(results: results, items: [coding, video],

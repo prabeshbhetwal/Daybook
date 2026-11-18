@@ -236,6 +236,7 @@ extension SessionStore {
     /// recalculated once on each local minute boundary; the inexpensive live
     /// figures continue to move every second.
     func updateTimeDrivenFigures() {
+        recordGoalResultsIfNewDay()
         withRefreshTransaction {
             let moment = now()
             let frame = liveFrame(at: moment)

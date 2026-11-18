@@ -20,31 +20,45 @@ extension SessionStore {
         }
     }
 
-    /// Writes the results of the last few closed days that have none, once a
-    /// day. Today is not written: the card shows it live. A day is written
-    /// with the goals as they stand then and is never recomputed, so a later
-    /// edit or a deleted goal cannot change what that day showed. Only when
-    /// goals are in use and the app-use record is loaded, so a day is never
-    /// judged on missing evidence.
+    /// Keeps today's goals in the day's snapshot, and once a day writes the
+    /// results of the last few closed days that have none. Today is not judged:
+    /// the card shows it live. A day is judged by the goals that stood on it, so
+    /// goals added later never reach back, and is never recomputed afterwards. A
+    /// day with no snapshot, or with nothing recorded on it, is left out rather
+    /// than judged on no evidence. Called on every refresh and on the day's
+    /// rollover, since an app left running across midnight refreshes neither way alone.
     func recordGoalResultsIfNewDay() {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: now())
         let key = DailyGoalList.dayKey(today, calendar: calendar)
+        let items = goalItems
+        if goalSnapshotToday?.key != key || goalSnapshotToday?.items != items {
+            var snapshots = engine.store.goalSnapshotsByDay
+            snapshots[key] = items
+            // A fortnight is more than any closing pass reaches back.
+            let keep = Set((0..<14).compactMap { offset in
+                calendar.date(byAdding: .day, value: -offset, to: today)
+                    .map { DailyGoalList.dayKey($0, calendar: calendar) }
+            })
+            engine.store.goalSnapshotsByDay = snapshots.filter { keep.contains($0.key) }
+            goalSnapshotToday = (key, items)
+        }
         guard key != goalResultsDayKey, usage != nil else { return }
         goalResultsDayKey = key
-        let items = goalItems
-        guard !DailyGoalList.active(items).isEmpty else { return }
+        let snapshots = engine.store.goalSnapshotsByDay
         var recorded = engine.store.goalResultsByDay
         var changed = false
         for offset in 1...3 {
             guard let day = calendar.date(byAdding: .day, value: -offset, to: today) else { continue }
             let dayKey = DailyGoalList.dayKey(day, calendar: calendar)
-            guard recorded[dayKey] == nil else { continue }
+            guard recorded[dayKey] == nil, let goals = snapshots[dayKey],
+                  !DailyGoalList.active(goals).isEmpty else { continue }
             let reading = storyRailDay(on: day)
-            let results = GoalDayResults.judge(items, credit: reading.creditByCategory,
-                                               appUse: Dictionary(reading.apps.map { ($0.bundleID, $0.total) },
-                                                                  uniquingKeysWith: +))
-            if !results.isEmpty { recorded[dayKey] = results; changed = true }
+            let appUse = Dictionary(reading.apps.map { ($0.bundleID, $0.total) }, uniquingKeysWith: +)
+            if let results = GoalDayResults.close(goals: goals, credit: reading.creditByCategory, appUse: appUse) {
+                recorded[dayKey] = results
+                changed = true
+            }
         }
         if changed { engine.store.goalResultsByDay = recorded }
     }

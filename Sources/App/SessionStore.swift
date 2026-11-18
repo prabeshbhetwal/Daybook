@@ -56,6 +56,9 @@ final class SessionStore: ObservableObject {
     @Published var streakBest = 0
     /// The day the goals' results were last brought up to date for.
     var goalResultsDayKey = ""
+    /// Today's goals as last written to the day's snapshot, so the snapshot is
+    /// rewritten only when the goals change.
+    var goalSnapshotToday: (key: String, items: [DailyGoalItem])?
     @Published var quickStarts: [QuickStart] = []
     /// The activities the user pinned, in their order. Refreshed with the
     /// quick starts; edited through the methods below.

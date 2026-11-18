@@ -61,6 +61,7 @@ final class PersistenceStore {
         static let dailyGoalItems = "fc.dailyGoalItems"
         static let goalsMigratedVersion = "fc.goalsMigratedVersion"
         static let goalResultsByDay = "fc.goalResultsByDay"
+        static let goalSnapshotsByDay = "fc.goalSnapshotsByDay"
         static let activityRuleAutomationEnabled = "fc.activityRuleAutomationEnabled"
         static let activityRuleVersion = "fc.activityRuleVersion"
         static let automaticActivityRecord = "fc.automaticActivityRecord"
@@ -365,6 +366,16 @@ final class PersistenceStore {
             guard let data = try? encoder.encode(newValue) else { return }
             defaults.set(data, forKey: Key.dailyGoalItems)
             installCatalogue()
+        }
+    }
+
+    /// The goals that stood on each day, written while the day is current, so a
+    /// closed day is judged by its own goals and never by ones added later.
+    var goalSnapshotsByDay: [String: [DailyGoalItem]] {
+        get { decode([String: [DailyGoalItem]].self, forKey: Key.goalSnapshotsByDay) ?? [:] }
+        set {
+            guard let data = try? encoder.encode(newValue) else { return }
+            defaults.set(data, forKey: Key.goalSnapshotsByDay)
         }
     }
 
@@ -1038,7 +1049,7 @@ final class PersistenceStore {
                     Key.showsTimelineLabels, Key.showsAskButton, Key.askPlacement, Key.pendingPowerObservations,
                     Key.pendingPowerTransfers,
                     Key.pendingPowerMetadataError, Key.activityRules,
-                    Key.dailyGoalItems, Key.goalResultsByDay, Key.goalsMigratedVersion,
+                    Key.dailyGoalItems, Key.goalResultsByDay, Key.goalSnapshotsByDay, Key.goalsMigratedVersion,
                     Key.activityRuleAutomationEnabled, Key.activityRuleVersion,
                     Key.automaticActivityRecord, Key.activityRuleCooldownUntil,
                     Key.workTypes, Key.savedActivities, Key.categoryChoices,

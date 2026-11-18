@@ -107,6 +107,8 @@ struct DailyGoalResult: Codable, Hashable {
     let amount: TimeInterval
     let counted: TimeInterval
     let met: Bool
+    /// Paused that day: neither met nor missed, so it neither breaks nor extends a run.
+    var paused: Bool? = nil
 }
 
 /// The rules for the list of goals, apart from where it is kept.
