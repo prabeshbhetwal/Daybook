@@ -8,6 +8,7 @@ enum StoredEvidenceBoundsChecks: CheckSuite {
         ("Changing one remembered site keeps kinds a newer version saved", changingOneSiteKeepsNewerKinds),
         ("A beat line of impossible length is passed over", impossibleBeatLineIsPassedOver),
         ("A stored summary with impossible credit is dropped, the note kept", impossibleSummaryIsDropped),
+        ("A beat folded from a counter that read backwards still reads back", backwardsCounterBeatRoundTrips),
     ]
 
     private static func changingOneSiteKeepsNewerKinds() -> [String] {
@@ -82,11 +83,28 @@ enum StoredEvidenceBoundsChecks: CheckSuite {
             entry.headSummary = shape
             return (try? JSONEncoder().encode(entry)).flatMap { try? JSONDecoder().decode(SessionMetadata.self, from: $0) }
         }
+        // Sane at the top, with the given phases beneath: `clipped(to:)` rebuilds credit from these.
+        let hour = DateInterval(start: SelfTest.base, duration: 3600)
+        func shape(phases: [SessionPhase]) -> SessionActivityShape {
+            let top = ActivitySnapshotChecks.shape(.activity(.media), credited: ["media": 3000], over: hour, counted: 3600)
+            return SessionActivityShape(algorithmVersion: top.algorithmVersion, fidelity: top.fidelity, bounds: top.bounds,
+                                        countedSeconds: top.countedSeconds, signals: top.signals, phases: phases,
+                                        depth: top.depth, label: top.label, credited: top.credited,
+                                        fingerprint: top.fingerprint, splitCandidates: top.splitCandidates)
+        }
+        func phase(_ from: TimeInterval, _ to: TimeInterval, _ credited: [String: TimeInterval]) -> SessionPhase {
+            SessionPhase(start: SelfTest.base.addingTimeInterval(from), end: SelfTest.base.addingTimeInterval(to),
+                         activity: .purpose(.media), counted: true, credited: credited)
+        }
         let broken: [(String, SessionActivityShape)] = [
             ("credit of 1e300", shape(["media": 1e300])),
             ("counted time beyond its span", shape(["media": 100], counted: 900)),
             ("credit beyond its span in all", shape(["media": 400, "coding": 400])),
             ("a negative credit", shape(["media": -5])),
+            ("one phase holding credit of 1e300", shape(phases: [phase(0, 3600, ["media": 1e300])])),
+            ("a phase credited more than it lasted", shape(phases: [phase(0, 600, ["media": 2000])])),
+            ("a negative credit in one phase", shape(phases: [phase(0, 3600, ["media": -5])])),
+            ("a phase that ends before it starts", shape(phases: [phase(1800, 600, [:])])),
         ]
         for (what, impossible) in broken {
             let entry = reread(impossible)
@@ -95,8 +113,34 @@ enum StoredEvidenceBoundsChecks: CheckSuite {
         }
         let nonFinite = shape(["media": .nan])
         expect(!nonFinite.isPlausible && !shape(["media": .infinity]).isPlausible, "a non-finite credit counted as plausible", &problems)
-        let fine = shape(["media": 300, "coding": 300])
-        expect(reread(fine)?.activityShape == fine && reread(fine)?.headSummary == fine, "a plausible summary did not survive", &problems)
+        let fine = [shape(["media": 300, "coding": 300]),
+                    shape(phases: [phase(0, 1800, ["media": 1500]), phase(1800, 3600, ["media": 1500])])]
+        for kept in fine {
+            expect(reread(kept)?.activityShape == kept && reread(kept)?.headSummary == kept, "a plausible summary did not survive", &problems)
+        }
+        return problems
+    }
+
+    private static func backwardsCounterBeatRoundTrips() -> [String] {
+        var problems: [String] = []
+        // The counter reads 1000, then 10, then 1200 inside one beat: the first slice (3 s, folded forward into
+        // the second) counts 2^32 - 990 keys, the second 1190, and their sum passes what one UInt32 holds.
+        let rig = BeatRecorderChecks.Rig()
+        rig.counts = CounterReading(keys: 1000, clicks: 0, scrolls: 0)
+        rig.activate("A")
+        rig.tick(3)
+        rig.counts = CounterReading(keys: 10, clicks: 0, scrolls: 0)
+        rig.activate("B")
+        rig.tick(27)
+        rig.counts = CounterReading(keys: 1200, clicks: 0, scrolls: 0)
+        rig.tick()
+        guard let beat = rig.beats.first else { return ["no beat closed"] }
+        expect(beat.slices.map(\.keys) == [Int(UInt32.max)], "the folded count was \(beat.slices.map(\.keys)), not held at one counter's most", &problems)
+        let directory = SelfTest.scratchDirectory()
+        try? BeatArchive(directory: directory, calendar: .current).append(beat)
+        let read = BeatArchive(directory: directory, calendar: .current)
+            .beats(in: DateInterval(start: beat.start.addingTimeInterval(-60), end: beat.start.addingTimeInterval(600)))
+        expect(read == [beat], "the beat did not read back from the archive, got \(read.count) beats", &problems)
         return problems
     }
 }
