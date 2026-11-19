@@ -12,6 +12,10 @@ enum CorrectionUndoRuleChecks: CheckSuite {
         ("A count at the limit can be taken back from without overflowing", takingBackAtTheLimit),
         ("The card's Filed under line clears once its correction is undone elsewhere", filedLineClears),
     ]
+    /// Registered last, apart from `tests`, so earlier check numbers stay.
+    static let laterTests: [(String, () -> [String])] = [
+        ("Taking back a run of one choice in order leaves the earlier choice that stands", runTakenBackInOrder),
+    ]
 
     private static let typical = CategoryCorrectionChecks.fingerprint()
     private static let other = CategoryCorrectionChecks.fingerprint([0, 5, 0, 0, 0, 0, 0])
@@ -75,8 +79,25 @@ enum CorrectionUndoRuleChecks: CheckSuite {
                                at: SelfTest.base.addingTimeInterval(TimeInterval($0 * 60)))
         }
         corrections.forget(filings[0], standing: [], later: [filings[1]])
-        expect(corrections.entries.first?.count == Int.max - 1,
-               "taking back at the limit left \(String(describing: corrections.entries.first?.count))", &problems)
+        expect(corrections.entries.first?.chosen == "learning" && corrections.entries.first?.count == 1,
+               "taking back at the limit left \(String(describing: corrections.entries.first))", &problems)
+        return problems
+    }
+
+    /// Learning, Admin, Admin: both Admin filings taken back in order leave the Learning choice that stands.
+    private static func runTakenBackInOrder() -> [String] {
+        var problems: [String] = []
+        var corrections = CategoryCorrections()
+        let filings = ["learning", "admin", "admin"].enumerated().map {
+            corrections.record(fingerprint: typical, chosen: $0.element, vetoed: nil,
+                               at: SelfTest.base.addingTimeInterval(TimeInterval($0.offset * 60)))
+        }
+        corrections.forget(filings[1], standing: [filings[0]], later: [filings[2]])
+        expect(corrections.entries.first?.chosen == "admin" && corrections.entries.first?.count == 1,
+               "taking back the first Admin left \(corrections.entries)", &problems)
+        corrections.forget(filings[2], standing: [filings[0]], later: [])
+        expect(corrections.entries == [filings[0].after],
+               "taking back both Admin filings left \(corrections.entries), not the Learning choice", &problems)
         return problems
     }
 
