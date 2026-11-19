@@ -86,21 +86,27 @@ extension SessionStore {
     /// the category on its account. The choices to fall back to are the filings of the corrections made
     /// before this one that still stand, so one undone out of order is not revived; the ones made after it
     /// that still stand say whether it is part of the choice that stands now.
-    func forgetRemembered(of state: SessionStoreCorrectionState) {
-        guard let filings = state.remembered, !filings.isEmpty else { return }
-        let standing = corrections.filter { $0.sequence < state.sequence }.flatMap { $0.remembered ?? [] }
-        let later = corrections.filter { $0.sequence > state.sequence }.flatMap { $0.remembered ?? [] }
-        guard let why = categoryCorrections.forget(filings, standing: standing, later: later, at: now()) else { return }
-        Diagnostics.log("Category choice not forgotten: \(why)")
+    /// Nil when saved (or nothing changed), else why not. The undo owes this (`OwedWork`), so a refusal here
+    /// keeps it owed, to be done again, and doing it again after it was done changes nothing.
+    func forgetRemembered(sequence: Int, filings: [RememberedFiling]) -> String? {
+        let standing = corrections.filter { $0.sequence < sequence }.flatMap { $0.remembered ?? [] }
+        let later = corrections.filter { $0.sequence > sequence }.flatMap { $0.remembered ?? [] }
+        return categoryCorrections.forget(filings, standing: standing, later: later, at: now())
+    }
+
+    /// What the undo of this correction owes: taking back what it taught, when it taught anything.
+    func owedForgetting(_ state: SessionStoreCorrectionState) -> [OwedWork] {
+        guard let filings = state.remembered, !filings.isEmpty else { return [] }
+        return owedWork([.forget(sequence: state.sequence, filings: filings)])
     }
 
     /// An undo whose write was refused: the error and Retry stay. When its records changed and only the
     /// journal save is owed (the correction is already gone from `corrections`), what the change taught is
-    /// taken back now, once: Retry then only finishes the save and never comes back here.
+    /// taken back now from the journal's owed work, which Retry then only finishes the save of.
     func undoRefused(_ state: SessionStoreCorrectionState) -> Bool {
         publishCorrectionError(engine.awayDecisionError)
         correctionRetry = .undo(state)
-        if !corrections.contains(where: { $0.id == state.id }) { forgetRemembered(of: state) }
+        settleOwedWork()
         return false
     }
 }

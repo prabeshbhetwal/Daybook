@@ -11,20 +11,24 @@ enum OwedStep: Codable, Equatable {
     case headSummary(tail: UUID, shape: SessionActivityShape?)
     /// The power readings from `atOrAfter` on go from one record to the other.
     case movePower(from: UUID, to: UUID, atOrAfter: Date)
+    /// The remembered category choices that the category change made at `sequence` taught, taken back by its Undo.
+    case forget(sequence: Int, filings: [RememberedFiling])
 
     /// The records whose sidecar entries the step reads or writes: they must outlive it.
     var recordIDs: [UUID] {
         switch self {
         case .link(let record, _), .summary(let record, _), .headSummary(let record, _): return [record]
         case .movePower(let from, let to, _): return [from, to]
+        case .forget: return []
         }
     }
 }
 
 /// What a correction still owes beyond the archive, such as a split's link and its power readings, which live in
-/// the sidecar. It travels with the correction's journal transaction, so a launch that finds the records written
-/// finds the work too, and the store does it again and again until the journal is told it is done. A crash or a
-/// refused write between the records and the sidecar then costs time, never the link or the readings.
+/// the sidecar, or the choice a category change taught, which lives in the remembered choices. It travels with
+/// the correction's journal transaction, so a launch that finds the records written finds the work too, and the
+/// store does it again and again until the journal is told it is done. A crash or a refused write between the
+/// records and the rest then costs time, never the link, the readings or the forgetting.
 struct OwedWork: Codable, Equatable, Identifiable {
     var id = UUID()
     let steps: [OwedStep]

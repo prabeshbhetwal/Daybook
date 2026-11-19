@@ -36,6 +36,8 @@ extension SessionStore {
         case .headSummary(let tail, let shape): result = metadataArchive.setAsideHeadSummary(shape, on: tail)
         case .movePower(let from, let to, let boundary):
             result = metadataArchive.reassignPower(from: from, to: to, atOrAfter: boundary)
+        case .forget(let sequence, let filings):
+            return forgetRemembered(sequence: sequence, filings: filings)
         }
         if case .failed(let why) = result { return why }
         return nil
