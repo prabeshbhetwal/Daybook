@@ -1,13 +1,19 @@
 import Foundation
 
-/// Taking a category choice back from what Daybook remembers when Undo is not the plain case: its journal
-/// save was refused after the records changed, or two filings of one kind were undone out of order.
+/// Remembering a category choice, and taking it back, when the plain case does not hold: a journal save was
+/// refused (after the records changed, or before), or two filings of one kind were undone out of order.
 enum RememberedUndoChecks: CheckSuite {
     static let tests: [(String, () -> [String])] = [
         ("An undo of a category change whose journal save is refused forgets the choice once, and Retry does not forget it again",
          refusedSaveForgetsOnce),
         ("Two filings of one kind undone oldest first leave nothing remembered; newest first leaves the older one",
          outOfOrderUndo),
+        ("An undo refused before it wrote anything forgets nothing, and Retry forgets the choice once",
+         refusedBeforeTheWriteForgetsNothing),
+        ("A category change that landed with its journal save refused is remembered once, and Retry does not remember it again",
+         refusedFilingIsRememberedOnce),
+        ("Taking back the latest filing does not bring back a count for a filing that was undone out of order",
+         staleCountIsNotRestored),
     ]
 
     /// Three ended sessions of one kind: two to file, one that is offered what they taught.
@@ -72,5 +78,77 @@ enum RememberedUndoChecks: CheckSuite {
             }
             return problems
         }
+    }
+
+    /// The refusal comes before the archive write, so the correction still stands and nothing was taught
+    /// away: forgetting then would be undone by nothing, and Retry would forget the same choice again.
+    private static func refusedBeforeTheWriteForgetsNothing() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            let journal = SplitRestructureChecks.Journal()
+            let (store, clock, suite) = CorrectionsStoreChecks.make(journal: { journal.save() })
+            defer { MemoryDefaults.remove(named: suite) }
+            guard let (first, second, third) = sessions(store, clock) else { return ["no sessions were made"] }
+            expect(store.setWorkType(.learning, for: first) && store.setWorkType(.learning, for: second),
+                   "the category changes were refused: \(store.correctionError ?? "no reason")", &problems)
+            guard let newest = store.corrections.last else { return problems + ["no correction was kept"] }
+            @MainActor func entry() -> CategoryCorrection? { CorrectionsStoreChecks.stored(store).entries.first }
+
+            journal.failFirstSave()
+            expect(!store.undoCorrection(expectedID: newest.id) && store.correctionRetry != nil
+                   && store.corrections.contains { $0.id == newest.id },
+                   "the undo refused before its write did not leave the correction standing with Retry offered", &problems)
+            expect(entry()?.count == 2, "the refusal before any write left \(String(describing: entry())), not both filings", &problems)
+            expect(store.retryLastCorrection(), "Retry did not finish the undo: \(store.correctionError ?? "no error shown")", &problems)
+            expect(entry()?.count == 1 && store.correctionSuggestion(for: third) == .learning,
+                   "Retry left \(String(describing: entry())), not the one filing that still stands", &problems)
+            return problems
+        }
+    }
+
+    /// The change landed and only the journal's last save was refused: Retry finishes that save and files
+    /// nothing, so the choice has to be remembered when the change lands, not left to it.
+    private static func refusedFilingIsRememberedOnce() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            let journal = SplitRestructureChecks.Journal()
+            let (store, clock, suite) = CorrectionsStoreChecks.make(journal: { journal.save() })
+            defer { MemoryDefaults.remove(named: suite) }
+            guard let (first, second, third) = sessions(store, clock) else { return ["no sessions were made"] }
+            @MainActor func entry() -> CategoryCorrection? { CorrectionsStoreChecks.stored(store).entries.first }
+            expect(store.setWorkType(.learning, for: first), "the first change was refused: \(store.correctionError ?? "no reason")", &problems)
+
+            journal.failSecondSave()
+            expect(!store.setWorkType(.learning, for: second) && store.correctionRetry != nil
+                   && store.corrections.contains { $0.threadID == second.threadID },
+                   "the change whose journal save was refused did not land with Retry offered", &problems)
+            expect(entry()?.count == 2, "the change that landed left \(String(describing: entry())), not both filings", &problems)
+            expect(store.retryLastCorrection(), "Retry did not finish the change: \(store.correctionError ?? "no error shown")", &problems)
+            expect(entry()?.count == 2, "Retry remembered the choice again: \(String(describing: entry()))", &problems)
+            guard let newest = store.corrections.last else { return problems + ["no correction was kept"] }
+            expect(store.undoCorrection(expectedID: newest.id), "the undo was refused: \(store.correctionError ?? "no reason")", &problems)
+            expect(entry()?.count == 1 && store.correctionSuggestion(for: third) == .learning,
+                   "undoing it left \(String(describing: entry())), not the older choice", &problems)
+            return problems
+        }
+    }
+
+    /// X and Y file one category, X is undone out of order, Z files another, and Z is undone: Y alone stands,
+    /// so one count comes back, not the two Y's own filing left.
+    private static func staleCountIsNotRestored() -> [String] {
+        var problems: [String] = []
+        let typical = CorrectionsStoreChecks.typical
+        var corrections = CategoryCorrections()
+        func at(_ minutes: Int) -> Date { SelfTest.base.addingTimeInterval(TimeInterval(minutes * 60)) }
+        let x = corrections.record(fingerprint: typical, chosen: "learning", vetoed: nil, at: at(0))
+        let y = corrections.record(fingerprint: typical, chosen: "learning", vetoed: nil, at: at(1))
+        corrections.forget(x, standing: [])
+        let z = corrections.record(fingerprint: typical, chosen: "admin", vetoed: nil, at: at(2))
+        corrections.forget(z, standing: [y])
+        expect(corrections.entries.first?.chosen == "learning" && corrections.entries.first?.count == 1,
+               "taking back the latest filing left \(corrections.entries), not one count of the one that stands", &problems)
+        corrections.forget(y, standing: [])
+        expect(corrections.entries.isEmpty, "taking back the last one standing left \(corrections.entries)", &problems)
+        return problems
     }
 }

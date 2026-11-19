@@ -53,16 +53,27 @@ extension SessionStore {
     }
 
     /// Retry of a cut or a join refused before its records changed: done again, with the same arguments. One
-    /// that landed with only its journal save refused never gets here; the pending journal finishes it.
+    /// that landed with only its journal save refused never gets here while that journal is pending, which
+    /// finishes it. If another write finished the journal first and left this Retry behind, the cut or the
+    /// join stands (its tail is in the archive, or gone) and there is nothing to do but clear the error.
     func retryRestructure(_ retry: SessionCorrectionRetry) -> Bool {
+        func tailExists(_ id: UUID) -> Bool { engine.archive.records.contains { $0.id == id } }
         switch retry {
         case .split(_, let recordID, let moment, let tail, let tailID):
+            if tailExists(tailID) { return restructureStands() }
             return splitSession(recordID: recordID, at: moment, tail: tail, tailID: tailID)
         case .merge(_, let tailID):
+            if !tailExists(tailID) { return restructureStands() }
             return mergeBack(tailID: tailID)
         default:
             return false
         }
+    }
+
+    private func restructureStands() -> Bool {
+        publishCorrectionError(nil)
+        correctionRetry = nil
+        return true
     }
 
     func mergePair(tailID: UUID) -> (head: SessionRecord, tail: SessionRecord)? {

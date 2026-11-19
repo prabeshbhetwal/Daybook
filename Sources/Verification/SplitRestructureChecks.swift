@@ -19,12 +19,14 @@ enum SplitRestructureChecks: CheckSuite {
     ]
 
     /// A journal whose chosen save is refused: counted from the call to `failSecondSave()`, so the first
-    /// save (the pending entry) goes through and the second (the finished one) does not.
+    /// save (the pending entry) goes through and the second (the finished one) does not. `failFirstSave()`
+    /// refuses the pending entry, so nothing lands.
     final class Journal {
         var calls = 0
         var failOn: Int?
         func save() -> String? { calls += 1; return calls == failOn ? "The disk is full." : nil }
         func failSecondSave() { calls = 0; failOn = 2 }
+        func failFirstSave() { calls = 0; failOn = 1 }
     }
 
     private static func reading(at moment: Date, _ percentage: Double) -> PowerObservation {

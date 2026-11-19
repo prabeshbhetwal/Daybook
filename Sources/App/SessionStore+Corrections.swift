@@ -42,12 +42,17 @@ extension SessionStore {
             let left = record.effectiveCategorySource == .user ? nil : record.workType.rawValue
             filings.append(next.record(fingerprint: fingerprint, chosen: workType.rawValue, vetoed: left, at: moment))
         }
-        guard applyCorrection(threadID: session.threadID, correction: .workType(workType), claims: true,
-                              remembering: filings) else { return false }
-        if !filings.isEmpty, let why = categoryCorrections.save(next, at: moment) {
+        let applied = applyCorrection(threadID: session.threadID, correction: .workType(workType), claims: true,
+                                      remembering: filings)
+        // A change that landed with only its journal save refused keeps its receipt, and Retry finishes that
+        // save without filing anything: the choice is kept here, once.
+        guard !filings.isEmpty, applied || corrections.contains(where: { $0.remembered == filings }) else {
+            return applied
+        }
+        if let why = categoryCorrections.save(next, at: moment) {
             Diagnostics.log("Category choice not remembered: \(why)")
         }
-        return true
+        return applied
     }
 
     /// Undo of a category change takes back what it taught: that kind of session is no longer offered

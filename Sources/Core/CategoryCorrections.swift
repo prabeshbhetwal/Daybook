@@ -61,19 +61,25 @@ struct CategoryCorrections: Equatable {
     }
 
     /// Takes one filing back. An entry still as that filing left it goes back to how the latest of `standing`
-    /// left it (those made before it that nobody has undone, oldest first), vetoes included, and is gone when
-    /// none stands. The filing's own `before` is not trusted: it may be the work of one undone out of order.
-    /// One filed again since keeps those later choices: it loses one count, and goes at zero. shortcut: that
-    /// second case leaves vetoes as they are, since a later filing may rest on them; upgrade if a veto left by
-    /// an undone choice proves to matter. A filing whose receipt aged out of the history is not standing, so
-    /// undoing a later one forgets what it rested on too; upgrade if that proves to matter.
-    mutating func forget(_ filing: RememberedFiling, standing: [RememberedFiling] = []) {
+    /// left it (those made before it that nobody has undone, oldest first), and is gone when none stands. Its
+    /// count is cut to the run of standing filings that chose the same category, since one of them may have been
+    /// undone out of order after that snapshot was taken. The filing's own `before` is not trusted: it may be the
+    /// work of one undone out of order. One filed again since keeps those later choices: it loses one count, and
+    /// goes at zero. shortcut: vetoes are restored as that snapshot had them, and in that second case left as
+    /// they are, since a later filing may rest on them; either can carry one an undone choice added, so upgrade
+    /// if that proves to matter. A filing whose receipt aged out of the history is not standing, so undoing a
+    /// later one forgets what it rested on too (and its count is cut with it); upgrade if that proves to matter.
+    /// `standing` has no default: a caller that has none to give says so with `[]`.
+    mutating func forget(_ filing: RememberedFiling, standing: [RememberedFiling]) {
         guard let index = entries.firstIndex(where: {
             $0.kind == Self.categoryKind && $0.fingerprint == filing.after.fingerprint
         }), entries[index].chosen == filing.after.chosen else { return }
         if entries[index] == filing.after {
-            if let kept = standing.last(where: { $0.after.fingerprint == filing.after.fingerprint }) {
-                entries[index] = kept.after
+            let mine = standing.filter { $0.after.fingerprint == filing.after.fingerprint }
+            if var kept = mine.last?.after {
+                let run = mine.reversed().prefix { $0.after.chosen == kept.chosen }.count
+                kept.count = min(kept.count, run)
+                entries[index] = kept
             } else { entries.remove(at: index) }
         } else {
             entries[index].count = max(entries[index].count, 1) - 1

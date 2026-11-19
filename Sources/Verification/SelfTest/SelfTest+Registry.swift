@@ -230,6 +230,7 @@ extension SelfTest {
             + SplitOfferChecks.tests + SplitAutomaticChecks.tests + ContradictionLineChecks.watchingTests
             + SplitRestructureChecks.tests
             + RestructureRetryChecks.tests + RememberedUndoChecks.tests
+            + RestructureRetryChecks.finishedElsewhereTests
     }
 
     /// SelfTest's own checks 1 to 107.
