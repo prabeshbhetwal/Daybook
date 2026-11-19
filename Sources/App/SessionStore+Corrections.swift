@@ -57,16 +57,21 @@ extension SessionStore {
     /// The change `filing` stands for, and what it teaches, worked out against what is remembered now. A change
     /// refused before its write keeps the filing on its Retry, which comes back here and teaches it when it lands.
     func applyFiling(_ filing: CategoryFiling, threadID: UUID, claims: Bool) -> Bool {
-        var next = categoryCorrections.corrections
-        let filings = filing.kinds.map {
-            next.record(fingerprint: $0.fingerprint, chosen: filing.workType.rawValue, vetoed: $0.left, at: filing.moment)
-        }
+        // What an undo still owes the remembered choices is taken back first, so the filings below are worked
+        // out from the choices that stand.
+        settleOwedWork()
+        var worked = categoryCorrections.corrections
+        let filings = learn(filing, into: &worked)
         let correction = SessionCorrection.workType(filing.workType)
         let applied = applyCorrection(threadID: threadID, correction: correction, claims: claims, remembering: filings)
         guard !filings.isEmpty else { return applied }
         // A change that landed with only its journal save refused keeps its receipt, and Retry finishes that
         // save without filing anything: the choice is kept here, once.
         if applied || corrections.contains(where: { $0.remembered == filings }) {
+            // The change refreshed the store, which can finish work an undo owed the remembered choices: the
+            // filing goes onto what stands now, not onto the copy taken before, which would bring them back.
+            var next = categoryCorrections.corrections
+            learn(filing, into: &next)
             if let why = categoryCorrections.save(next, at: now()) {
                 Diagnostics.log("Category choice not remembered: \(why)")
             }
@@ -74,6 +79,13 @@ extension SessionStore {
             correctionRetry = .correction(threadID: threadID, correction: correction, claims: held, filing: filing)
         }
         return applied
+    }
+
+    @discardableResult
+    private func learn(_ filing: CategoryFiling, into choices: inout CategoryCorrections) -> [RememberedFiling] {
+        filing.kinds.map {
+            choices.record(fingerprint: $0.fingerprint, chosen: filing.workType.rawValue, vetoed: $0.left, at: filing.moment)
+        }
     }
 
     /// Retry of a correction refused before its write: done again, with what it teaches when it is a category change.

@@ -10,14 +10,17 @@ extension SessionStore {
 
     func owedWork(_ steps: [OwedStep]) -> [OwedWork] { steps.isEmpty ? [] : [OwedWork(steps: steps)] }
 
-    /// Does the work owed by corrections whose records are written, oldest first, and stops at the first refusal:
-    /// a later piece may rest on the one before it. What was done is then dropped from the journal.
+    /// Does the work owed by corrections whose records are written, oldest first. Work that fails is kept, and so
+    /// is any later work on a record it touches, which may rest on it; work on others goes on, so a sidecar
+    /// that stays unwritable never holds back what is owed the remembered choices. What was done is then dropped
+    /// from the journal.
     func settleOwedWork() {
         let owed = engine.decisionHistory.owed(in: engine.archive)
         guard !owed.isEmpty else { return }
-        var done = Set<UUID>()
+        var done = Set<UUID>(), blocked = Set<UUID>()
         for work in owed {
-            if let why = perform(work) { noteOwedFailure(why); break }
+            if !blocked.isDisjoint(with: work.recordIDs) { blocked.formUnion(work.recordIDs); continue }
+            if let why = perform(work) { noteOwedFailure(why); blocked.formUnion(work.recordIDs); continue }
             done.insert(work.id)
         }
         if let why = engine.decisionHistory.settle(done) { noteOwedFailure(why) }

@@ -30,8 +30,23 @@ enum OwedStep: Codable, Equatable {
 /// store does it again and again until the journal is told it is done. A crash or a refused write between the
 /// records and the rest then costs time, never the link, the readings or the forgetting.
 struct OwedWork: Codable, Equatable, Identifiable {
-    var id = UUID()
+    let id: UUID
     let steps: [OwedStep]
 
+    init(id: UUID = UUID(), steps: [OwedStep]) {
+        self.id = id
+        self.steps = steps
+    }
+
     var recordIDs: Set<UUID> { Set(steps.flatMap(\.recordIDs)) }
+
+    private enum CodingKeys: String, CodingKey { case id, steps }
+
+    /// Steps this build does not know, from a newer one, read as none: the work then reads as done. Failing instead
+    /// would set the whole correction journal aside as unreadable, taking the receipts Undo needs with it.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        steps = (try? container.decode([OwedStep].self, forKey: .steps)) ?? []
+    }
 }

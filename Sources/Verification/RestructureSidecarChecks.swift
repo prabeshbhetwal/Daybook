@@ -8,6 +8,8 @@ enum RestructureSidecarChecks: CheckSuite {
          splitIsCompletedAtLaunch),
         ("A Merge Back, an Undo of it and an Undo of a split whose summaries and readings could not be saved are completed at the next launch",
          joinsAreCompletedAtLaunch),
+        ("A Merge Back made once the disk is well again saves first what the cut still owed, so the link it needs is there",
+         mergeBackSavesWhatTheCutOwed),
     ]
 
     private final class Disk { var refuses = false }
@@ -114,6 +116,24 @@ enum RestructureSidecarChecks: CheckSuite {
                "\(what): the session read \(String(describing: read?.credited)) after a relaunch, not both halves", &problems)
         expect(power(store, whole.id) == [f.early.id, f.late.id],
                "\(what): the readings were not all on the one record after a relaunch", &problems)
+    }
+
+    /// Nothing has refreshed since the disk recovered: Merge Back is the first thing to read the link the cut owes.
+    private static func mergeBackSavesWhatTheCutOwed() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            let f = fixture()
+            defer { MemoryDefaults.remove(named: f.rig.suite) }
+            f.disk.refuses = true
+            guard f.store.splitSession(recordID: f.record.id, at: f.record.start.addingTimeInterval(2_400), tail: SplitStoreChecks.choice()),
+                  let split = SplitStoreChecks.halves(of: f.record, in: f.store) else { return ["the cut was refused"] }
+            f.disk.refuses = false
+            expect(f.store.mergeBack(tailID: split.tail.id),
+                   "Merge Back was refused after a cut whose link had not been saved yet: \(f.store.correctionError ?? "no reason")", &problems)
+            expect(power(f.store, f.record.id) == [f.early.id, f.late.id],
+                   "the readings were not all on the one record after the join", &problems)
+            return problems
+        }
     }
 
     private static func joinsAreCompletedAtLaunch() -> [String] {

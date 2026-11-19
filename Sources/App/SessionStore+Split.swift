@@ -14,6 +14,7 @@ extension SessionStore {
         guard !hasUnresolvedAwayDecision else {
             publishCorrectionError("Answer the away question first."); return false
         }
+        settleOwedWork()   // what the steps below are worked out from is then what earlier ones left
         guard let record = engine.archive.records.first(where: { $0.id == recordID }),
               let cut = record.split(at: moment, tail: choice, tailID: tailID) else {
             publishCorrectionError("That moment is not inside this session's work, so it can't be split there.")
@@ -35,6 +36,7 @@ extension SessionStore {
     /// Joins the tail of a split back onto its head: one correction, reversed by Undo.
     @discardableResult
     func mergeBack(tailID: UUID) -> Bool {
+        settleOwedWork()   // a link or a summary still owed by the cut is saved first
         guard let pair = mergePair(tailID: tailID) else {
             publishCorrectionError(hasLaterPart(of: tailID)
                 ? "This session was split again, so it can't be merged back yet. Merge its later part back first."
@@ -94,6 +96,7 @@ extension SessionStore {
     /// in come out and the ones it took out go back, whole, provided nothing has since taken their identity
     /// and the ones to come out are still as it wrote them (the archive checks that).
     func undoRestoringRecords(_ state: SessionStoreCorrectionState, before: PersistedState) -> Bool {
+        settleOwedWork()
         let back = state.removedRecords ?? [], out = state.addedRecords ?? []
         let present = Set(engine.archive.records.map(\.id)).subtracting(out.map(\.id))
         guard !back.isEmpty, back.allSatisfy({ !present.contains($0.id) }) else {
