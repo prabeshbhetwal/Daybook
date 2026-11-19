@@ -116,7 +116,18 @@ enum PurposeMap {
         "com.apple.Safari": .ambiguous(active: .research, passive: .media),
         "org.mozilla.firefox": .ambiguous(active: .research, passive: .media),
         "company.thebrowser.Browser": .ambiguous(active: .research, passive: .media),
-        "company.thebrowser.dia": .ambiguous(active: .writingAI, passive: .media)
+        "company.thebrowser.dia": .ambiguous(active: .writingAI, passive: .media),
+        // The rest of the browsers the site signal may read (`SiteSignalConstants.knownBrowsers`).
+        "com.apple.SafariTechnologyPreview": .ambiguous(active: .research, passive: .media),
+        "com.google.Chrome.canary": .ambiguous(active: .research, passive: .media),
+        "org.chromium.Chromium": .ambiguous(active: .research, passive: .media),
+        "org.mozilla.firefoxdeveloperedition": .ambiguous(active: .research, passive: .media),
+        "com.microsoft.edgemac": .ambiguous(active: .research, passive: .media),
+        "com.brave.Browser": .ambiguous(active: .research, passive: .media),
+        "com.operasoftware.Opera": .ambiguous(active: .research, passive: .media),
+        "com.vivaldi.Vivaldi": .ambiguous(active: .research, passive: .media),
+        "com.kagi.kagimacOS": .ambiguous(active: .research, passive: .media),
+        "app.zen-browser.zen": .ambiguous(active: .research, passive: .media)
     ]
 
     /// Set once by the App layer: bundle id → the category the app declares
