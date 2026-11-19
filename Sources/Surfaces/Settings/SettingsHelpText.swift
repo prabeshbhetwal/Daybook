@@ -25,6 +25,8 @@ enum SettingsHelpText {
         "Getting started",
         // The folder's path and a button that shows it in Finder; nothing to set.
         "Data folder",
+        // Each row says what is read and kept, in the consent sheet's words; a card would restate them.
+        "Site signal",
         // The version, the build and a recovery report, to read; nothing to set.
         "Diagnostics"
     ]

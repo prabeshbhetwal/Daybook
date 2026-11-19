@@ -43,19 +43,19 @@ enum BeatArchiveChecks: CheckSuite {
     }
 
     /// The one day file in a directory that holds a single day.
-    private static func dayFile(_ directory: URL) -> URL? {
+    static func dayFile(_ directory: URL) -> URL? {
         let names = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
         return names.filter { $0.hasSuffix(".jsonl") }.first.map { directory.appendingPathComponent($0) }
     }
 
-    private static func appendRaw(_ text: String, to url: URL) {
+    static func appendRaw(_ text: String, to url: URL) {
         guard let handle = try? FileHandle(forWritingTo: url) else { return }
         defer { try? handle.close() }
         _ = try? handle.seekToEnd()
         try? handle.write(contentsOf: Data(text.utf8))
     }
 
-    private static func wide(around date: Date) -> DateInterval {
+    static func wide(around date: Date) -> DateInterval {
         DateInterval(start: date.addingTimeInterval(-3_600), end: date.addingTimeInterval(3_600))
     }
 
@@ -206,7 +206,7 @@ enum BeatArchiveChecks: CheckSuite {
 
     private static func versionMovesWithConstants() -> [String] {
         var problems: [String] = []
-        expect(ActivityConstants.algorithmVersion == 1 && ActivityConstants.signature
+        expect(ActivityConstants.algorithmVersion == 2 && ActivityConstants.signature
                    == "30|5|3|120|60|180|900|1500|0.7|0.15",
                "A rule or constant changed: change the constant, algorithmVersion and this literal together. "
                    + "Got version \(ActivityConstants.algorithmVersion), signature \(ActivityConstants.signature)",

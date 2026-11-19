@@ -70,7 +70,7 @@ enum ActivityDerivation {
 
     /// `.unsorted` under `minCreditedSeconds`, else the top purpose. With a weak signal on
     /// (phase D's site kind), the credit is worked out again without it, and a different top
-    /// purpose gives `.mixed`. Phase A has no weak signal, so that second pass never runs.
+    /// purpose gives `.mixed`. With no beat carrying a site the signal is off and that second pass does not run.
     static func label(_ credited: [AppPurpose: TimeInterval], input: DerivationInput) -> ActivityLabel {
         guard credited.values.reduce(0, +) >= ActivityConstants.minCreditedSeconds,
               let leader = top(credited) else { return .unsorted }
@@ -94,7 +94,8 @@ enum ActivityDerivation {
             switch slice.state {
             case .held where countsWhileWatching: inside += seconds
             case .held, .passive: watched += seconds
-            case .engaged, .quietKept: if members.contains(slice.app) { inside += seconds }
+            // A leisure site is outside even on a member: social browsing is not deep work.
+            case .engaged, .quietKept: if members.contains(slice.app) && slice.site?.isLeisure != true { inside += seconds }
             }
         }
         if watched > credited / 2 { return .passive }
@@ -115,6 +116,6 @@ enum ActivityDerivation {
             byApp[slice.app, default: 0] += slice.end.timeIntervalSince(slice.start)
         }
         let ranked = byApp.sorted { $0.value != $1.value ? $0.value > $1.value : $0.key < $1.key }.map(\.key)
-        return ActivityFingerprint(shares: shares, topApps: Array((ranked + ["", ""]).prefix(2)), siteKind: "none")
+        return ActivityFingerprint(shares: shares, topApps: Array((ranked + ["", ""]).prefix(2)), siteKind: siteKind(slices))
     }
 }

@@ -19,7 +19,8 @@ extension ActivityDerivation {
     static func cells(_ slices: [CreditedSlice], input: DerivationInput) -> [PhaseCell] {
         let watching = ActivityCredit.watchPauses(ActivityCredit.ordered(input.credit.beats),
                                                   counted: input.credit.counted,
-                                                  overrides: input.credit.purposeOverrides)
+                                                  overrides: input.credit.purposeOverrides,
+                                                  signals: input.credit.signals)
         var cells: [PhaseCell] = []
         var start = input.bounds.start
         while start < input.bounds.end {

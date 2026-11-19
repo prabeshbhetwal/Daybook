@@ -26,6 +26,11 @@ final class ActivityEvidence {
     var settled: [UUID: SettledRecord] = [:]
     /// The session archive's revision when `refresh()` last wrote summaries after a stop.
     var sweptRevision = -1
+    /// Asks which kind of site a confirmed browser's front tab shows; nil until the app builds one,
+    /// so a store without one reads nothing.
+    var siteReader: SiteSignalReader?
+    /// The process of the app in front when it is the app named; nil reads nothing.
+    var frontPID: (String) -> pid_t? = { _ in nil }
 
     init(archive: BeatArchive = BeatArchive(), counters: InputCounters = InputCounters()) {
         self.archive = archive

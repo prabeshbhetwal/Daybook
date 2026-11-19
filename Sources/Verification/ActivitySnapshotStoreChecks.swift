@@ -230,7 +230,7 @@ extension ActivitySnapshotChecks {
                 let old = SessionActivityKey(bounds: entry.key.bounds, counted: entry.key.counted, beats: entry.key.beats,
                                              algorithmVersion: 0, isRunning: entry.key.isRunning,
                                              countsWhileWatching: entry.key.countsWhileWatching,
-                                             overridesDigest: entry.key.overridesDigest)
+                                             overridesDigest: entry.key.overridesDigest, signals: entry.key.signals)
                 r.evidence.memo[SessionActivityMemoKey(session)] = SessionActivityMemo(key: old, shape: sentinel)
                 r.evidence.stamped[SessionActivityMemoKey(session)] = nil
             }

@@ -263,7 +263,7 @@ struct SettingsPrivacyDisclosure {
         + " set under Backups; the update check, which asks GitHub for the latest"
         + " version and sends the app's own; and dictation, which uses Apple's speech"
         + " recognition and may send the audio to Apple when this Mac cannot"
-        + " recognise your language itself."
+        + " recognise your language itself." + Self.siteSignalDetail
     }
 }
 

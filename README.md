@@ -187,7 +187,8 @@ why rather than hiding the difference.
 ## Privacy
 
 - **Your record stays on your Mac.** Daybook tracks which app is in front and
-  for how long, never what is in it. Session names, notes and everything else
+  for how long, never what is in it, with the one exception described under the
+  site signal below. Session names, notes and everything else
   you write are kept on the Mac. There is no account and no analytics.
 - **What can leave the Mac**, and only these:
   - The update check asks GitHub for the latest version. It sends the version
@@ -200,12 +201,23 @@ why rather than hiding the difference.
 - **On-device AI stays on the device.** Ask, review notes, name suggestions and
   History's search run on the Mac, and your questions, history and answers are
   not sent anywhere.
-- **No special access.** Daybook asks for no Accessibility, Automation, Screen
-  Recording or Input Monitoring permission; it tells when you are away from
-  system counters, not from what you type. The prompts you may see are for
-  notifications (at first launch, for break reminders) and for the microphone
-  and speech recognition (only when you dictate a note). Open at login, if you
-  turn it on, adds a login item.
+- **No special access unless you turn on the site signal.** Daybook asks for no
+  Accessibility, Automation, Screen Recording or Input Monitoring permission;
+  it tells when you are away from system counters, not from what you type. The
+  one exception is the site signal in Settings › Privacy, off by default. If
+  you turn it on, Daybook asks for Accessibility to read the address of the
+  front tab in the browsers you choose, keeps only what kind of site it is
+  (video, documentation, social and so on) and discards the address
+  immediately. It never reads page titles or page content and never queries any
+  other app. Sites it knows as banking, health, government, sign-in or adult
+  give no signal and are never kept. Site names are kept only if you turn on
+  Remember sites, and only the ones you add. Turning the signal off stops
+  reads at once, and no site kind is noted after the half-minute you are in.
+  The switch stays unavailable on a version of macOS until the signal
+  has been tested there. The prompts you may see are for notifications (at
+  first launch, for break reminders) and for the microphone and speech
+  recognition (only when you dictate a note). Open at login, if you turn it
+  on, adds a login item.
 
 ## Install and update
 
@@ -419,7 +431,8 @@ writing over changes it cannot see.
 While app use is recorded, Daybook also keeps a `beats` folder holding, for
 each app and half-minute, the seconds spent in the app, counts of keys, clicks
 and scrolls, a presence state and which apps held the screen awake (never what
-was typed). The folder keeps 90 days and is left out of Daybook's own backups.
+was typed) and, with the site signal on, the kind of site in the front browser
+tab (never its address). The folder keeps 90 days and is left out of Daybook's own backups.
 Each session also keeps a short summary of its phases in the notes files above
 (`session-metadata.json` and its journal), not in its written note.
 
