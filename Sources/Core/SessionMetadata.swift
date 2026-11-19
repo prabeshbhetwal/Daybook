@@ -96,11 +96,14 @@ struct SessionMetadata: Codable, Equatable, Identifiable {
         recordID = try container.decode(UUID.self, forKey: .recordID)
         note = try container.decodeIfPresent(String.self, forKey: .note)
         power = try container.decode([PowerObservation].self, forKey: .power)
-        activityShape = try? container.decodeIfPresent(SessionActivityShape.self, forKey: .activityShape)
+        // A summary no run could have written is lost the same way: the readers of a stored one trust it.
+        activityShape = (try? container.decodeIfPresent(SessionActivityShape.self, forKey: .activityShape))
+            .flatMap { $0.isPlausible ? $0 : nil }
         // Lost alone if unreadable, like the summary: a link or a decline is never worth a whole sidecar.
         splitFrom = try? container.decodeIfPresent(SplitLink.self, forKey: .splitFrom)
         declinedSplits = try? container.decodeIfPresent([Date].self, forKey: .declinedSplits)
-        headSummary = try? container.decodeIfPresent(SessionActivityShape.self, forKey: .headSummary)
+        headSummary = (try? container.decodeIfPresent(SessionActivityShape.self, forKey: .headSummary))
+            .flatMap { $0.isPlausible ? $0 : nil }
     }
 }
 

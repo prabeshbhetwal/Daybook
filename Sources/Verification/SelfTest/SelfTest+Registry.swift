@@ -236,6 +236,8 @@ extension SelfTest {
             + OlderFilingUndoChecks.tests + SplitAgainChecks.tests
             + CorrectionUndoRuleChecks.laterTests
             + ActivityLimitChecks.tests
+            + PausedGoalDayChecks.tests
+            + StoredEvidenceBoundsChecks.tests
             + SplitUndoNoteChecks.tests
             + RestructureSidecarChecks.tests
             + UndoForgetRelaunchChecks.tests
