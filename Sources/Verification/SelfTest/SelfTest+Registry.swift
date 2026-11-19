@@ -244,6 +244,7 @@ extension SelfTest {
             + LiveOriginChecks.tests
             + OwedWorkChecks.tests
             + RestructureSidecarChecks.laterTests
+            + CorrectionsNoticeChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.
