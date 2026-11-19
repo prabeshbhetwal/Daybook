@@ -57,9 +57,11 @@ final class SiteSignalSettings {
     var remembers: Bool { defaults.bool(forKey: Self.rememberKey) }
 
     var rememberedSites: [String: SiteKind] {
-        (defaults.dictionary(forKey: Self.sitesKey) ?? [:])
-            .compactMapValues { ($0 as? String).flatMap(SiteKind.init(rawValue:)) }
+        storedSites.compactMapValues { ($0 as? String).flatMap(SiteKind.init(rawValue:)) }
     }
+
+    /// The list as stored, kinds this build cannot decode included, so a write never erases what a newer build saved.
+    private var storedSites: [String: Any] { defaults.dictionary(forKey: Self.sitesKey) ?? [:] }
 
     func turnOn(apps: [String]) {
         defaults.set(SiteSignalConstants.consentVersion, forKey: Self.consentKey)
@@ -78,7 +80,7 @@ final class SiteSignalSettings {
     @discardableResult func remember(_ typed: String, as kind: SiteKind) -> String? {
         guard remembers, let name = SiteAddress.normalisedSiteName(typed), !Self.isPublicSuffixShaped(name),
               !SiteKindTable.isSensitive(name) else { return nil }
-        var sites = rememberedSites.mapValues(\.rawValue)
+        var sites = storedSites
         sites[name] = kind.rawValue
         defaults.set(sites, forKey: Self.sitesKey)
         return name
@@ -92,7 +94,7 @@ final class SiteSignalSettings {
     }
 
     func forget(_ siteName: String) {
-        var sites = rememberedSites.mapValues(\.rawValue)
+        var sites = storedSites
         guard sites.removeValue(forKey: siteName) != nil else { return }
         defaults.set(sites, forKey: Self.sitesKey)
     }

@@ -239,9 +239,12 @@ extension BeatRecorder {
 
 private extension BeatSlice {
     mutating func absorb(_ other: BeatSlice) {
+        // A counter that read backwards gives a delta near 2^32, so a merged count is held at one
+        // counter's most: `Beat.init(from:)` passes over a line with more, and the beat would be lost.
+        let most = Int(UInt32.max)
         seconds += other.seconds
-        keys += other.keys
-        clicks += other.clicks
-        scrolls += other.scrolls
+        keys = min(keys + other.keys, most)
+        clicks = min(clicks + other.clicks, most)
+        scrolls = min(scrolls + other.scrolls, most)
     }
 }
