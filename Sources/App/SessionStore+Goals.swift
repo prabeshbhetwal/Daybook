@@ -67,7 +67,7 @@ extension SessionStore {
             guard let day = calendar.date(byAdding: .day, value: -offset, to: today) else { continue }
             let dayKey = DailyGoalList.dayKey(day, calendar: calendar)
             guard recorded[dayKey] == nil, let goals = snapshots[dayKey],
-                  !DailyGoalList.active(goals).isEmpty else { continue }
+                  !DailyGoalList.usable(goals).isEmpty else { continue }
             let reading = storyRailDay(on: day)
             let appUse = Dictionary(reading.apps.map { ($0.bundleID, $0.total) }, uniquingKeysWith: +)
             let dayApps = reading.apps.map { ($0.bundleID, $0.total) }
