@@ -211,6 +211,15 @@ extension SelfTest {
             + DailyGoalMigrationChecks.tests
             + AppLimitChecks.tests
             + GoalDayResultsChecks.tests
+            + SiteKindChecks.tests
+            + SiteBeatChecks.tests
+            + SiteCreditChecks.tests
+            + SiteSignalChecks.tests
+            + SiteCreditChecks.laterTests
+            + SiteSignalWorkerChecks.tests
+            + SiteSignalWiringChecks.tests
+            + SiteSignalSurfaceChecks.tests
+            + SiteSignalSecurityChecks.tests
             + ProvenanceChecks.tests + ProvenanceEngineChecks.tests
             + CategoryCorrectionChecks.tests + CorrectionsFileChecks.tests + CorrectionsStoreChecks.tests
             + ProvenanceCarryChecks.tests + ProvenanceLiveEditChecks.tests

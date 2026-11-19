@@ -6,7 +6,7 @@ import Foundation
 /// read to mean, so `algorithmVersion` moves with it: stored evidence names
 /// the version that read it, and a check pins `signature` to the version.
 enum ActivityConstants {
-    static let algorithmVersion = 1
+    static let algorithmVersion = 2
     /// One beat: the span the sampler summarises into a single record.
     static let beatLength: TimeInterval = 30
     /// A stay in an app shorter than this folds into the stretch around it.

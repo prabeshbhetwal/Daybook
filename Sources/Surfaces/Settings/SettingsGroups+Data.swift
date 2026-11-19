@@ -36,6 +36,7 @@ extension SettingsGroups {
                     readOnlyRow("Backup of older app use", value: backup.path, valueLayout: .statusBlock)
                 }
             }
+            SiteSignalSection(groups: self, onDeviceAI: ModelGate.modelAvailable && model.useAppleIntelligence)
 
             backups
 

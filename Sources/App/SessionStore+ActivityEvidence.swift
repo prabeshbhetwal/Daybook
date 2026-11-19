@@ -30,12 +30,18 @@ extension SessionStore {
         guard recordsBeats else { return endBeatRecording(at: now) }
         if !evidence.recording {
             evidence.recording = true
+            // No count of timeouts or read in flight outlasts the recording before this one (R9).
+            evidence.siteReader?.reset()
             // A launch seeds the engine with the app in front without telling the recorder, and
             // activations in the stretch before this one were not passed on.
             noteBeatActivation(bundleID: engine.currentAppBundleID, at: now)
         }
-        append(evidence.recorder.tick(at: now, presence: evidence.lastPresence, watchedApps: evidence.lastWatched,
-                                      counters: { evidence.reading }, idleSeconds: idle.idleSeconds))
+        let closed = evidence.recorder.tick(at: now, presence: evidence.lastPresence, watchedApps: evidence.lastWatched,
+                                            counters: { evidence.reading }, idleSeconds: idle.idleSeconds)
+        append(closed)
+        // Each edge asks again, whether or not the app changed: an answer the recorder dropped near one
+        // is asked for within a beat.
+        if closed != nil { requestSiteRead(app: engine.currentAppBundleID, at: now) }
     }
 
     /// Recording has ended (the session stopped, a setting went off) or the app is quitting: the partial
@@ -45,6 +51,7 @@ extension SessionStore {
         let evidence = activityEvidence
         guard evidence.recording else { return }
         evidence.recording = false
+        evidence.siteReader?.reset()
         append(evidence.recorder.stop(at: now, counters: evidence.reading, idleSeconds: idle.idleSeconds()))
     }
 
@@ -57,6 +64,7 @@ extension SessionStore {
         let evidence = activityEvidence
         evidence.recorder.activate(app: bundleID, at: now, counters: evidence.reading,
                                    idleSeconds: idle.idleSeconds())
+        requestSiteRead(app: bundleID, at: now)
     }
 
     private func append(_ beat: Beat?) {

@@ -10,7 +10,7 @@ import Foundation
 /// steps name, or [] when they name none. An engaged beat reads nil.
 enum BeatTrace {
     struct Step { let app: String; let minutes: Double; let input: Input; var holder: String? = nil
-                  var presence: BeatPresence? = nil }
+                  var presence: BeatPresence? = nil; var site: SiteKind? = nil }
     enum Input { case keys, clicks(Int), scrolls(Int), none, oneKeyEvery(minutes: Double) }
 
     /// How long quiet lasts before the sampler reads holders.
@@ -72,7 +72,8 @@ enum BeatTrace {
             let period = max(1, Int((minutes * 60).rounded()))
             keys = (to - 1) / period - (from + period - 1) / period + 1
         }
-        return BeatSlice(app: step.app, seconds: to - from, keys: keys, clicks: clicks, scrolls: scrolls)
+        return BeatSlice(app: step.app, seconds: to - from, keys: keys, clicks: clicks, scrolls: scrolls,
+                         site: step.site)
     }
 }
 

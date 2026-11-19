@@ -144,6 +144,7 @@ struct DaybookApp: App {
         Window("Settings", id: SettingsWindow.id) {
             SettingsWindowContent(settings: coordinator.settings, navigation: coordinator.mainWindow,
                                   store: coordinator.store)
+                .environment(\.siteSignal, coordinator.siteSignal)
         }
         .windowResizability(.contentSize)
         .defaultPosition(.center)
