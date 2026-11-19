@@ -73,8 +73,8 @@ extension SessionStore {
     /// Awards for the goals, from the recorded days.
     var goalAwards: [Award] {
         GoalDayResults.awards(results: engine.store.goalResultsByDay, items: goalItems,
-                              name: { item in
-                                  switch item.target {
+                              name: { target in
+                                  switch target {
                                   case .category(let id): return WorkType(rawValue: id).displayName
                                   case .app(let id): return self.historyAppName(for: id)
                                   default: return "Goal"

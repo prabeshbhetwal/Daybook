@@ -73,30 +73,51 @@ enum GoalDayResults {
     static let goalRunTarget = 5
     static let perfectWeekTarget = 7
 
-    /// A perfect week, and a run award for each goal that is in use. Computed
-    /// from the recorded days, never stored: a day with no record is a gap.
+    /// A perfect week, and a run award for each goal. A goal that earned its
+    /// award keeps it after it is paused or deleted: awards are read from the
+    /// recorded days, with each goal's own recorded target. A goal not yet
+    /// earned shows its progress only while it is in use. Never stored: a day with
+    /// no record is a gap.
     static func awards(results: [String: [DailyGoalResult]], items: [DailyGoalItem],
-                       name: (DailyGoalItem) -> String, calendar: Calendar) -> [Award] {
-        func days(_ keep: ([DailyGoalResult]) -> Bool) -> [Date] {
-            results.compactMap { key, value in keep(value) ? DailyGoalList.date(forKey: key, calendar: calendar) : nil }
+                       name: (DailyGoalTarget) -> String, calendar: Calendar) -> [Award] {
+        let perfectDays = results.compactMap { key, value in
+            isPerfect(value) ? DailyGoalList.date(forKey: key, calendar: calendar) : nil
         }
-        let perfect = longestRun(days(isPerfect), calendar: calendar)
+        let perfect = longestRun(perfectDays, calendar: calendar)
         var awards = [Award(id: "perfect-week", title: "Perfect week",
                             detail: perfect >= perfectWeekTarget ? "\(perfect) perfect days in a row"
                                                                  : "\(perfect) of \(perfectWeekTarget) days",
                             method: "Seven days in a row on which every goal was met or kept, from the days "
                                   + "Daybook has recorded goals for.",
                             symbolName: "checkmark.seal", paletteRank: 0, isEarned: perfect >= perfectWeekTarget)]
-        for item in DailyGoalList.active(items) {
-            let run = goalRun(item.id, in: results, calendar: calendar)
-            let isLimit = item.kind == .limit
+        // Every goal that has a recorded day, in the order it first appears, plus those in use.
+        var known: [UUID: (target: DailyGoalTarget, kind: DailyGoalKind)] = [:]
+        var order: [UUID] = []
+        for key in results.keys.sorted() {
+            for result in results[key] ?? [] where known[result.goalID] == nil {
+                known[result.goalID] = (result.target, result.kind)
+                order.append(result.goalID)
+            }
+        }
+        let inUse = Set(DailyGoalList.active(items).map(\.id))
+        for item in DailyGoalList.active(items) where known[item.id] == nil {
+            known[item.id] = (item.target, item.kind)
+            order.append(item.id)
+        }
+        for id in order {
+            guard let goal = known[id] else { continue }
+            let run = goalRun(id, in: results, calendar: calendar)
+            let earned = run >= goalRunTarget
+            guard earned || inUse.contains(id) else { continue }
+            let isLimit = goal.kind == .limit
+            let label = name(goal.target)
             awards.append(Award(
-                id: "goal-\(item.id.uuidString)",
-                title: isLimit ? "Kept to \(name(item)) limit, \(goalRunTarget) days" : "\(name(item)) goal, \(goalRunTarget) days",
-                detail: run >= goalRunTarget ? "\(run) days in a row" : "\(run) of \(goalRunTarget) days",
+                id: "goal-\(id.uuidString)",
+                title: isLimit ? "Kept to \(label) limit, \(goalRunTarget) days" : "\(label) goal, \(goalRunTarget) days",
+                detail: earned ? "\(run) days in a row" : "\(run) of \(goalRunTarget) days",
                 method: isLimit ? "Days in a row on which the app stayed within its limit."
                                 : "Days in a row on which the goal was met, counted with focus that has app use recorded.",
-                symbolName: isLimit ? "hourglass" : "target", paletteRank: 1, isEarned: run >= goalRunTarget))
+                symbolName: isLimit ? "hourglass" : "target", paletteRank: 1, isEarned: earned))
         }
         return awards
     }

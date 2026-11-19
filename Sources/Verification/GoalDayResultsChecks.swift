@@ -66,13 +66,26 @@ enum GoalDayResultsChecks: CheckSuite {
         var results: [String: [DailyGoalResult]] = [:]
         for offset in 1...7 { results[key(offset)] = [result(coding, met: true), result(video, met: true)] }
         let awards = GoalDayResults.awards(results: results, items: [coding, video],
-                                           name: { $0.kind == .limit ? "Video" : "Coding" }, calendar: calendar)
+                                           name: { target in if case .app = target { return "Video" } else { return "Coding" } }, calendar: calendar)
         let week = awards.first { $0.id == "perfect-week" }
         if week?.isEarned != true || week?.detail != "7 perfect days in a row" { problems.append("a perfect week read \(week?.detail ?? "missing")") }
         let run = awards.first { $0.id == "goal-\(coding.id.uuidString)" }
         if run?.isEarned != true || run?.title != "Coding goal, 5 days" { problems.append("the coding run read \(run?.title ?? "missing")") }
         let kept = awards.first { $0.id == "goal-\(video.id.uuidString)" }
         if kept?.title != "Kept to Video limit, 5 days" { problems.append("the limit award read \(kept?.title ?? "missing")") }
+        // An earned award outlives the goal: removed from use, the run award is still there; a
+        // goal never earned and no longer in use shows nothing.
+        let afterRemoval = GoalDayResults.awards(results: results, items: [], name: { _ in "x" }, calendar: calendar)
+        if afterRemoval.first(where: { $0.id == "goal-\(coding.id.uuidString)" })?.isEarned != true {
+            problems.append("deleting a goal removed the award it had earned")
+        }
+        var partial = results
+        for offset in 1...7 where offset != 4 && offset != 2 { _ = partial[key(offset)] }
+        partial = [key(1): results[key(1)] ?? []]
+        if GoalDayResults.awards(results: partial, items: [], name: { _ in "x" }, calendar: calendar)
+            .contains(where: { $0.id.hasPrefix("goal-") }) {
+            problems.append("an unearned goal no longer in use was listed")
+        }
         // A paused day neither breaks a run nor adds to it: three met, one paused, two met is five.
         var bridged: [String: [DailyGoalResult]] = [:]
         for (offset, state) in [(7, "met"), (6, "met"), (5, "met"), (4, "paused"), (3, "met"), (2, "met")] {
