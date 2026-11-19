@@ -56,6 +56,15 @@ struct SessionActivityShape: Codable, Equatable {
     }
 }
 
+extension SessionActivityShape {
+    /// False for a stored summary no run could have written: a negative or non-finite credit, or more
+    /// credit or counted time than its own span holds. A reader that trusts it would misreport or trap.
+    var isPlausible: Bool {
+        let room = bounds.duration + 1
+        return credited.values.allSatisfy { $0.isFinite && $0 >= 0 } && credited.values.reduce(0, +) <= room
+            && countedSeconds.isFinite && countedSeconds >= 0 && countedSeconds <= room
+    }
+}
 struct DerivationInput {
     let credit: CreditInput
     let bounds: DateInterval

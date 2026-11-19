@@ -84,8 +84,20 @@ struct Beat: Codable, Equatable {
         }
         self.version = version
         start = Date(timeIntervalSinceReferenceDate: TimeInterval(try container.decode(Int.self, forKey: .start)))
-        offset = try container.decodeIfPresent(Int.self, forKey: .offset) ?? 0
-        slices = try container.decode([BeatSlice].self, forKey: .slices)
+        let offset = try container.decodeIfPresent(Int.self, forKey: .offset) ?? 0
+        let slices = try container.decode([BeatSlice].self, forKey: .slices)
+        // The recorder keeps every second inside its cell and every count a UInt32 delta. A line that
+        // does not is damaged: passed over here, because sums over its slices (`end`, the credit) would overflow.
+        let cell = Int(ActivityConstants.beatLength), counts = 0...Int(UInt32.max)
+        guard (0...cell).contains(offset),
+              slices.allSatisfy({ (0...cell).contains($0.seconds) && counts.contains($0.keys)
+                                  && counts.contains($0.clicks) && counts.contains($0.scrolls) }),
+              offset + slices.reduce(0, { $0 + $1.seconds }) <= cell else {
+            throw DecodingError.dataCorruptedError(forKey: .slices, in: container,
+                                                   debugDescription: "A beat holds more than its cell, or a count no counter reaches")
+        }
+        self.offset = offset
+        self.slices = slices
         presence = try container.decode(BeatPresence.self, forKey: .presence)
         watchedApps = try container.decodeIfPresent([String].self, forKey: .watchedApps)
     }
