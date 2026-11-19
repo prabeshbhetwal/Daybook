@@ -173,13 +173,13 @@ enum SiteCreditChecks: CheckSuite {
 
     private static func unmappedBrowser() -> [String] {
         var problems: [String] = []
-        let brave = "com.brave.Browser"
-        expectAll(credit(trace([step(brave, 10, .keys, site: .documentation)]), siteOn), 0, 600, [.engaged], .research,
-                  "typing in Brave on documentation", &problems)
-        expectAll(credit(trace([step(brave, 20, .none, site: .meeting, holder: brave)]), siteOn), 0, 1_200, [.held],
-                  .communication, "a meeting held in Brave", &problems)
-        let label = derive(trace([step(brave, 10, .keys, site: .video)]), siteOn).label
-        expect(label == .mixed, "typing in Brave on video should label mixed, got \(label)", &problems)
+        let unlisted = "com.example.UnlistedBrowser"  // confirmed by the person, unknown to PurposeMap
+        expectAll(credit(trace([step(unlisted, 10, .keys, site: .documentation)]), siteOn), 0, 600, [.engaged], .research,
+                  "typing in an unlisted browser on documentation", &problems)
+        expectAll(credit(trace([step(unlisted, 20, .none, site: .meeting, holder: unlisted)]), siteOn), 0, 1_200, [.held],
+                  .communication, "a meeting held in an unlisted browser", &problems)
+        let label = derive(trace([step(unlisted, 10, .keys, site: .video)]), siteOn).label
+        expect(label == .mixed, "typing in an unlisted browser on video should label mixed, got \(label)", &problems)
         return problems
     }
 
