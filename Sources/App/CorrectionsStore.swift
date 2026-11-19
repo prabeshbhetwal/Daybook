@@ -45,12 +45,14 @@ final class CorrectionsStore {
         return save(next, at: moment)
     }
 
-    /// Takes back what filings added, as Undo of the change that made them. `standing`: the filings of the
-    /// corrections made before it that nobody has undone, oldest first (see `CategoryCorrections.forget`).
+    /// Takes back what filings added, as Undo of the change that made them. `standing` and `later`: the filings
+    /// of the corrections made before it and after it that nobody has undone, oldest first (see
+    /// `CategoryCorrections.forget`).
     @discardableResult
-    func forget(_ filings: [RememberedFiling], standing: [RememberedFiling], at moment: Date) -> String? {
+    func forget(_ filings: [RememberedFiling], standing: [RememberedFiling], later: [RememberedFiling],
+                at moment: Date) -> String? {
         var next = corrections
-        for filing in filings.reversed() { next.forget(filing, standing: standing) }
+        for filing in filings.reversed() { next.forget(filing, standing: standing, later: later) }
         return next == corrections ? nil : save(next, at: moment)
     }
 

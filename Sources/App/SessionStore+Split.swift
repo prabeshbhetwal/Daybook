@@ -35,14 +35,17 @@ extension SessionStore {
     }
 
     /// The tail of a split, offered Merge Back: it touches its head, neither has been renamed or filed
-    /// elsewhere since the cut, and the person has written nothing on the tail.
+    /// elsewhere since the cut, the person has written nothing on the tail, and it has not been cut again
+    /// (a later part of it is joined back first).
     func canMergeBack(recordID: UUID) -> Bool { mergePair(tailID: recordID) != nil }
 
     /// Joins the tail of a split back onto its head: one correction, reversed by Undo.
     @discardableResult
     func mergeBack(tailID: UUID) -> Bool {
         guard let pair = mergePair(tailID: tailID) else {
-            publishCorrectionError("This session was changed after it was split, so it can't be merged back. Undo the change first.")
+            publishCorrectionError(hasLaterPart(of: tailID)
+                ? "This session was split again, so it can't be merged back yet. Merge its later part back first."
+                : "This session was changed after it was split, so it can't be merged back. Undo the change first.")
             return false
         }
         let done = engine.mergeRecords(head: pair.head.id, tail: tailID)
@@ -85,8 +88,15 @@ extension SessionStore {
               let entry = metadataArchive.metadata(for: tailID), let link = entry.splitFrom, entry.note == nil,
               let tail = records.first(where: { $0.id == tailID }),
               let head = records.first(where: { $0.id == link.head }),
-              link.holds(head: head, tail: tail) else { return nil }
+              link.holds(head: head, tail: tail), !hasLaterPart(of: tailID) else { return nil }
         return (head, tail)
+    }
+
+    /// Whether a record still in the archive was cut from this one. Its link names this record as the head, so
+    /// joining this one to its own head first would take away the record that link points at. Any such link
+    /// counts, held or not: a part renamed since can be joined again once the rename is undone.
+    private func hasLaterPart(of recordID: UUID) -> Bool {
+        engine.archive.records.contains { metadataArchive.metadata(for: $0.id)?.splitFrom?.head == recordID }
     }
 
     /// Undo of a correction that swapped whole records: a removal, a split or a merge. The records it wrote

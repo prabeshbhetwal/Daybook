@@ -172,12 +172,12 @@ enum RememberedUndoChecks: CheckSuite {
         func at(_ minutes: Int) -> Date { SelfTest.base.addingTimeInterval(TimeInterval(minutes * 60)) }
         let x = corrections.record(fingerprint: typical, chosen: "learning", vetoed: nil, at: at(0))
         let y = corrections.record(fingerprint: typical, chosen: "learning", vetoed: nil, at: at(1))
-        corrections.forget(x, standing: [])
+        corrections.forget(x, standing: [], later: [y])
         let z = corrections.record(fingerprint: typical, chosen: "admin", vetoed: nil, at: at(2))
-        corrections.forget(z, standing: [y])
+        corrections.forget(z, standing: [y], later: [])
         expect(corrections.entries.first?.chosen == "learning" && corrections.entries.first?.count == 1,
                "taking back the latest filing left \(corrections.entries), not one count of the one that stands", &problems)
-        corrections.forget(y, standing: [])
+        corrections.forget(y, standing: [], later: [])
         expect(corrections.entries.isEmpty, "taking back the last one standing left \(corrections.entries)", &problems)
         return problems
     }

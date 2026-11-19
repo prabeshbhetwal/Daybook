@@ -233,6 +233,7 @@ extension SelfTest {
             + RestructureRetryChecks.tests + RememberedUndoChecks.tests
             + RestructureRetryChecks.finishedElsewhereTests
             + RememberedUndoChecks.retriedTests + JoinedSummaryChecks.tests
+            + OlderFilingUndoChecks.tests + SplitAgainChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

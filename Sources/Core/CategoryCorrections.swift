@@ -64,17 +64,23 @@ struct CategoryCorrections: Equatable {
     /// left it (those made before it that nobody has undone, oldest first), and is gone when none stands. Its
     /// count is cut to the run of standing filings that chose the same category, since one of them may have been
     /// undone out of order after that snapshot was taken. The filing's own `before` is not trusted: it may be the
-    /// work of one undone out of order. One filed again since keeps those later choices: it loses one count, and
-    /// goes at zero. shortcut: vetoes are restored as that snapshot had them, and in that second case left as
-    /// they are, since a later filing may rest on them; either can carry one an undone choice added, so upgrade
-    /// if that proves to matter. A filing whose receipt aged out of the history is not standing, so undoing a
-    /// later one forgets what it rested on too (and its count is cut with it); upgrade if that proves to matter.
-    /// `standing` has no default: a caller that has none to give says so with `[]`.
-    mutating func forget(_ filing: RememberedFiling, standing: [RememberedFiling]) {
+    /// work of one undone out of order. One filed again since (`later`: the filings made after it that nobody has
+    /// undone, oldest first) keeps those later choices. When the filing is part of the run that stands now, none
+    /// of `later` chose another category, it loses one count, and goes at zero unless a later one stands. An older
+    /// one a different choice has since come between is no part of that run: nothing changes. shortcut: vetoes
+    /// are restored as that snapshot had them, and in that second case left as they are, since a later filing may
+    /// rest on them; either can carry one an undone choice added, so upgrade if that proves to matter. A filing
+    /// whose receipt aged out of the history is not standing, so undoing a later one forgets what it rested on
+    /// too (and its count is cut with it); upgrade if that proves to matter.
+    /// `standing` and `later` have no default: a caller that has none to give says so with `[]`.
+    mutating func forget(_ filing: RememberedFiling, standing: [RememberedFiling], later: [RememberedFiling]) {
         guard let index = entries.firstIndex(where: {
             $0.kind == Self.categoryKind && $0.fingerprint == filing.after.fingerprint
         }), entries[index].chosen == filing.after.chosen else { return }
-        if entries[index] == filing.after {
+        let after = later.filter { $0.after.fingerprint == filing.after.fingerprint }
+        // An entry equal to this filing's is only its own while no later filing of the kind stands: a later
+        // one made in the same instant leaves an identical entry.
+        if after.isEmpty, entries[index] == filing.after {
             let mine = standing.filter { $0.after.fingerprint == filing.after.fingerprint }
             if var kept = mine.last?.after {
                 let run = mine.reversed().prefix { $0.after.chosen == kept.chosen }.count
@@ -82,7 +88,8 @@ struct CategoryCorrections: Equatable {
                 entries[index] = kept
             } else { entries.remove(at: index) }
         } else {
-            entries[index].count = max(entries[index].count, 1) - 1
+            guard after.allSatisfy({ $0.after.chosen == filing.after.chosen }) else { return }
+            entries[index].count = max(max(entries[index].count, 1) - 1, after.isEmpty ? 0 : 1)
             if entries[index].count == 0 { entries.remove(at: index) }
         }
     }

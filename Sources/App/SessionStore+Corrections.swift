@@ -84,11 +84,13 @@ extension SessionStore {
 
     /// Undo of a category change takes back what it taught: that kind of session is no longer offered
     /// the category on its account. The choices to fall back to are the filings of the corrections made
-    /// before this one that still stand, so one undone out of order is not revived.
+    /// before this one that still stand, so one undone out of order is not revived; the ones made after it
+    /// that still stand say whether it is part of the choice that stands now.
     func forgetRemembered(of state: SessionStoreCorrectionState) {
         guard let filings = state.remembered, !filings.isEmpty else { return }
         let standing = corrections.filter { $0.sequence < state.sequence }.flatMap { $0.remembered ?? [] }
-        guard let why = categoryCorrections.forget(filings, standing: standing, at: now()) else { return }
+        let later = corrections.filter { $0.sequence > state.sequence }.flatMap { $0.remembered ?? [] }
+        guard let why = categoryCorrections.forget(filings, standing: standing, later: later, at: now()) else { return }
         Diagnostics.log("Category choice not forgotten: \(why)")
     }
 
