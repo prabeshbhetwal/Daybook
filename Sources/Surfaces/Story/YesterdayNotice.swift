@@ -17,12 +17,15 @@ struct YesterdayNotice: View {
     /// Read when the rail builds the notice; see `PeriodNote.usable`.
     private let usable: Bool
     let recap: DayRecap?
-    init(writer: NoteWriter, place: HistoryPlace, figures: String, recap: DayRecap?,
+    /// Every goal met or kept: said once, in words and a mark.
+    let perfectDay: Bool
+    init(writer: NoteWriter, place: HistoryPlace, figures: String, recap: DayRecap?, perfectDay: Bool = false,
          onDone: @escaping () -> Void) {
         self.writer = writer
         self.place = place
         self.figures = figures
         self.recap = recap
+        self.perfectDay = perfectDay
         self.onDone = onDone
         usable = writer.isUsable
     }
@@ -37,6 +40,12 @@ struct YesterdayNotice: View {
                     .font(Tokens.Typography.body.monospacedDigit())
                     .foregroundStyle(StoryStyle.supportingInk)
                     .padding(.top, Tokens.Space.xs)
+                if perfectDay {
+                    Label("Perfect day: every goal met", systemImage: "checkmark.seal.fill")
+                        .font(Tokens.Typography.label)
+                        .foregroundStyle(StoryStyle.successInk)
+                        .padding(.top, Tokens.Space.xs)
+                }
                 if let recap {
                     DayRecapView(recap: recap).padding(.top, Tokens.Space.s)
                 }

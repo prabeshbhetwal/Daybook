@@ -107,6 +107,8 @@ struct DailyGoalResult: Codable, Hashable {
     let amount: TimeInterval
     let counted: TimeInterval
     let met: Bool
+    /// Paused that day: neither met nor missed, so it neither breaks nor extends a run.
+    var paused: Bool? = nil
 }
 
 /// The rules for the list of goals, apart from where it is kept.
@@ -142,6 +144,13 @@ enum DailyGoalList {
     /// The goals that count today: usable and not paused.
     static func active(_ items: [DailyGoalItem]) -> [DailyGoalItem] {
         usable(items).filter { !$0.isPaused }
+    }
+
+    /// The day a key names, in the calendar the archive uses.
+    static func date(forKey key: String, calendar: Calendar) -> Date? {
+        let parts = key.split(separator: "-").compactMap { Int($0) }
+        guard parts.count == 3 else { return nil }
+        return calendar.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2]))
     }
 
     /// A day's key in the results record, in the calendar the archive uses.

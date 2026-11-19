@@ -210,6 +210,7 @@ extension SelfTest {
             + DailyGoalListChecks.tests
             + DailyGoalMigrationChecks.tests
             + AppLimitChecks.tests
+            + GoalDayResultsChecks.tests
             + SiteKindChecks.tests
             + SiteBeatChecks.tests
             + SiteCreditChecks.tests
