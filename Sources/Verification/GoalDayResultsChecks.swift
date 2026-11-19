@@ -132,6 +132,13 @@ enum GoalDayResultsChecks: CheckSuite {
                 problems.append("a day with every goal met was not perfect")
             }
             if !store.yesterdayWasPerfect { problems.append("the card did not know yesterday was perfect") }
+            // The offers are rebuilt when yesterday's results land, not only on a session change.
+            let before = TodayNoteOffers.cause(store: store, usable: true)
+            persistence.goalResultsByDay = [:]
+            store.yesterdayPerfectCache = nil
+            if TodayNoteOffers.cause(store: store, usable: true) == before {
+                problems.append("recording yesterday's results did not change the note offers' cause")
+            }
             persistence.goalResultsByDay = [DailyGoalList.dayKey(yesterday, calendar: calendar):
                                                 [result(coding, met: true), result(video, met: false)]]
             if store.wasPerfectDay(place) { problems.append("a broken limit left the day perfect") }

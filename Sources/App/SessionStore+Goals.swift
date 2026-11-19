@@ -64,7 +64,10 @@ extension SessionStore {
                 changed = true
             }
         }
-        if changed { engine.store.goalResultsByDay = recorded }
+        if changed {
+            engine.store.goalResultsByDay = recorded
+            yesterdayPerfectCache = nil
+        }
     }
 
     /// How long after midnight before a closed day is judged: past the idle cutoff
@@ -82,7 +85,11 @@ extension SessionStore {
     var yesterdayWasPerfect: Bool {
         let calendar = Calendar.current
         guard let yesterday = calendar.date(byAdding: .day, value: -1, to: calendar.startOfDay(for: now())) else { return false }
-        return wasPerfectDay(on: yesterday)
+        let key = DailyGoalList.dayKey(yesterday, calendar: calendar)
+        if let cached = yesterdayPerfectCache, cached.day == key { return cached.perfect }
+        let perfect = wasPerfectDay(on: yesterday)
+        yesterdayPerfectCache = (key, perfect)
+        return perfect
     }
 
     /// Whether every goal was met or kept on the day `place` covers.

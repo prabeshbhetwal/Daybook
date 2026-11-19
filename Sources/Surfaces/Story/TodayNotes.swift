@@ -40,11 +40,15 @@ struct TodayNoteOffers: Equatable {
         let sessions: Int
         let usable: Bool
         let evidence: SessionStore.NoteEvidence
+        /// Yesterday's goal results are written minutes after midnight, so the notice's
+        /// Perfect day mark is offered again when they land.
+        let yesterdayPerfect: Bool
     }
 
     @MainActor static func cause(store: SessionStore, usable: Bool) -> Cause {
         Cause(today: store.notePlace(forDayContaining: store.now()), state: store.state,
-              sessions: store.sessionsToday, usable: usable, evidence: store.noteEvidence)
+              sessions: store.sessionsToday, usable: usable, evidence: store.noteEvidence,
+              yesterdayPerfect: store.yesterdayWasPerfect)
     }
 }
 

@@ -59,6 +59,9 @@ final class SessionStore: ObservableObject {
     /// Today's goals as last written to the day's snapshot, so the snapshot is
     /// rewritten only when the goals change.
     var goalSnapshotToday: (key: String, items: [DailyGoalItem])?
+    /// Whether yesterday was a perfect day, kept so the rail's per-second redraws do
+    /// not read the recorded results; cleared when results are written.
+    var yesterdayPerfectCache: (day: String, perfect: Bool)?
     @Published var quickStarts: [QuickStart] = []
     /// The activities the user pinned, in their order. Refreshed with the
     /// quick starts; edited through the methods below.
