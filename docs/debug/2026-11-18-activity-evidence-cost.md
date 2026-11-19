@@ -5,7 +5,7 @@ signals in Phase A, add under 1% CPU and under 2 MB resident memory against
 today's idle figures. The task has two steps: a headless cost probe (step 1)
 and a live comparison against the installed release (step 2).
 
-**Status: step 1 passed with a wide margin. Step 2 was not run, so the full
+**Status: step 1 passed with a wide margin. Step 2 (live) ran on 19 November 2026: CPU passes, memory is unresolved; see below. The full
 gate is NOT yet passed.**
 
 ## Step 1 (headless): method
@@ -98,19 +98,47 @@ What step 1 does not cover, and so what step 2 still has to:
 - The workload is synthetic, with the seed above; real days will differ in
   switch rate and presence mix.
 
-## Step 2 (live run): not run
+## Step 2 (live run): run on 19 November 2026
 
-Step 2 needs the owner's go-ahead first. A build from this worktree writes
-beats into the live `Application Support/Daybook/beats/` folder, the owner's
-real data folder, so it was not started. The step is: with a session running,
-20 minutes of ordinary work and 20 minutes idle, sampling `ps -o %cpu=,rss=
--p <pid>` every 10 s, then the same with the installed release as the
-baseline. Pass if the mean CPU difference is under 1 percentage point and the
-median resident memory difference is under 2 MB.
+The owner approved the run. Two 40-minute runs, one after the other on the same
+Mac, each with a focus session started: 20 minutes of ordinary work, then 20
+minutes idle with the session still running. Baseline: the installed 1.3.3
+release. Candidate: a build of the Phase A branch (aedce23, the same content as
+`main` after PR 87, without the later goals commits), launched from the
+worktree, writing beats into the live data folder as approved. Only one copy
+ran at a time, no build or other heavy job ran during either run, and the
+installed app was relaunched afterwards.
 
-No live CPU or memory figure exists. **The full gate is NOT yet passed.**
-Step 1 only shows that the recording and derivation code is cheap in
-isolation; the CPU and memory half of the gate stays open until step 2 runs.
+Sampling: the process's cumulative CPU time and resident memory every 10 s.
+Mean CPU is the CPU seconds gained divided by the wall seconds. This differs
+from the plan's `ps %cpu`, which on macOS is a lifetime average and would hide
+a change. Resident memory is `ps rss`.
+
+| | Baseline (1.3.3) | Candidate (Phase A) | Difference |
+|---|---|---|---|
+| Working, mean CPU | 0.58% | 0.98% | +0.40 points |
+| Idle, mean CPU | 0.51% | 0.42% | -0.09 points |
+| Working, median memory | 46.9 MB | 46.0 MB | -0.9 MB |
+| Idle, median memory | 46.6 MB | 51.8 MB | +5.2 MB |
+| Whole run, median memory | 46.7 MB | 49.2 MB | +2.5 MB |
+
+**CPU: passes.** The worst phase is +0.40 percentage points, against a limit
+of 1.
+
+**Memory: not a clean pass, and not conclusive.** The whole-run median is
++2.5 MB against a limit of 2 MB, and the idle half alone is +5.2 MB. But
+resident memory on this Mac swings far more than that on its own: the median
+of each five-minute block moved between 35 and 59 MB in the baseline and
+between 30 and 57 MB in the candidate, because the machine was short of free
+memory and compressed pages in and out. A 2 MB difference cannot be told apart
+from that noise with one run each. The candidate also holds a few days of
+decoded beats in memory (the archive caches up to eight day files, about 114 KB
+each as measured above), which accounts for well under 1 MB.
+
+**Verdict:** the CPU half of the gate passes. The memory half is unresolved: it
+misses the 2 MB bar on the whole-run median and cannot be shown to pass or fail
+under this noise. A repeat measuring physical footprint (`footprint -p`) on a
+quieter machine would settle it. Release is the owner's call.
 
 ## Cleanup
 
