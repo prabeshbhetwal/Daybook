@@ -51,12 +51,21 @@ extension SessionStore {
                                 carriedOn: carriedOn(session, in: stretches)), began)
     }
 
+    /// Archive records `records(of:)` has looked at, so a check can tell a search that stops early from one that
+    /// reads them all.
+    static var originRecordsExamined = 0
+
     /// Newest first, and done once every stretch is found: a session is nearly always among the last records.
+    /// The stretch running now is written to the archive only when it ends, so it is never waited for: the
+    /// running card reads its origin every second, and waiting would read the whole archive each time.
     private func records(of session: DaySession) -> [SessionRecord] {
         var wanted = Set(session.recordIDs), found: [SessionRecord] = []
-        for record in engine.archive.records.reversed() where wanted.remove(record.id) != nil {
-            found.append(record)
+        if session.isRunning, engine.state != .idle { wanted.remove(engine.activeRecordID) }
+        for record in engine.archive.records.reversed() {
             if wanted.isEmpty { break }
+            Self.originRecordsExamined += 1
+            guard wanted.remove(record.id) != nil else { continue }
+            found.append(record)
         }
         return found
     }
