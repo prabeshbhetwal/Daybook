@@ -220,6 +220,7 @@ extension SelfTest {
             + SiteSignalWiringChecks.tests
             + SiteSignalSurfaceChecks.tests
             + SiteSignalSecurityChecks.tests
+            + BrowserPurposeChecks.tests
             + ProvenanceChecks.tests + ProvenanceEngineChecks.tests
             + CategoryCorrectionChecks.tests + CorrectionsFileChecks.tests + CorrectionsStoreChecks.tests
             + ProvenanceCarryChecks.tests + ProvenanceLiveEditChecks.tests
