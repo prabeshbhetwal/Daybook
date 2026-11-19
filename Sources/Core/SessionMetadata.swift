@@ -73,10 +73,14 @@ struct SessionMetadata: Codable, Equatable, Identifiable {
     var splitFrom: SplitLink?
     /// Moments inside this record the person answered "Keep Together" to, so the offer does not come back.
     var declinedSplits: [Date]?
+    /// Set on the tail of a split while its head stands joined to it: the head's own summary as it was before
+    /// the join replaced it with the one of both halves, so Undo of the join gives it back.
+    var headSummary: SessionActivityShape?
     var id: UUID { recordID }
     /// Nothing left to keep: the archive drops an entry like this.
     var isEmpty: Bool {
         note == nil && power.isEmpty && activityShape == nil && splitFrom == nil && (declinedSplits ?? []).isEmpty
+            && headSummary == nil
     }
 
     init(recordID: UUID, note: String? = nil, power: [PowerObservation] = []) {
@@ -96,6 +100,7 @@ struct SessionMetadata: Codable, Equatable, Identifiable {
         // Lost alone if unreadable, like the summary: a link or a decline is never worth a whole sidecar.
         splitFrom = try? container.decodeIfPresent(SplitLink.self, forKey: .splitFrom)
         declinedSplits = try? container.decodeIfPresent([Date].self, forKey: .declinedSplits)
+        headSummary = try? container.decodeIfPresent(SessionActivityShape.self, forKey: .headSummary)
     }
 }
 

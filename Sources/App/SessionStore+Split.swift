@@ -47,7 +47,10 @@ extension SessionStore {
         }
         let done = engine.mergeRecords(head: pair.head.id, tail: tailID)
         let landed = done || !engine.archive.records.contains { $0.id == tailID }
-        if landed { movePower(head: pair.head.id, tail: pair.tail, toTail: false) }
+        if landed {
+            movePower(head: pair.head.id, tail: pair.tail, toTail: false)
+            joinSummaries(head: pair.head, tail: pair.tail, keepingHead: true)
+        }
         return finishRestructure(done: done, landed: landed,
                                  retry: .merge(threadID: pair.head.threadID, tailID: tailID))
     }
@@ -101,6 +104,7 @@ extension SessionStore {
         let landed = done || back.allSatisfy { engine.archive.records.contains($0) }
         if landed, let parts = state.restructuredParts {
             movePower(head: parts.head, tail: parts.tail, toTail: state.restructure == .merge)
+            summariesFollowUndo(of: state, parts: parts)
         }
         return finishRestructure(done: done, landed: landed, retry: .undo(state))
     }
@@ -125,7 +129,7 @@ extension SessionStore {
     }
 
     /// A sidecar write that failed costs the link or the readings, never the split: said in the log only.
-    private func logSidecar(_ result: SessionMetadataWriteResult, _ what: String) {
+    func logSidecar(_ result: SessionMetadataWriteResult, _ what: String) {
         if case .failed(let why) = result { Diagnostics.log("Split: the \(what) were not saved: \(why)") }
     }
 }

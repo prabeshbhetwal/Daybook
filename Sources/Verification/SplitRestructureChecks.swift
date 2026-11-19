@@ -218,7 +218,7 @@ enum SplitRestructureChecks: CheckSuite {
             r.store.writeActivitySnapshots()
             expect(SplitStoreChecks.halves(of: record, in: r.store) != nil, "the session did not split itself", &problems)
             var kept = false
-            if case .correction(let id, _, _)? = r.store.correctionRetry { kept = id == thread }
+            if case .correction(let id, _, _, _)? = r.store.correctionRetry { kept = id == thread }
             expect(r.store.correctionError == "Their own error." && kept,
                    "a split of Daybook's own cleared the person's error or Retry: \(r.store.correctionError ?? "none")", &problems)
 

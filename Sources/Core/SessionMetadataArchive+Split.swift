@@ -12,6 +12,18 @@ extension SessionMetadataArchive {
         update(recordID) { $0.splitFrom = link }
     }
 
+    /// A head's summary replaced by the one of both halves of a join (nil: it has none), or given back by Undo of it.
+    @discardableResult
+    func replaceActivityShape(_ shape: SessionActivityShape?, for recordID: UUID) -> SessionMetadataWriteResult {
+        update(recordID) { $0.activityShape = shape }
+    }
+
+    /// The head's own summary, kept on the tail while the halves stand joined (nil: nothing to keep any more).
+    @discardableResult
+    func setAsideHeadSummary(_ shape: SessionActivityShape?, on tailID: UUID) -> SessionMetadataWriteResult {
+        update(tailID) { $0.headSummary = shape }
+    }
+
     @discardableResult
     func declineSplit(at moment: Date, for recordID: UUID) -> SessionMetadataWriteResult {
         guard !hasDeclinedSplit(at: moment, for: recordID) else { return .saved }

@@ -585,8 +585,8 @@ extension SessionStore {
             }
         }
         switch retry {
-        case .correction(let threadID, let correction, let claims):
-            return applyCorrection(threadID: threadID, correction: correction, claims: claims)
+        case .correction(let threadID, let correction, let claims, let filing):
+            return retryCorrection(threadID: threadID, correction: correction, claims: claims, filing: filing)
         case .undo(let state):
             return undo(state)
         case .awayUndo(let id):

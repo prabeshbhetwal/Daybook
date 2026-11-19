@@ -1,5 +1,15 @@
 import Foundation
 
+/// What a category change of the person's teaches: the category, when it was chosen, and for each kind of
+/// stretch the session held (its shape's fingerprint) the category it was in, unless the person had chosen
+/// that one. Kept in memory with a change refused before its write, so Retry can teach it when it lands.
+struct CategoryFiling {
+    typealias Kind = (fingerprint: ActivityFingerprint, left: String?)
+    let workType: WorkType
+    let kinds: [Kind]
+    let moment: Date
+}
+
 /// How the person files a kind of session, remembered and offered back (spec section 6). An offer is
 /// a read: no stored record changes. A record changes only when the person takes the offer, through
 /// the same path as any category change of theirs, which writes the category as theirs.
@@ -32,27 +42,44 @@ extension SessionStore {
     func fileSession(_ session: DaySession, as workType: WorkType) -> Bool {
         let ids = Set(session.recordIDs)
         let before = session.isRunning ? [] : engine.archive.records.filter { ids.contains($0.id) }
-        let moment = now()
-        var next = categoryCorrections.corrections
-        var kinds = Set<ActivityFingerprint>(), filings: [RememberedFiling] = []
+        var seen = Set<ActivityFingerprint>(), kinds: [CategoryFiling.Kind] = []
         for record in before {
             guard let fingerprint = metadataArchive.metadata(for: record.id)?.activityShape?.fingerprint,
-                  kinds.insert(fingerprint).inserted else { continue }
+                  seen.insert(fingerprint).inserted else { continue }
             // Leaving a category the person chose themselves is no veto of it.
             let left = record.effectiveCategorySource == .user ? nil : record.workType.rawValue
-            filings.append(next.record(fingerprint: fingerprint, chosen: workType.rawValue, vetoed: left, at: moment))
+            kinds.append((fingerprint: fingerprint, left: left))
         }
-        let applied = applyCorrection(threadID: session.threadID, correction: .workType(workType), claims: true,
-                                      remembering: filings)
+        return applyFiling(CategoryFiling(workType: workType, kinds: kinds, moment: now()),
+                           threadID: session.threadID, claims: true)
+    }
+
+    /// The change `filing` stands for, and what it teaches, worked out against what is remembered now. A change
+    /// refused before its write keeps the filing on its Retry, which comes back here and teaches it when it lands.
+    func applyFiling(_ filing: CategoryFiling, threadID: UUID, claims: Bool) -> Bool {
+        var next = categoryCorrections.corrections
+        let filings = filing.kinds.map {
+            next.record(fingerprint: $0.fingerprint, chosen: filing.workType.rawValue, vetoed: $0.left, at: filing.moment)
+        }
+        let correction = SessionCorrection.workType(filing.workType)
+        let applied = applyCorrection(threadID: threadID, correction: correction, claims: claims, remembering: filings)
+        guard !filings.isEmpty else { return applied }
         // A change that landed with only its journal save refused keeps its receipt, and Retry finishes that
         // save without filing anything: the choice is kept here, once.
-        guard !filings.isEmpty, applied || corrections.contains(where: { $0.remembered == filings }) else {
-            return applied
-        }
-        if let why = categoryCorrections.save(next, at: moment) {
-            Diagnostics.log("Category choice not remembered: \(why)")
+        if applied || corrections.contains(where: { $0.remembered == filings }) {
+            if let why = categoryCorrections.save(next, at: now()) {
+                Diagnostics.log("Category choice not remembered: \(why)")
+            }
+        } else if case .correction(threadID, correction, let held, _)? = correctionRetry {
+            correctionRetry = .correction(threadID: threadID, correction: correction, claims: held, filing: filing)
         }
         return applied
+    }
+
+    /// Retry of a correction refused before its write: done again, with what it teaches when it is a category change.
+    func retryCorrection(threadID: UUID, correction: SessionCorrection, claims: Bool, filing: CategoryFiling?) -> Bool {
+        guard let filing else { return applyCorrection(threadID: threadID, correction: correction, claims: claims) }
+        return applyFiling(filing, threadID: threadID, claims: claims)
     }
 
     /// Undo of a category change takes back what it taught: that kind of session is no longer offered

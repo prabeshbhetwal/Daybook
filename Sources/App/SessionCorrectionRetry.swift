@@ -1,7 +1,9 @@
 import Foundation
 
 enum SessionCorrectionRetry {
-    case correction(threadID: UUID, correction: SessionCorrection, claims: Bool = false)
+    /// `filing`: what a category change teaches (`fileSession`), kept here while the change is refused before
+    /// its write, so Retry teaches it when it lands. Held in memory, not a `SessionCorrection` case (B26).
+    case correction(threadID: UUID, correction: SessionCorrection, claims: Bool = false, filing: CategoryFiling? = nil)
     /// A cut or a join refused before its records changed: Retry does it again with the same arguments, the
     /// same tail id included. Held in memory like every retry, so a relaunch drops it and the person cuts or
     /// joins again. Not a `SessionCorrection` case: the journal keeps them as removals (ruling B26).
@@ -29,7 +31,7 @@ enum SessionCorrectionRetry {
         case .undo(let correction):
             return transaction.fieldsBefore.contains { $0.id == correction.id }
                 && !transaction.fieldsAfter.contains { $0.id == correction.id }
-        case .correction(let thread, let correction, _):
+        case .correction(let thread, let correction, _, _):
             return transaction.fieldsAfter.contains { receipt in
                 receipt.threadID == thread && receipt.correction == correction
                     && !transaction.fieldsBefore.contains { $0.id == receipt.id }

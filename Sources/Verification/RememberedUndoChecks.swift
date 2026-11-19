@@ -16,6 +16,11 @@ enum RememberedUndoChecks: CheckSuite {
          staleCountIsNotRestored),
     ]
 
+    /// Registered at the end of the list, after the checks numbered before it.
+    static let retriedTests: [(String, () -> [String])] = [
+        ("A category change refused before its write is remembered once when Retry lands it, and Undo forgets it",
+         retriedFilingIsRemembered),
+    ]
     /// Three ended sessions of one kind: two to file, one that is offered what they taught.
     @MainActor
     private static func sessions(_ store: SessionStore, _ clock: TestClock) -> (DaySession, DaySession, DaySession)? {
@@ -133,6 +138,31 @@ enum RememberedUndoChecks: CheckSuite {
         }
     }
 
+    /// The refusal comes before the archive write, so the choice is not remembered yet: Retry files the change
+    /// again, and has to bring the choice, and the receipt Undo takes it back by, with it.
+    private static func retriedFilingIsRemembered() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            let journal = SplitRestructureChecks.Journal()
+            let (store, clock, suite) = CorrectionsStoreChecks.make(journal: { journal.save() })
+            defer { MemoryDefaults.remove(named: suite) }
+            guard let (first, _, third) = sessions(store, clock) else { return ["no sessions were made"] }
+            @MainActor func entry() -> CategoryCorrection? { CorrectionsStoreChecks.stored(store).entries.first }
+            journal.failFirstSave()
+            expect(!store.setWorkType(.learning, for: first) && store.correctionRetry != nil
+                   && !store.corrections.contains { $0.threadID == first.threadID },
+                   "the change refused before its write did not leave Retry offered with nothing kept", &problems)
+            expect(entry() == nil, "the refused change remembered \(String(describing: entry()))", &problems)
+            expect(store.retryLastCorrection(), "Retry did not land the change: \(store.correctionError ?? "no error shown")", &problems)
+            expect(entry()?.count == 1 && store.correctionSuggestion(for: third) == .learning,
+                   "Retry landed the change but left \(String(describing: entry())) remembered, not its one filing", &problems)
+            guard let landed = store.corrections.last else { return problems + ["no correction was kept"] }
+            expect(store.undoCorrection(expectedID: landed.id), "the undo was refused: \(store.correctionError ?? "no reason")", &problems)
+            expect(entry() == nil && store.correctionSuggestion(for: third) == nil,
+                   "Undo of the retried change left \(String(describing: entry())) remembered", &problems)
+            return problems
+        }
+    }
     /// X and Y file one category, X is undone out of order, Z files another, and Z is undone: Y alone stands,
     /// so one count comes back, not the two Y's own filing left.
     private static func staleCountIsNotRestored() -> [String] {
