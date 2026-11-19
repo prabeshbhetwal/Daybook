@@ -1,8 +1,9 @@
 import Foundation
 
 /// Cutting an ended session in two and joining the halves again. The records change through the engine,
-/// as one journalled correction each; here the sidecar follows (the link, the shape, the power readings)
-/// and the surfaces are told. Nothing here moves a total: the halves add up to the record.
+/// as one journalled correction each; the sidecar work they owe (the link, the shape, the power readings) is
+/// journalled with them and done right after (`OwedWork`), and the surfaces are told. Nothing here moves a
+/// total: the halves add up to the record.
 extension SessionStore {
     /// Cuts the ended record `recordID` at `moment`; the tail begins as `choice` says. One correction,
     /// reversed by Undo. False, with the reason published, when the moment is not inside the session's work
@@ -13,22 +14,16 @@ extension SessionStore {
         guard !hasUnresolvedAwayDecision else {
             publishCorrectionError("Answer the away question first."); return false
         }
+        // What the steps below are worked out from is then what earlier ones left, or the cut waits.
+        guard !waitsForOwedWork(on: [recordID], blocked: settleOwedWork()) else { return false }
         guard let record = engine.archive.records.first(where: { $0.id == recordID }),
               let cut = record.split(at: moment, tail: choice, tailID: tailID) else {
             publishCorrectionError("That moment is not inside this session's work, so it can't be split there.")
             return false
         }
-        let done = engine.splitRecord(id: recordID, at: moment, tail: choice, tailID: tailID)
+        let done = engine.splitRecord(id: recordID, at: moment, tail: choice, tailID: tailID,
+                                      owing: owedWork(cutSteps(of: record, into: cut, at: moment)))
         let landed = done || engine.archive.records.contains { $0.id == tailID }
-        if landed {
-            logSidecar(metadataArchive.saveSplitLink(SplitLink(head: cut.head, tail: cut.tail), for: tailID), "split link")
-            // Beats may have expired: the tail then reads the part of the summary the whole kept that falls in it.
-            if let kept = metadataArchive.metadata(for: record.id)?.activityShape {
-                logSidecar(metadataArchive.saveActivityShape(kept.clipped(to: DateInterval(start: moment, end: record.end)),
-                                                       for: tailID), "tail summary")
-            }
-            movePower(head: record.id, tail: cut.tail, toTail: true)
-        }
         return finishRestructure(done: done, landed: landed,
                                  retry: .split(threadID: record.threadID, recordID: recordID, at: moment,
                                                tail: choice, tailID: tailID))
@@ -42,18 +37,20 @@ extension SessionStore {
     /// Joins the tail of a split back onto its head: one correction, reversed by Undo.
     @discardableResult
     func mergeBack(tailID: UUID) -> Bool {
+        // A link or a summary still owed by the cut is saved first, or the join waits.
+        let blocked = settleOwedWork()
+        guard !waitsForOwedWork(on: [tailID], blocked: blocked) else { return false }
         guard let pair = mergePair(tailID: tailID) else {
             publishCorrectionError(hasLaterPart(of: tailID)
                 ? "This session was split again, so it can't be merged back yet. Merge its later part back first."
                 : "This session was changed after it was split, so it can't be merged back. Undo the change first.")
             return false
         }
-        let done = engine.mergeRecords(head: pair.head.id, tail: tailID)
+        guard !waitsForOwedWork(on: [pair.head.id], blocked: blocked) else { return false }
+        let steps = [powerStep(head: pair.head.id, tail: pair.tail, toTail: false)]
+            + joinSteps(head: pair.head, tail: pair.tail, keepingHead: true)
+        let done = engine.mergeRecords(head: pair.head.id, tail: tailID, owing: owedWork(steps))
         let landed = done || !engine.archive.records.contains { $0.id == tailID }
-        if landed {
-            movePower(head: pair.head.id, tail: pair.tail, toTail: false)
-            joinSummaries(head: pair.head, tail: pair.tail, keepingHead: true)
-        }
         return finishRestructure(done: done, landed: landed,
                                  retry: .merge(threadID: pair.head.threadID, tailID: tailID))
     }
@@ -103,44 +100,59 @@ extension SessionStore {
     /// in come out and the ones it took out go back, whole, provided nothing has since taken their identity
     /// and the ones to come out are still as it wrote them (the archive checks that).
     func undoRestoringRecords(_ state: SessionStoreCorrectionState, before: PersistedState) -> Bool {
+        let blocked = settleOwedWork()
         let back = state.removedRecords ?? [], out = state.addedRecords ?? []
+        guard !waitsForOwedWork(on: Set((back + out).map(\.id)), blocked: blocked) else { return false }
         let present = Set(engine.archive.records.map(\.id)).subtracting(out.map(\.id))
         guard !back.isEmpty, back.allSatisfy({ !present.contains($0.id) }) else {
             publishCorrectionError("That session is already back, or its stretches were rewritten since. Reopen the day to see it.")
             return false
         }
-        let done = engine.commitCorrection(before: before, removing: out, adding: back,
-                                           fields: corrections.filter { $0.id != state.id })
-        let landed = done || back.allSatisfy { engine.archive.records.contains($0) }
-        if landed, let parts = state.restructuredParts {
-            movePower(head: parts.head, tail: parts.tail, toTail: state.restructure == .merge)
-            summariesFollowUndo(of: state, parts: parts)
+        // The second part's note lives in the sidecar and goes with its record; Merge Back refuses such a part too.
+        if state.restructure == .split, let tail = state.restructuredParts?.tail,
+           metadataArchive.metadata(for: tail.id)?.note != nil {
+            publishCorrectionError("The second part of this session has a note, so undoing the split would lose it. Remove the note first.")
+            return false
         }
+        let steps = state.restructuredParts.map { parts in
+            [powerStep(head: parts.head, tail: parts.tail, toTail: state.restructure == .merge)]
+                + undoSummarySteps(of: state, parts: parts)
+        } ?? []
+        let done = engine.commitCorrection(before: before, removing: out, adding: back,
+                                           fields: corrections.filter { $0.id != state.id }, owing: owedWork(steps))
+        let landed = done || back.allSatisfy { engine.archive.records.contains($0) }
         return finishRestructure(done: done, landed: landed, retry: .undo(state))
     }
 
     /// How a restructure ended. One whose archive write landed with only its journal save refused shows the
-    /// change and keeps the error and Retry. Retry finishes that save and does no more, so the link and the
-    /// readings are written before it, never left to it.
+    /// change and keeps the error and Retry. Retry finishes that save and does no more, so the work the change
+    /// owes the sidecar (its link, its readings) is done here, from the journal, never left to Retry.
     private func finishRestructure(done: Bool, landed: Bool, retry: SessionCorrectionRetry) -> Bool {
         publishCorrectionError(done ? nil : engine.awayDecisionError)
         correctionRetry = done ? nil : retry
         if landed {
+            settleOwedWork()
             publishCanUndoCorrection(!corrections.isEmpty || engine.canUndoAwayDecision)
             refresh()
         }
         return done
     }
 
-    /// The power readings from the cut on belong to the tail, and come back to the head when it is joined.
-    private func movePower(head: UUID, tail: SessionRecord, toTail: Bool) {
-        logSidecar(toTail ? metadataArchive.reassignPower(from: head, to: tail.id, atOrAfter: tail.start)
-                    : metadataArchive.reassignPower(from: tail.id, to: head, atOrAfter: tail.start), "power readings")
+    /// What a cut owes the sidecar: the tail's link to its head, its part of the summary (beats may have
+    /// expired, so the tail reads the part of the one the whole kept that falls in it) and the readings from
+    /// the cut on.
+    private func cutSteps(of record: SessionRecord, into cut: (head: SessionRecord, tail: SessionRecord),
+                          at moment: Date) -> [OwedStep] {
+        var steps: [OwedStep] = [.link(record: cut.tail.id, to: SplitLink(head: cut.head, tail: cut.tail))]
+        if let kept = metadataArchive.metadata(for: record.id)?.activityShape {
+            steps.append(.summary(record: cut.tail.id, shape: kept.clipped(to: DateInterval(start: moment, end: record.end))))
+        }
+        return steps + [powerStep(head: record.id, tail: cut.tail, toTail: true)]
     }
 
-    /// A sidecar write that failed costs the link or the readings, never the split: said in the log only.
-    func logSidecar(_ result: SessionMetadataWriteResult, _ what: String) {
-        if case .failed(let why) = result { Diagnostics.log("Split: the \(what) were not saved: \(why)") }
+    /// The power readings from the cut on belong to the tail, and come back to the head when it is joined.
+    private func powerStep(head: UUID, tail: SessionRecord, toTail: Bool) -> OwedStep {
+        .movePower(from: toTail ? head : tail.id, to: toTail ? tail.id : head, atOrAfter: tail.start)
     }
 }
 

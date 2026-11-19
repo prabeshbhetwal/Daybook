@@ -238,6 +238,12 @@ extension SelfTest {
             + ActivityLimitChecks.tests
             + PausedGoalDayChecks.tests
             + StoredEvidenceBoundsChecks.tests
+            + SplitUndoNoteChecks.tests
+            + RestructureSidecarChecks.tests
+            + UndoForgetRelaunchChecks.tests
+            + LiveOriginChecks.tests
+            + OwedWorkChecks.tests
+            + RestructureSidecarChecks.laterTests
     }
 
     /// SelfTest's own checks 1 to 107.

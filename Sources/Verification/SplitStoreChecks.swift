@@ -25,14 +25,14 @@ enum SplitStoreChecks: CheckSuite {
     @MainActor
     static func rig(directory: URL = SelfTest.scratchDirectory(), suite: String? = nil, clock: TestClock? = nil,
                     writeOverride: (([SessionRecord]) -> String?)? = nil,
-                    journal: (() -> String?)? = nil) -> Rig {
+                    journal: (() -> String?)? = nil, metadata: SessionMetadataArchive? = nil) -> Rig {
         let suite = suite ?? "fc-selftest-split-\(UUID().uuidString)"
         let clock = clock ?? TestClock(SelfTest.anchoredNow())
         let archive = SessionArchive(directory: directory, now: { clock.value }, writeOverride: writeOverride)
         let engine = SessionEngine(store: PersistenceStore(defaults: MemoryDefaults.suite(named: suite) ?? .standard),
                                    archive: archive, ownBundleID: "com.test", schedulesDwell: false,
                                    correctionWriteOverride: journal, now: { clock.value })
-        return Rig(store: SessionStore(engine: engine, now: { clock.value }), clock: clock, directory: directory,
+        return Rig(store: SessionStore(engine: engine, metadataArchive: metadata, now: { clock.value }), clock: clock, directory: directory,
                    suite: suite)
     }
 

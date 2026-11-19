@@ -777,12 +777,12 @@ extension SessionStore {
             }
         }
         guard engine.commitCorrection(before: before, removing: removed, adding: added,
-                                      fields: corrections.filter { $0.id != state.id }) else {
+                                      fields: corrections.filter { $0.id != state.id },
+                                      owing: owedForgetting(state)) else {
             return undoRefused(state)
         }
         publishCanUndoCorrection(!corrections.isEmpty || engine.canUndoAwayDecision)
-        publishCorrectionError(nil); correctionRetry = nil
-        forgetRemembered(of: state)
+        publishCorrectionError(nil); correctionRetry = nil; settleOwedWork()
         refresh()
         return true
     }

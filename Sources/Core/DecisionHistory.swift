@@ -47,6 +47,8 @@ final class DecisionHistory {
         var retiredRecordIDs: Set<UUID>? = nil
         /// Missing means the earlier live-authoritative journal contract.
         var operation: Operation? = nil
+        /// What the correction owes beyond the archive; it joins the document's once the records are in.
+        var owed: [OwedWork]? = nil
         var updatesLiveState: Bool { operation?.updatesLiveState ?? true }
     }
     struct Document: Codable {
@@ -55,6 +57,9 @@ final class DecisionHistory {
         var metadataCheckpoint: MetadataCheckpoint?
         var fields: [SessionStoreCorrectionState] = []
         var pending: Transaction?
+        /// Work owed by corrections whose records are written, until the store says it is done. Missing in
+        /// journals written before it, and ignored by a build that does not know it.
+        var owed: [OwedWork]?
     }
     private let url: URL
     private let writeOverride: (() -> String?)?
@@ -109,6 +114,7 @@ final class DecisionHistory {
             if pending.updatesLiveState { next.checkpoint = pending.after }
             next.metadataCheckpoint = MetadataCheckpoint(pending.after)
             next.fields = pending.fieldsAfter
+            next.owed = Self.owing(next.owed, adding: pending.owed)
         } else if matches(pending.removed) {
             if pending.updatesLiveState { next.checkpoint = pending.before }
             next.metadataCheckpoint = MetadataCheckpoint(pending.before)
@@ -124,7 +130,7 @@ final class DecisionHistory {
                 removing: [SessionRecord] = [], adding: [SessionRecord] = [],
                 fields: [SessionStoreCorrectionState]? = nil,
                 archive: SessionArchive, allowsEviction: Bool = false,
-                operation: Operation = .correction) -> CommitResult {
+                operation: Operation = .correction, owing: [OwedWork] = []) -> CommitResult {
         if let failure = reconcile(archive: archive) { return .refused(failure) }
         // Capacity must be checked before journalling. Initial answers may
         // retain ordinary archive retention; historical corrections may not.
@@ -139,7 +145,8 @@ final class DecisionHistory {
         let retained = CorrectionRetention.applying(retired, to: after, fields: fields ?? document.fields, surviving: surviving)
         let transaction = Transaction(id: UUID(), before: before, after: retained.state,
             removed: scopedRemovals, added: scopedAdditions, fieldsBefore: document.fields,
-            fieldsAfter: retained.fields, retiredRecordIDs: retiredIDs, operation: operation)
+            fieldsAfter: retained.fields, retiredRecordIDs: retiredIDs, operation: operation,
+            owed: owing.isEmpty ? nil : owing)
         var prepared = document
         prepared.pending = transaction
         if let failure = save(prepared) { return .refused(failure) }
@@ -150,9 +157,39 @@ final class DecisionHistory {
         if operation.updatesLiveState { committed.checkpoint = transaction.after }
         committed.metadataCheckpoint = MetadataCheckpoint(transaction.after)
         committed.fields = transaction.fieldsAfter
+        committed.owed = Self.owing(committed.owed, adding: transaction.owed)
         committed.pending = nil
         if let failure = save(committed) { return .committedAwaitingFinalisation(failure) }
         return .saved
+    }
+
+    /// Work still owed by corrections whose records are written, oldest first: the document's, and what a
+    /// transaction that is still pending carries when its records are already in.
+    func owed(in archive: SessionArchive) -> [OwedWork] {
+        let finished = pendingAfterIsCommitted(in: archive) ? document.pending?.owed : nil
+        return Self.owing(document.owed, adding: finished) ?? []
+    }
+
+    /// The sidecar entries that work still owed must not outlive: retention keeps them.
+    var owedRecordIDs: Set<UUID> {
+        (document.owed ?? []).reduce(into: Set(document.pending?.owed?.flatMap(\.recordIDs) ?? [])) {
+            $0.formUnion($1.recordIDs)
+        }
+    }
+
+    /// Drops work the store has done. Nil when saved, or when none of it was in the document.
+    func settle(_ ids: Set<UUID>) -> String? {
+        guard let held = document.owed, held.contains(where: { ids.contains($0.id) }) else { return nil }
+        var next = document
+        let rest = held.filter { !ids.contains($0.id) }
+        next.owed = rest.isEmpty ? nil : rest
+        return save(next)
+    }
+
+    private static func owing(_ held: [OwedWork]?, adding more: [OwedWork]?) -> [OwedWork]? {
+        let kept = held ?? []
+        let added = (more ?? []).filter { work in !kept.contains { $0.id == work.id } }
+        return kept.isEmpty && added.isEmpty ? nil : kept + added
     }
 
     func pendingAfterIsCommitted(in archive: SessionArchive) -> Bool {

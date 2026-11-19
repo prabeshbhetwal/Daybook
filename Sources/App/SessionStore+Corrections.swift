@@ -57,16 +57,21 @@ extension SessionStore {
     /// The change `filing` stands for, and what it teaches, worked out against what is remembered now. A change
     /// refused before its write keeps the filing on its Retry, which comes back here and teaches it when it lands.
     func applyFiling(_ filing: CategoryFiling, threadID: UUID, claims: Bool) -> Bool {
-        var next = categoryCorrections.corrections
-        let filings = filing.kinds.map {
-            next.record(fingerprint: $0.fingerprint, chosen: filing.workType.rawValue, vetoed: $0.left, at: filing.moment)
-        }
+        // What an undo still owes the remembered choices is taken back first, so the filings below are worked
+        // out from the choices that stand.
+        settleOwedWork()
+        var worked = categoryCorrections.corrections
+        let filings = learn(filing, into: &worked)
         let correction = SessionCorrection.workType(filing.workType)
         let applied = applyCorrection(threadID: threadID, correction: correction, claims: claims, remembering: filings)
         guard !filings.isEmpty else { return applied }
         // A change that landed with only its journal save refused keeps its receipt, and Retry finishes that
         // save without filing anything: the choice is kept here, once.
         if applied || corrections.contains(where: { $0.remembered == filings }) {
+            // The change refreshed the store, which can finish work an undo owed the remembered choices: the
+            // filing goes onto what stands now, not onto the copy taken before, which would bring them back.
+            var next = categoryCorrections.corrections
+            learn(filing, into: &next)
             if let why = categoryCorrections.save(next, at: now()) {
                 Diagnostics.log("Category choice not remembered: \(why)")
             }
@@ -74,6 +79,13 @@ extension SessionStore {
             correctionRetry = .correction(threadID: threadID, correction: correction, claims: held, filing: filing)
         }
         return applied
+    }
+
+    @discardableResult
+    private func learn(_ filing: CategoryFiling, into choices: inout CategoryCorrections) -> [RememberedFiling] {
+        filing.kinds.map {
+            choices.record(fingerprint: $0.fingerprint, chosen: filing.workType.rawValue, vetoed: $0.left, at: filing.moment)
+        }
     }
 
     /// Retry of a correction refused before its write: done again, with what it teaches when it is a category change.
@@ -86,21 +98,27 @@ extension SessionStore {
     /// the category on its account. The choices to fall back to are the filings of the corrections made
     /// before this one that still stand, so one undone out of order is not revived; the ones made after it
     /// that still stand say whether it is part of the choice that stands now.
-    func forgetRemembered(of state: SessionStoreCorrectionState) {
-        guard let filings = state.remembered, !filings.isEmpty else { return }
-        let standing = corrections.filter { $0.sequence < state.sequence }.flatMap { $0.remembered ?? [] }
-        let later = corrections.filter { $0.sequence > state.sequence }.flatMap { $0.remembered ?? [] }
-        guard let why = categoryCorrections.forget(filings, standing: standing, later: later, at: now()) else { return }
-        Diagnostics.log("Category choice not forgotten: \(why)")
+    /// Nil when saved (or nothing changed), else why not. The undo owes this (`OwedWork`), so a refusal here
+    /// keeps it owed, to be done again, and doing it again after it was done changes nothing.
+    func forgetRemembered(sequence: Int, filings: [RememberedFiling]) -> String? {
+        let standing = corrections.filter { $0.sequence < sequence }.flatMap { $0.remembered ?? [] }
+        let later = corrections.filter { $0.sequence > sequence }.flatMap { $0.remembered ?? [] }
+        return categoryCorrections.forget(filings, standing: standing, later: later, at: now())
+    }
+
+    /// What the undo of this correction owes: taking back what it taught, when it taught anything.
+    func owedForgetting(_ state: SessionStoreCorrectionState) -> [OwedWork] {
+        guard let filings = state.remembered, !filings.isEmpty else { return [] }
+        return owedWork([.forget(sequence: state.sequence, filings: filings)])
     }
 
     /// An undo whose write was refused: the error and Retry stay. When its records changed and only the
     /// journal save is owed (the correction is already gone from `corrections`), what the change taught is
-    /// taken back now, once: Retry then only finishes the save and never comes back here.
+    /// taken back now from the journal's owed work, which Retry then only finishes the save of.
     func undoRefused(_ state: SessionStoreCorrectionState) -> Bool {
         publishCorrectionError(engine.awayDecisionError)
         correctionRetry = .undo(state)
-        if !corrections.contains(where: { $0.id == state.id }) { forgetRemembered(of: state) }
+        settleOwedWork()
         return false
     }
 }

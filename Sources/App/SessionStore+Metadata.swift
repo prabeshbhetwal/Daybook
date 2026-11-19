@@ -233,6 +233,7 @@ extension SessionStore {
     func refreshSessionMetadataRetention() {
         var retained = Set(engine.archive.records.map(\.id))
         retained.formUnion(engine.retainedCorrectionRecordIDs)
+        retained.formUnion(engine.decisionHistory.owedRecordIDs)
         retained.formUnion(sessionNoteDrafts.keys)
         retained.formUnion(expandedNoteEditorIDs)
         for transfer in pendingPowerTransfers {
