@@ -221,6 +221,7 @@ extension SelfTest {
             + SiteSignalSurfaceChecks.tests
             + SiteSignalSecurityChecks.tests
             + BrowserPurposeChecks.tests
+            + SiteLimitChecks.tests
             + ProvenanceChecks.tests + ProvenanceEngineChecks.tests
             + CategoryCorrectionChecks.tests + CorrectionsFileChecks.tests + CorrectionsStoreChecks.tests
             + ProvenanceCarryChecks.tests + ProvenanceLiveEditChecks.tests

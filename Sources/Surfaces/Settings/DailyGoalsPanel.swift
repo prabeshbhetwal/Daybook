@@ -55,7 +55,8 @@ extension SettingsGroups {
             !items.contains { $0.target == .category(type.rawValue) }
         }
         let full = items.count >= DailyGoalList.maximum
-        return preferenceRow("Add Goal", detail: full ? "You can keep up to \(DailyGoalList.maximum) goals." : nil) {
+        return preferenceRow("Add Goal", detail: full ? "You can keep up to \(DailyGoalList.maximum) goals."
+                             : "Limits on a kind of site, such as video, are not available yet.") {
             RowMenu("Add Goal",
                     selection: Binding(get: { AddChoice.none }, set: { choice in
                         switch choice {
@@ -112,7 +113,8 @@ extension SettingsGroups {
         switch item.target {
         case .category(let id): return WorkType(rawValue: id).displayName
         case .app(let id): return Self.goalAppName(id)
-        case .activity(let value), .site(let value), .unknown(_, let value): return value
+        case .site(let value): return DailyGoalList.siteGoalName(value)
+        case .activity(let value), .unknown(_, let value): return value
         }
     }
 

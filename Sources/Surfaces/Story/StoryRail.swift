@@ -375,7 +375,7 @@ struct StoryRail: View {
                              accessibilityTitle: "Share of goal")
                 }
             }
-            if !categoryGoals.isEmpty || !appLimits.isEmpty {
+            if !categoryGoals.isEmpty || !appLimits.isEmpty || !siteLimits.isEmpty {
                 categoryGoalRows
             }
             // The Yesterday notice says it when it is offered; without one (no focus
@@ -466,6 +466,7 @@ struct StoryRail: View {
                 .accessibilityHint("Counts sessions filed under \(item.type.displayName)")
             }
             ForEach(appLimits, id: \.bundleID) { limit in limitRow(limit) }
+            ForEach(siteLimits, id: \.id) { limit in siteLimitRow(limit) }
         }
     }
 
