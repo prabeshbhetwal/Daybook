@@ -345,7 +345,7 @@ struct StoryRail: View {
     /// The day's focus total is the headline's; this card is the goal's.
     private func focusTile(_ evidence: StoryUsageBreakdown) -> some View {
         let goal = railGoal
-        return StoryTile(title: "Today's goals", trailing: day.map { Tokens.dayLabel($0) } ?? store.dayLabel,
+        return StoryTile(title: "Today's goals", trailing: day.map { Tokens.dayLabel($0) },
                          info: goalsHelp(logged: evidence.focused, counted: goal.achieved)) {
             HStack(alignment: .bottom, spacing: Tokens.Space.m) {
                 VStack(alignment: .leading, spacing: Tokens.Space.xs) {
@@ -643,7 +643,7 @@ struct StoryRail: View {
     /// not say when someone was most productive.
     private var rhythmTile: some View {
         let blocks = store.storyRailDay(on: shownDay).blocks
-        return StoryTile(title: "Time of day", trailing: day.map { Tokens.dayLabel($0) } ?? store.dayLabel,
+        return StoryTile(title: "Time of day", trailing: day.map { Tokens.dayLabel($0) },
                          info: TimeOfDayChart.help) {
             if let headline = TimeOfDayChart.headline(blocks) {
                 Text(headline)
