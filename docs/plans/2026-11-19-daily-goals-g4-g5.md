@@ -56,6 +56,17 @@ activity-aware Phase B (PR 93), G5 on Phase D (PR 94). Each ships as its own PR.
    opened in a check (injected availability, not by editing `passing`) counts a
    fixture's video slices; an unknown kind round-trips.
 
+## G5 as built (19 Nov 2026)
+
+Beats are recorded only while a session runs, but a limit counts the whole day,
+so no source for whole-day site use exists yet, gate or no gate. G5 therefore
+ships the unavailable state only: a stored site limit shows on the card as "Not
+available yet", is named by its kind in Settings and awards, is never judged
+(so it never keeps or breaks a Perfect day), and the Add Goal row says site
+limits are not available yet. No site limit can be added. Counting (steps 2 and
+the gate-open half of 3 and 4) waits for the gate and for site kinds read
+outside sessions; `DailyGoalList+Site.swift` carries the shortcut note.
+
 ## Panel review (19 Nov 2026)
 
 Two of three reviewers approved; the third could not read the file. Adopted:

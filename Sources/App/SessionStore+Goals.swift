@@ -102,6 +102,7 @@ extension SessionStore {
                                   switch target {
                                   case .category(let id): return WorkType(rawValue: id).displayName
                                   case .app(let id): return self.historyAppName(for: id)
+                                  case .site(let raw): return DailyGoalList.siteGoalName(raw)
                                   default: return "Goal"
                                   }
                               }, calendar: Calendar.current)

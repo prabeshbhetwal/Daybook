@@ -220,6 +220,7 @@ extension SelfTest {
             + SiteSignalWiringChecks.tests
             + SiteSignalSurfaceChecks.tests
             + SiteSignalSecurityChecks.tests
+            + SiteLimitChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.
