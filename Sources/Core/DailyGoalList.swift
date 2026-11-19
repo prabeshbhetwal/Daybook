@@ -111,6 +111,9 @@ struct DailyGoalResult: Codable, Hashable {
     let met: Bool
     /// Paused that day: neither met nor missed, so it neither breaks nor extends a run.
     var paused: Bool? = nil
+    /// In use but not provable either way that day (an activity limit beside unread
+    /// browser time): neither extends nor breaks a run, and the day is not perfect.
+    var unjudged: Bool? = nil
 }
 
 /// The rules for the list of goals, apart from where it is kept.

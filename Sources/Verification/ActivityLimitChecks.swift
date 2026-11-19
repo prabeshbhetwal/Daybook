@@ -69,11 +69,28 @@ enum ActivityLimitChecks: CheckSuite {
         if none.first?.met != true || none.first?.counted != 0 {
             problems.append("a day with no media was not kept")
         }
-        // A day only in a browser with no purpose set says nothing about media: not judged.
+        // A day only in a browser with no purpose set says nothing about media: unjudged,
+        // and a met goal beside it does not make the day perfect.
         let browser = ["com.apple.Safari": TimeInterval(5 * 3_600)]
-        if GoalDayResults.close(goals: [limit], credit: [:], appUse: browser, purposeUse: [:],
-                                unreadUse: 5 * 3_600) != nil {
-            problems.append("a browser-only day judged the media limit")
+        let focus = DailyGoalItem(target: .category(WorkType.deepWork.rawValue), kind: .target, seconds: 3_600)
+        let mixed = GoalDayResults.close(goals: [focus, limit], credit: [WorkType.deepWork.rawValue: 7_200],
+                                         appUse: browser, purposeUse: [:], unreadUse: 5 * 3_600) ?? []
+        let media = mixed.first { $0.goalID == limit.id }
+        if media?.unjudged != true || media?.met != false {
+            problems.append("a browser-only day's media limit was \(String(describing: media))")
+        }
+        if GoalDayResults.isPerfect(mixed) { problems.append("an unjudged limit beside a met goal made a perfect day") }
+        // An unjudged day neither extends nor breaks the limit's run.
+        let kept = DailyGoalResult(goalID: limit.id, target: limit.target, kind: .limit,
+                                   amount: 3_600, counted: 600, met: true)
+        let runs = ["2026-11-10": [kept], "2026-11-11": media.map { [$0] } ?? [], "2026-11-12": [kept]]
+        let run = GoalDayResults.goalRun(limit.id, in: runs, calendar: Calendar(identifier: .gregorian))
+        if run != 2 { problems.append("kept, unjudged, kept read as a run of \(run), expected 2") }
+        // A result saved before the field existed still reads, as judged.
+        let old = Data(#"{"goalID":"\#(limit.id.uuidString)","target":{"kind":"activity","value":"media"},"kind":"limit","amount":3600,"counted":0,"met":true}"#.utf8)
+        let decoded = try? JSONDecoder().decode(DailyGoalResult.self, from: old)
+        if decoded == nil || decoded?.unjudged != nil {
+            problems.append("a saved result without the field did not read, or did not read as judged")
         }
         // Kept even were all 20 unread minutes media; over is over whatever was unread.
         let small = GoalDayResults.close(goals: [limit], credit: [:], appUse: appUse,
