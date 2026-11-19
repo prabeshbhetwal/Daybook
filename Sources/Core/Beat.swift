@@ -11,9 +11,24 @@ struct BeatSlice: Codable, Equatable {
     var keys: Int
     var clicks: Int
     var scrolls: Int
+    /// What kind of site the browser showed for this stretch; nil when none was read.
+    var site: SiteKind? = nil
 
     private enum CodingKeys: String, CodingKey {
-        case app = "a", seconds = "d", keys = "k", clicks = "c", scrolls = "w"
+        case app = "a", seconds = "d", keys = "k", clicks = "c", scrolls = "w", site = "y"
+    }
+}
+
+extension BeatSlice {
+    /// A kind this build does not know reads as none, so the beat line still loads.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(app: try container.decode(String.self, forKey: .app),
+                  seconds: try container.decode(Int.self, forKey: .seconds),
+                  keys: try container.decode(Int.self, forKey: .keys),
+                  clicks: try container.decode(Int.self, forKey: .clicks),
+                  scrolls: try container.decode(Int.self, forKey: .scrolls),
+                  site: (try? container.decode(String.self, forKey: .site)).flatMap(SiteKind.init(rawValue:)))
     }
 }
 
