@@ -221,6 +221,7 @@ extension SelfTest {
             + SiteSignalSurfaceChecks.tests
             + SiteSignalSecurityChecks.tests
             + BrowserPurposeChecks.tests
+            + SiteLimitChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.
