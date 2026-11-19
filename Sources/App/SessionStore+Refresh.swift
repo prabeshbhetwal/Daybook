@@ -109,6 +109,9 @@ extension SessionStore {
             // Fold the in-flight stretch in first, or the frontmost app always looks
             // idle in its own menu.
             tracker?.flush()
+            // After the ended break and the in-flight stretch are credited: a closed
+            // day is written once and never recomputed.
+            recordGoalResultsIfNewDay()
             // First, so every figure below is computed under the current settings.
             applyPreferences()
             let moment = now()
@@ -235,6 +238,7 @@ extension SessionStore {
     /// recalculated once on each local minute boundary; the inexpensive live
     /// figures continue to move every second.
     func updateTimeDrivenFigures() {
+        defer { recordGoalResultsIfNewDay() }
         withRefreshTransaction {
             let moment = now()
             let frame = liveFrame(at: moment)

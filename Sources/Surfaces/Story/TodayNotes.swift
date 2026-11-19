@@ -10,6 +10,8 @@ struct TodayNoteOffers: Equatable {
     var yesterday: HistoryPlace?
     var yesterdayFigures = ""
     var yesterdayRecap: DayRecap?
+    /// Every goal met or kept yesterday.
+    var yesterdayPerfect = false
     var wrapUp: HistoryPlace?
 
     init() {}
@@ -20,6 +22,7 @@ struct TodayNoteOffers: Equatable {
             yesterday = place
             yesterdayFigures = store.noteFiguresLine(for: place)
             yesterdayRecap = store.noteRecap(for: place)
+            yesterdayPerfect = store.wasPerfectDay(place)
         }
         if store.wrapUpOffered { wrapUp = store.notePlace(forDayContaining: store.now()) }
     }
@@ -37,11 +40,15 @@ struct TodayNoteOffers: Equatable {
         let sessions: Int
         let usable: Bool
         let evidence: SessionStore.NoteEvidence
+        /// Yesterday's goal results are written minutes after midnight, so the notice's
+        /// Perfect day mark is offered again when they land.
+        let yesterdayPerfect: Bool
     }
 
     @MainActor static func cause(store: SessionStore, usable: Bool) -> Cause {
         Cause(today: store.notePlace(forDayContaining: store.now()), state: store.state,
-              sessions: store.sessionsToday, usable: usable, evidence: store.noteEvidence)
+              sessions: store.sessionsToday, usable: usable, evidence: store.noteEvidence,
+              yesterdayPerfect: store.yesterdayWasPerfect)
     }
 }
 
@@ -70,7 +77,8 @@ struct TodayNotes: View {
     var body: some View {
         if let writer, usable {
             if let place = offers.yesterday {
-                YesterdayNotice(writer: writer, place: place, figures: offers.yesterdayFigures, recap: offers.yesterdayRecap) {
+                YesterdayNotice(writer: writer, place: place, figures: offers.yesterdayFigures, recap: offers.yesterdayRecap,
+                                  perfectDay: offers.yesterdayPerfect) {
                     store.dismissYesterdayNote(place)
                     offers.yesterday = nil
                 }
