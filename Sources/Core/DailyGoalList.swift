@@ -47,7 +47,9 @@ enum DailyGoalTarget: Codable, Hashable {
     /// apps and sites are kept under. Nil for a target this version cannot read.
     var requiredKind: DailyGoalKind? {
         switch self {
-        case .category, .activity: return .target
+        case .category: return .target
+        // Unfocused work is kept within, never aimed at (spec: leisure never fills a focus goal).
+        case .activity(let raw): return DailyGoalList.limitedPurpose(raw) == nil ? .target : .limit
         case .app, .site: return .limit
         case .unknown: return nil
         }

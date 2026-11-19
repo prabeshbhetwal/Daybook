@@ -11,6 +11,7 @@ private enum GoalChoice: Hashable {
 private enum AddChoice: Hashable {
     case none
     case category(String)
+    case activityLimit(String)
     case appLimit
 }
 
@@ -54,6 +55,9 @@ extension SettingsGroups {
         let free = WorkType.startable.filter { type in
             !items.contains { $0.target == .category(type.rawValue) }
         }
+        let freeActivities = DailyGoalList.limitablePurposes.filter { purpose in
+            !items.contains { $0.target == .activity(purpose.rawValue) }
+        }
         let full = items.count >= DailyGoalList.maximum
         return preferenceRow("Add Goal", detail: full ? "You can keep up to \(DailyGoalList.maximum) goals."
                              : "Limits on a kind of site, such as video, are not available yet.") {
@@ -63,12 +67,15 @@ extension SettingsGroups {
                         case .none: break
                         case .category(let id):
                             model.addGoal(DailyGoalItem(target: .category(id), kind: .target, seconds: 2 * 3_600))
+                        case .activityLimit(let raw):
+                            model.addGoal(DailyGoalItem(target: .activity(raw), kind: .limit, seconds: 2 * 3_600))
                         case .appLimit: choosingGoalApp = true
                         }
                     }),
                     items: full ? [.option(.none, "Full")]
                         : [.option(.none, "Choose")]
                         + free.map { .option(.category($0.rawValue), "\($0.displayName) goal") }
+                        + freeActivities.map { .option(.activityLimit($0.rawValue), "\($0.displayName) limit") }
                         + [.option(.appLimit, "App limit")])
         }
         .popover(isPresented: $choosingGoalApp, arrowEdge: .bottom) { goalAppChooser(items) }
@@ -114,7 +121,8 @@ extension SettingsGroups {
         case .category(let id): return WorkType(rawValue: id).displayName
         case .app(let id): return Self.goalAppName(id)
         case .site(let value): return DailyGoalList.siteGoalName(value)
-        case .activity(let value), .unknown(_, let value): return value
+        case .activity(let value): return AppPurpose(rawValue: value)?.displayName ?? value
+        case .unknown(_, let value): return value
         }
     }
 

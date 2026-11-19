@@ -20,6 +20,17 @@ extension SessionStore {
         }
     }
 
+    /// The activity limits that count today, with the day's use of each, from
+    /// the same app totals as `appLimits`, so the card and the record agree.
+    func activityLimits(ranked apps: [AppRank]) -> [(id: UUID, purpose: AppPurpose,
+                                                     limit: TimeInterval, used: TimeInterval)] {
+        let limits = DailyGoalList.activityLimits(goalItems)
+        guard !limits.isEmpty else { return [] }
+        let use = DailyGoalList.purposeUse(apps: apps.map { ($0.bundleID, $0.total) },
+                                           overrides: engine.store.purposeOverrides)
+        return limits.map { ($0.id, $0.purpose, $0.limit, use[$0.purpose.rawValue] ?? 0) }
+    }
+
     /// Keeps today's goals in the day's snapshot (as they stood at the day's last
     /// edit), and once a day writes the results of the closed days of the last
     /// fortnight that have none, so a Mac off for a long weekend loses none. Today is not judged:
@@ -59,7 +70,11 @@ extension SessionStore {
                   !DailyGoalList.active(goals).isEmpty else { continue }
             let reading = storyRailDay(on: day)
             let appUse = Dictionary(reading.apps.map { ($0.bundleID, $0.total) }, uniquingKeysWith: +)
-            if let results = GoalDayResults.close(goals: goals, credit: reading.creditByCategory, appUse: appUse) {
+            let dayApps = reading.apps.map { ($0.bundleID, $0.total) }
+            let overrides = engine.store.purposeOverrides
+            if let results = GoalDayResults.close(goals: goals, credit: reading.creditByCategory, appUse: appUse,
+                                                  purposeUse: DailyGoalList.purposeUse(apps: dayApps, overrides: overrides),
+                                                  unreadUse: DailyGoalList.unreadUse(apps: dayApps, overrides: overrides)) {
                 recorded[dayKey] = results
                 changed = true
             }
@@ -103,6 +118,7 @@ extension SessionStore {
                                   case .category(let id): return WorkType(rawValue: id).displayName
                                   case .app(let id): return self.historyAppName(for: id)
                                   case .site(let raw): return DailyGoalList.siteGoalName(raw)
+                                  case .activity(let raw): return AppPurpose(rawValue: raw)?.displayName ?? raw
                                   default: return "Goal"
                                   }
                               }, calendar: Calendar.current)
