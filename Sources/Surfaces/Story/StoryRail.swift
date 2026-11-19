@@ -375,7 +375,7 @@ struct StoryRail: View {
                              accessibilityTitle: "Share of goal")
                 }
             }
-            if !categoryGoals.isEmpty || !appLimits.isEmpty || !siteLimits.isEmpty {
+            if !categoryGoals.isEmpty || !appLimits.isEmpty || !activityLimits.isEmpty || !siteLimits.isEmpty {
                 categoryGoalRows
             }
             // The Yesterday notice says it when it is offered; without one (no focus
@@ -466,6 +466,11 @@ struct StoryRail: View {
                 .accessibilityHint("Counts sessions filed under \(item.type.displayName)")
             }
             ForEach(appLimits, id: \.bundleID) { limit in limitRow(limit) }
+            ForEach(activityLimits, id: \.id) { limit in
+                limitRow((limit.purpose.rawValue, limit.purpose.displayName, limit.limit, limit.used),
+                         symbol: limit.purpose.symbolName,
+                         help: "Counts every app Daybook files under \(limit.purpose.displayName) today, in a session or not. Browsers count only with a purpose you set.")
+            }
             ForEach(siteLimits, id: \.id) { limit in siteLimitRow(limit) }
         }
     }
@@ -479,13 +484,21 @@ struct StoryRail: View {
     /// An app kept under a limit: icon, name, "45m of 2h limit", a neutral bar
     /// and what is left. Past the limit it reads "15m over" in the attention
     /// ink, with no alarm: a limit is information, not a verdict.
-    private func limitRow(_ item: (bundleID: String, name: String, limit: TimeInterval, used: TimeInterval))
+    private func limitRow(_ item: (bundleID: String, name: String, limit: TimeInterval, used: TimeInterval),
+                          symbol: String? = nil, help: String? = nil)
         -> some View {
         let status = DailyGoalList.limitStatus(used: item.used, limit: item.limit)
         let share = min(1, item.used / max(1, item.limit))
         return VStack(alignment: .leading, spacing: Tokens.Space.xs) {
             HStack(spacing: Tokens.Space.xs) {
-                AppIcon(bundleID: item.bundleID, size: 14.zoomed, appName: item.name)
+                if let symbol {
+                    Image(systemName: symbol)
+                        .font(Tokens.Typography.caption)
+                        .foregroundStyle(StoryStyle.supportingInk)
+                        .accessibilityHidden(true)
+                } else {
+                    AppIcon(bundleID: item.bundleID, size: 14.zoomed, appName: item.name)
+                }
                 Text(item.name)
                     .font(Tokens.Typography.body)
                     .lineLimit(1)
@@ -519,7 +532,7 @@ struct StoryRail: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(DurationText.spoken(in: "\(item.name): \(status.figure), \(status.detail)"))
-        .help("Counts all the time \(item.name) was in front today, in a session or not")
+        .help(help ?? "Counts all the time \(item.name) was in front today, in a session or not")
     }
 
     private var goalShare: Double? {
@@ -613,7 +626,7 @@ struct StoryRail: View {
 
     // MARK: - Apps
 
-    private var apps: [AppRank] { reading?.apps ?? store.rankedApps }
+    var apps: [AppRank] { reading?.apps ?? store.rankedApps }
 
     private var appsTile: some View {
         // The trailing label is the period, as on the goal tile; the info mark

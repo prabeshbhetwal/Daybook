@@ -9,8 +9,12 @@ enum GoalDayResults {
     /// - Parameters:
     ///   - credit: focus with app use recorded, by category id.
     ///   - appUse: all recorded foreground time, by bundle id.
+    ///   - purposeUse: the same time by purpose raw value (`DailyGoalList.purposeUse`).
+    ///   - unreadUse: time in apps whose purpose is unknown (`DailyGoalList.unreadUse`).
     static func judge(_ items: [DailyGoalItem], credit: [String: TimeInterval],
-                      appUse: [String: TimeInterval]) -> [DailyGoalResult] {
+                      appUse: [String: TimeInterval],
+                      purposeUse: [String: TimeInterval] = [:],
+                      unreadUse: TimeInterval = 0) -> [DailyGoalResult] {
         let minutes = { (DurationText.wholeSeconds($0) ?? 0) / 60 }
         return DailyGoalList.usable(items).compactMap { item in
             // A paused goal is recorded as paused, so the day is known to have skipped it.
@@ -29,6 +33,15 @@ enum GoalDayResults {
                 return DailyGoalResult(goalID: item.id, target: item.target, kind: item.kind,
                                        amount: item.seconds, counted: counted,
                                        met: minutes(counted) <= minutes(item.seconds))
+            case .activity(let raw) where item.kind == .limit:
+                // Kept only if it holds even were every unread minute this activity,
+                // broken once it is over; otherwise recorded as unjudged.
+                let counted = purposeUse[raw] ?? 0
+                let over = minutes(counted) > minutes(item.seconds)
+                let unproven = !over && minutes(counted + unreadUse) > minutes(item.seconds)
+                return DailyGoalResult(goalID: item.id, target: item.target, kind: item.kind,
+                                       amount: item.seconds, counted: counted, met: !over && !unproven,
+                                       unjudged: unproven ? true : nil)
             default: return nil
             }
         }
@@ -39,17 +52,19 @@ enum GoalDayResults {
     /// recording may have been off, and a limit would read as kept and a target
     /// as missed on no evidence.
     static func close(goals: [DailyGoalItem], credit: [String: TimeInterval],
-                      appUse: [String: TimeInterval]) -> [DailyGoalResult]? {
+                      appUse: [String: TimeInterval],
+                      purposeUse: [String: TimeInterval] = [:],
+                      unreadUse: TimeInterval = 0) -> [DailyGoalResult]? {
         guard appUse.values.contains(where: { $0 > 0 }) || credit.values.contains(where: { $0 > 0 }) else { return nil }
-        let results = judge(goals, credit: credit, appUse: appUse)
+        let results = judge(goals, credit: credit, appUse: appUse, purposeUse: purposeUse, unreadUse: unreadUse)
         return results.isEmpty ? nil : results
     }
 
     /// Every target met and every limit kept, with at least one goal in use. A
-    /// paused goal is left out, and a day with no goals in use is not perfect.
+    /// paused goal is left out; an unjudged one, or no goals in use, is not perfect.
     static func isPerfect(_ results: [DailyGoalResult]) -> Bool {
         let counted = results.filter { $0.paused != true }
-        return !counted.isEmpty && counted.allSatisfy(\.met)
+        return !counted.isEmpty && counted.allSatisfy { $0.met && $0.unjudged != true }
     }
 
     /// The longest run of consecutive calendar days among `days`.
@@ -136,7 +151,7 @@ enum GoalDayResults {
         for (date, result) in days {
             if let previous, let next = calendar.date(byAdding: .day, value: 1, to: previous),
                !calendar.isDate(next, inSameDayAs: date) { run = 0 }
-            if result.paused == true { /* neither */ } else if result.met { run += 1; best = max(best, run) } else { run = 0 }
+            if result.paused == true || result.unjudged == true { /* neither */ } else if result.met { run += 1; best = max(best, run) } else { run = 0 }
             previous = date
         }
         return best

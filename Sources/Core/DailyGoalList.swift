@@ -47,7 +47,9 @@ enum DailyGoalTarget: Codable, Hashable {
     /// apps and sites are kept under. Nil for a target this version cannot read.
     var requiredKind: DailyGoalKind? {
         switch self {
-        case .category, .activity: return .target
+        case .category: return .target
+        // Unfocused work is kept within, never aimed at (spec: leisure never fills a focus goal).
+        case .activity(let raw): return DailyGoalList.limitedPurpose(raw) == nil ? .target : .limit
         case .app, .site: return .limit
         case .unknown: return nil
         }
@@ -109,6 +111,9 @@ struct DailyGoalResult: Codable, Hashable {
     let met: Bool
     /// Paused that day: neither met nor missed, so it neither breaks nor extends a run.
     var paused: Bool? = nil
+    /// In use but not provable either way that day (an activity limit beside unread
+    /// browser time): neither extends nor breaks a run, and the day is not perfect.
+    var unjudged: Bool? = nil
 }
 
 /// The rules for the list of goals, apart from where it is kept.

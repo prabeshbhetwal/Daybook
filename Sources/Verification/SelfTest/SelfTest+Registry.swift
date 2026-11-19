@@ -235,6 +235,7 @@ extension SelfTest {
             + RememberedUndoChecks.retriedTests + JoinedSummaryChecks.tests
             + OlderFilingUndoChecks.tests + SplitAgainChecks.tests
             + CorrectionUndoRuleChecks.laterTests
+            + ActivityLimitChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

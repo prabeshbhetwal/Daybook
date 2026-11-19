@@ -1,6 +1,11 @@
 import SwiftUI
 
 extension StoryRail {
+    /// Today's activity limits only, as with app limits: a past day shows what it recorded.
+    var activityLimits: [(id: UUID, purpose: AppPurpose, limit: TimeInterval, used: TimeInterval)] {
+        day == nil ? store.activityLimits(ranked: apps) : []
+    }
+
     /// Today's site limits only, as with app limits: a past day shows what it recorded.
     var siteLimits: [(id: UUID, name: String, limit: TimeInterval)] {
         day == nil ? DailyGoalList.siteLimits(store.goalItems) : []

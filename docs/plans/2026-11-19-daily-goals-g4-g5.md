@@ -42,6 +42,31 @@ activity-aware Phase B (PR 93), G5 on Phase D (PR 94). Each ships as its own PR.
    for the same beats, close() with and without beats, Settings offers only
    non-focused purposes. `fix-reviewer` on the result storage change.
 
+## G4 revised (20 Nov 2026), after G5
+
+G5 showed beats are recorded only during sessions, so they cannot count a
+whole day. G4 counts from the same whole-day app totals app limits use
+instead, so the card, the record and History all agree:
+
+1. `requiredKind`: `.activity(raw)` is `.limit` for a non-focused
+   `AppPurpose` (communication, research, media, utility), `.target`
+   otherwise. Nothing offers an activity target yet (kept and AI labels
+   extend this once Phase C lands).
+2. Core `DailyGoalList.purposeUse(apps:overrides:)`: each app's day total
+   goes to `PurposeMap.purpose(for:activity:overrides:)`. An app whose purpose
+   depends on behaviour (a browser) is left out unless the person gave it a
+   purpose: its whole-day total says nothing about what it was used for. The
+   card and Settings say so ("Browsers count only with a purpose you set").
+3. `GoalDayResults.judge`/`close` take purpose use; the store builds it from
+   `storyRailDay(on:).apps` and `purposeOverrides`, as it builds app use. No
+   new storage: results already record target, amount and counted.
+4. Card row like the app limit row, with the purpose's symbol and name;
+   Settings Add Goal offers "<Purpose> limit" for the four non-focused
+   purposes not already limited; awards name it by `displayName`.
+5. Checks: requiredKind for all seven purposes; purposeUse with a fixed app,
+   an overridden browser and an unset browser; judge and close keep and break
+   an activity limit; the card's figure equals the judged amount.
+
 ## G5: site-kind limits
 
 1. Target `.site(SiteKind.rawValue)`, kind `.limit` (already the required kind).
