@@ -11,6 +11,11 @@ enum RestructureSidecarChecks: CheckSuite {
         ("A Merge Back made once the disk is well again saves first what the cut still owed, so the link it needs is there",
          mergeBackSavesWhatTheCutOwed),
     ]
+    /// Registered last, apart from `tests`, so earlier check numbers stay.
+    static let laterTests: [(String, () -> [String])] = [
+        ("A split or an Undo waits while an earlier change to the same session still owes its summaries, and goes ahead once they are saved",
+         waitsForWhatIsOwed),
+    ]
 
     private final class Disk { var refuses = false }
 
@@ -132,6 +137,31 @@ enum RestructureSidecarChecks: CheckSuite {
                    "Merge Back was refused after a cut whose link had not been saved yet: \(f.store.correctionError ?? "no reason")", &problems)
             expect(power(f.store, f.record.id) == [f.early.id, f.late.id],
                    "the readings were not all on the one record after the join", &problems)
+            return problems
+        }
+    }
+
+    /// A Merge Back made while the disk refused owes the joined summary: what an Undo or a cut works out from the
+    /// sidecar before that is saved would miss it, so they wait, and the Undo then gives each half its own back.
+    private static func waitsForWhatIsOwed() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            guard let h = halves() else { return ["the cut was refused"] }
+            defer { MemoryDefaults.remove(named: h.f.rig.suite) }
+            h.f.disk.refuses = true
+            expect(h.f.store.mergeBack(tailID: h.split.tail.id), "Merge Back was refused: \(h.f.store.correctionError ?? "no reason")", &problems)
+            expect(!h.f.store.undoLastCorrection(), "Undo of Merge Back went ahead while the join still owed its summaries", &problems)
+            expect(!h.f.store.splitSession(recordID: h.f.record.id, at: h.f.record.start.addingTimeInterval(1_200),
+                                           tail: SplitStoreChecks.choice()),
+                   "a cut went ahead while the join still owed its summaries", &problems)
+            h.f.disk.refuses = false
+            expect(h.f.store.undoLastCorrection(),
+                   "Undo of Merge Back was refused once the disk was well: \(h.f.store.correctionError ?? "no reason")", &problems)
+            expect(h.f.store.sessionMetadata(for: h.split.head.id)?.activityShape == h.own
+                   && h.f.store.sessionMetadata(for: h.split.tail.id)?.activityShape == h.other,
+                   "Undo of a Merge Back made while the disk refused did not give each half its own summary back", &problems)
+            expect(h.f.store.metadataArchive.metadata(for: h.split.tail.id)?.headSummary == nil,
+                   "the joined session's summary was left set aside on the second part", &problems)
             return problems
         }
     }

@@ -241,6 +241,7 @@ extension SelfTest {
             + UndoForgetRelaunchChecks.tests
             + LiveOriginChecks.tests
             + OwedWorkChecks.tests
+            + RestructureSidecarChecks.laterTests
     }
 
     /// SelfTest's own checks 1 to 107.

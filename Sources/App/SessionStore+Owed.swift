@@ -1,9 +1,7 @@
 import Foundation
 
-/// What a correction owes beyond the archive (`OwedWork`) is done as soon as its records are written, and done
-/// again on each refresh, and so at launch, until the journal can drop it. A crash or a refused write between
-/// the records and the sidecar then leaves it owed, never lost. Every step sets a value, so doing one twice
-/// changes nothing.
+/// Doing what corrections owe beyond the archive (`OwedWork`): right after their records are written, and again
+/// on each refresh, and so at launch, until the journal can drop it.
 extension SessionStore {
     /// The one whose failure was last logged, so a sidecar that stays unwritable is said once, not on each refresh.
     private static var lastOwedFailure: String?
@@ -13,10 +11,11 @@ extension SessionStore {
     /// Does the work owed by corrections whose records are written, oldest first. Work that fails is kept, and so
     /// is any later work on a record it touches, which may rest on it; work on others goes on, so a sidecar
     /// that stays unwritable never holds back what is owed the remembered choices. What was done is then dropped
-    /// from the journal.
-    func settleOwedWork() {
+    /// from the journal. Returns the records whose owed work is still not done.
+    @discardableResult
+    func settleOwedWork() -> Set<UUID> {
         let owed = engine.decisionHistory.owed(in: engine.archive)
-        guard !owed.isEmpty else { return }
+        guard !owed.isEmpty else { return [] }
         var done = Set<UUID>(), blocked = Set<UUID>()
         for work in owed {
             if !blocked.isDisjoint(with: work.recordIDs) { blocked.formUnion(work.recordIDs); continue }
@@ -24,6 +23,15 @@ extension SessionStore {
             done.insert(work.id)
         }
         if let why = engine.decisionHistory.settle(done) { noteOwedFailure(why) }
+        return blocked
+    }
+
+    /// A split, a join or an Undo works out its own steps from the sidecar, so it waits while an earlier change
+    /// still owes these records work: true, with the reason published, when it has to.
+    func waitsForOwedWork(on ids: Set<UUID>, blocked: Set<UUID>) -> Bool {
+        guard !blocked.isDisjoint(with: ids) else { return false }
+        publishCorrectionError("An earlier change to this session could not be saved yet, so this has to wait. Try again once it is saved.")
+        return true
     }
 
     private func perform(_ work: OwedWork) -> String? {

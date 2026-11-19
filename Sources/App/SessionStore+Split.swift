@@ -14,7 +14,8 @@ extension SessionStore {
         guard !hasUnresolvedAwayDecision else {
             publishCorrectionError("Answer the away question first."); return false
         }
-        settleOwedWork()   // what the steps below are worked out from is then what earlier ones left
+        // What the steps below are worked out from is then what earlier ones left, or the cut waits.
+        guard !waitsForOwedWork(on: [recordID], blocked: settleOwedWork()) else { return false }
         guard let record = engine.archive.records.first(where: { $0.id == recordID }),
               let cut = record.split(at: moment, tail: choice, tailID: tailID) else {
             publishCorrectionError("That moment is not inside this session's work, so it can't be split there.")
@@ -36,13 +37,16 @@ extension SessionStore {
     /// Joins the tail of a split back onto its head: one correction, reversed by Undo.
     @discardableResult
     func mergeBack(tailID: UUID) -> Bool {
-        settleOwedWork()   // a link or a summary still owed by the cut is saved first
+        // A link or a summary still owed by the cut is saved first, or the join waits.
+        let blocked = settleOwedWork()
+        guard !waitsForOwedWork(on: [tailID], blocked: blocked) else { return false }
         guard let pair = mergePair(tailID: tailID) else {
             publishCorrectionError(hasLaterPart(of: tailID)
                 ? "This session was split again, so it can't be merged back yet. Merge its later part back first."
                 : "This session was changed after it was split, so it can't be merged back. Undo the change first.")
             return false
         }
+        guard !waitsForOwedWork(on: [pair.head.id], blocked: blocked) else { return false }
         let steps = [powerStep(head: pair.head.id, tail: pair.tail, toTail: false)]
             + joinSteps(head: pair.head, tail: pair.tail, keepingHead: true)
         let done = engine.mergeRecords(head: pair.head.id, tail: tailID, owing: owedWork(steps))
@@ -96,8 +100,9 @@ extension SessionStore {
     /// in come out and the ones it took out go back, whole, provided nothing has since taken their identity
     /// and the ones to come out are still as it wrote them (the archive checks that).
     func undoRestoringRecords(_ state: SessionStoreCorrectionState, before: PersistedState) -> Bool {
-        settleOwedWork()
+        let blocked = settleOwedWork()
         let back = state.removedRecords ?? [], out = state.addedRecords ?? []
+        guard !waitsForOwedWork(on: Set((back + out).map(\.id)), blocked: blocked) else { return false }
         let present = Set(engine.archive.records.map(\.id)).subtracting(out.map(\.id))
         guard !back.isEmpty, back.allSatisfy({ !present.contains($0.id) }) else {
             publishCorrectionError("That session is already back, or its stretches were rewritten since. Reopen the day to see it.")
