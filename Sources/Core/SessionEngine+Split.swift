@@ -7,9 +7,9 @@ extension SessionEngine {
     /// Cuts the ended record `id` at `moment`: the head keeps it and the tail is a new record from `moment`
     /// to its end under `tail`. False, with `awayDecisionError` saying why, when `moment` is not inside the
     /// record's work or the write is refused; nothing is changed then. `tailID` lets the caller know the new
-    /// record in advance.
+    /// record in advance. `owing`: what the cut owes the sidecar, journalled with it.
     @discardableResult
-    func splitRecord(id: UUID, at moment: Date, tail: SplitTail, tailID: UUID = UUID()) -> Bool {
+    func splitRecord(id: UUID, at moment: Date, tail: SplitTail, tailID: UUID = UUID(), owing: [OwedWork] = []) -> Bool {
         guard prepareCorrection() else { return false }
         guard let record = archive.records.first(where: { $0.id == id }),
               !(state != .idle && id == activeRecordID),
@@ -17,13 +17,13 @@ extension SessionEngine {
             awayDecisionError = "That moment is not inside this session's work, so it can't be split there. Reopen the day and try again."
             return false
         }
-        return commitRestructure(name: record.name, removing: [record], adding: [cut.head, cut.tail])
+        return commitRestructure(name: record.name, removing: [record], adding: [cut.head, cut.tail], owing: owing)
     }
 
     /// Joins `tail` back onto `head` when they touch, in that order: one record again, the head's. False,
     /// with the reason in `awayDecisionError`, when they do not or the write is refused.
     @discardableResult
-    func mergeRecords(head headID: UUID, tail tailID: UUID) -> Bool {
+    func mergeRecords(head headID: UUID, tail tailID: UUID, owing: [OwedWork] = []) -> Bool {
         guard prepareCorrection() else { return false }
         guard let head = archive.records.first(where: { $0.id == headID }),
               let tail = archive.records.first(where: { $0.id == tailID }),
@@ -31,11 +31,12 @@ extension SessionEngine {
             awayDecisionError = "Those two parts no longer follow one another, so they can't be merged. Reopen the day and try again."
             return false
         }
-        return commitRestructure(name: head.name, removing: [head, tail], adding: [joined])
+        return commitRestructure(name: head.name, removing: [head, tail], adding: [joined], owing: owing)
     }
 
     /// Saved as a removal that also holds what it wrote in, so an older build still reads the history.
-    private func commitRestructure(name: String, removing: [SessionRecord], adding: [SessionRecord]) -> Bool {
+    private func commitRestructure(name: String, removing: [SessionRecord], adding: [SessionRecord],
+                                   owing: [OwedWork]) -> Bool {
         let before = snapshot()
         var receipt = SessionStoreCorrectionState(
             sequence: (before.correctionGeneration ?? 0) + 1, threadID: removing[0].threadID, correction: .removed,
@@ -45,6 +46,6 @@ extension SessionEngine {
         receipt.addedRecords = adding
         receipt.madeAt = now()
         return commitCorrection(before: before, removing: removing, adding: adding,
-                                fields: fieldCorrections + [receipt])
+                                fields: fieldCorrections + [receipt], owing: owing)
     }
 }

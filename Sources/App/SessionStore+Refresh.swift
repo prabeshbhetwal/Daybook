@@ -120,6 +120,8 @@ extension SessionStore {
             refreshContinuations()
             refreshLiveFigures(at: moment)
             reconcilePowerBoundaries()
+            // After the readings queued before it, and before retention drops what it still needs.
+            settleOwedWork()
             refreshSessionMetadataRetention()
 
             // A recent name that is only a category's name repeats the

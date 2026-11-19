@@ -66,12 +66,14 @@ extension SessionEngine {
     func commitCorrection(before: PersistedState, removing: [SessionRecord] = [],
                           adding: [SessionRecord] = [], allowsEviction: Bool = false,
                           fields: [SessionStoreCorrectionState]? = nil,
-                          operation: DecisionHistory.Operation = .correction) -> Bool {
+                          operation: DecisionHistory.Operation = .correction,
+                          owing: [OwedWork] = []) -> Bool {
         correctionGeneration += 1
         if operation.updatesLiveState { liveCorrectionGeneration = correctionGeneration }
         let after = snapshot()
         let result = decisionHistory.commit(before: before, after: after, removing: removing,
-            adding: adding, fields: fields, archive: archive, allowsEviction: allowsEviction, operation: operation)
+            adding: adding, fields: fields, archive: archive, allowsEviction: allowsEviction, operation: operation,
+            owing: owing)
         if let error = result.error {
             // Once the scoped archive effects landed, retain the live after
             // state too. The pending journal completes finalisation on retry.
