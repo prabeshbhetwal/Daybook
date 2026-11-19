@@ -31,6 +31,11 @@ final class ActivityEvidence {
     var siteReader: SiteSignalReader?
     /// The process of the app in front when it is the app named; nil reads nothing.
     var frontPID: (String) -> pid_t? = { _ in nil }
+    /// The records already judged for an automatic split; nil until the first pass of a launch notes what is
+    /// there, so nothing recorded before is ever split behind the person's back.
+    var splitSeen: Set<UUID>?
+    /// Automatic sessions whose own split was refused: the person is offered the cut instead (until a relaunch).
+    var splitRefused: Set<UUID> = []
 
     init(archive: BeatArchive = BeatArchive(), counters: InputCounters = InputCounters()) {
         self.archive = archive

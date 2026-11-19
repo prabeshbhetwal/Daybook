@@ -223,7 +223,7 @@ extension SessionStore {
         }
         var presentedThreads = Set<UUID>()
         for correction in corrections.reversed() where presentedThreads.insert(correction.threadID).inserted {
-            if correction.correction == .removed {
+            if correction.restructure == .removal {
                 // Nothing of the session is left to attach the notice to; the
                 // journal remembers its span.
                 if let range = correction.removedRange.flatMap(clipped) {
@@ -255,7 +255,7 @@ extension SessionStore {
                         title = "Recorded as a break"
                     }
                 case .workType(let type): title = "Changed to \(type.displayName)"
-                case .removed: title = "Session removed"
+                case .removed: title = correction.restructureTitle
                 }
                 // A session's notice stands when the correction was made. A
                 // break's replaces the break's row, so keeps its span, as does

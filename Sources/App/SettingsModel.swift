@@ -258,7 +258,7 @@ struct SettingsPrivacyDisclosure {
         appUsageDetail
         + " Session names, intent and notes entered into Daybook are stored locally,"
         + " with the power source, battery level, charging state and charger wattage"
-        + " seen during each session. Three things can reach a server: backups kept"
+        + " seen during each session." + sessionOriginDetail + " Three things can reach a server: backups kept"
         + " in iCloud Drive, which iCloud uploads to your own account on the schedule"
         + " set under Backups; the update check, which asks GitHub for the latest"
         + " version and sends the app's own; and dictation, which uses Apple's speech"

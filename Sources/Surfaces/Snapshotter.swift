@@ -2,22 +2,20 @@ import SwiftUI
 import AppKit
 
 enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
-    case focusFirstRun, focusRunning, focusPaused, focusAwaitingDecision, focusSaveFailure
-    case focusAutomatic, focusOnBreak
+    case focusFirstRun, focusRunning, focusPaused, focusAwaitingDecision, focusSaveFailure, focusAutomatic, focusOnBreak
     case todayHistory, todayHistoryExpanded
     case reviewHistorySelection, historySession, historySearch, historyApp, historySparse
     case historyFrontMonths, historyFrontYears, historyFrontMonth
-    case insightsEnough, insightsEmpty
-    case awardsEarned, awardsEmpty
+    case insightsEnough, insightsEmpty, awardsEarned, awardsEmpty
     case askEmpty, askAnswered, askFailed, askStopped, askGoals, askPanelStory, askPanelHistory, askPanelGoals
-    case reviewNotes, reviewNotesHistory
-    case storyDay, storyDayEntry
+    case reviewNotes, reviewNotesHistory, storyDay, storyDayEntry
     case storyShape, storyMeeting, storyLive, storyDecision, storyReport, storyNameSuggestion, storyNameSuggestionEarlier
     case welcomeOpening, welcomeStep
     case settingsGeneral, settingsFocus, settingsCategories, settingsAway, settingsBreaks, settingsAutomatic
     case settingsActivityRules, settingsTracking, settingsAppearance, settingsData, settingsUpdates, settingsAdvanced
     case activityRuleAmbiguity, activityRuleAutomatic
     case awayQuick, awayFull, awayQuickFailure, awayFullFailure, rewardEarned, settingsHelp, storyPhases
+    case storyOrigin, storySplit
 
     var id: String { rawValue }
 
@@ -86,6 +84,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .rewardEarned: return "Reward — earned"
         case .settingsHelp: return "Settings — every panel's explanation, as its info mark opens it"
         case .storyPhases: return "Story — phase strips of four traced sessions, and one's report"
+        case .storyOrigin, .storySplit: return reviewTitle
         }
     }
 
@@ -122,7 +121,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned, .settingsHelp, .storyPhases:
             return [.compact]
         default:
-            return [.minimum, .comfortable]
+            return isReviewCard ? [.compact] : [.minimum, .comfortable]
         }
     }
 
@@ -143,15 +142,15 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .awardsEarned, .awardsEmpty:
             return .awards
         case .storyDay, .storyDayEntry, .askEmpty, .askAnswered, .askFailed, .askStopped, .askGoals, .askPanelStory,
-             .askPanelGoals, .reviewNotes,
-             .storyShape, .storyMeeting, .storyLive, .storyDecision, .storyReport, .storyNameSuggestion,
-             .storyNameSuggestionEarlier, .welcomeOpening, .welcomeStep:
+             .askPanelGoals, .reviewNotes, .storyShape, .storyMeeting, .storyLive, .storyDecision, .storyReport,
+             .storyNameSuggestion, .storyNameSuggestionEarlier, .welcomeOpening, .welcomeStep:
             return .story
         case .settingsGeneral, .settingsFocus, .settingsCategories, .settingsAway, .settingsBreaks, .settingsAutomatic,
              .settingsTracking, .settingsAppearance, .settingsData, .settingsUpdates, .settingsAdvanced,
              .settingsActivityRules:
             return .settings
-        case .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned, .settingsHelp, .storyPhases:
+        case .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned, .settingsHelp, .storyPhases,
+             .storyOrigin, .storySplit:
             return nil
         }
     }
@@ -424,7 +423,7 @@ enum Snapshotter {
         case .storyPhases:
             return AnyView(phaseStrips().snapshotAppearance(item.appearance))
         default:
-            return AnyView(Text("Unsupported compact snapshot"))
+            return AnyView(reviewCard(for: item.scenario).snapshotAppearance(item.appearance))
         }
     }
 
@@ -511,7 +510,8 @@ enum Snapshotter {
              .settingsTracking, .settingsAppearance, .settingsData, .settingsUpdates, .settingsAdvanced,
              .settingsActivityRules:
             return FixtureFactory.store(for: .running)
-        case .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned, .settingsHelp, .storyPhases:
+        case .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned, .settingsHelp, .storyPhases,
+             .storyOrigin, .storySplit:
             return FixtureFactory.store(for: .firstRun)
         case .welcomeOpening, .welcomeStep:
             // The welcome is read on a day with nothing in it, which is the

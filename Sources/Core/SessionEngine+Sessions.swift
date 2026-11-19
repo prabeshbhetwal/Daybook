@@ -29,7 +29,7 @@ extension SessionEngine {
                                      detectedApp: activeDetectedApp,
                                      threadID: activeThreadID,
                                      isAuto: activeIsAuto,
-                                     pausedSpans: trustedPausedSpans(until: end))
+                                     pausedSpans: trustedPausedSpans(until: end)).stamped(activeProvenance)
         let additions = (record.map { [$0] } ?? []) + (rest.map { [$0] } ?? [])
         if decisionHistory.requiresTerminalCheckpoint || awayDecisions.contains(where: {
             $0.creditedSeconds > 0 && $0.threadID == activeThreadID && $0.sessionStart == sessionStartDate
@@ -99,10 +99,14 @@ extension SessionEngine {
     func adopt(intent: String) {
         guard state != .idle else { return }
         let trimmed = intent.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmed.isEmpty { store.sessionName = trimmed }
+        if !trimmed.isEmpty {
+            store.sessionName = trimmed
+            activeProvenance.nameByApp = false
+        }
         // A deliberate act. From here the app must not end this session itself.
         activeIsAuto = false
         activeAutomaticAction = nil
+        activeProvenance.categorySource = .user
         if state.isPaused { transition(on: .manualResume) }
         persist()
     }
@@ -113,12 +117,14 @@ extension SessionEngine {
         guard state != .idle, activeIsAuto else { return }
         activeIsAuto = false
         activeAutomaticAction = nil
+        // The origin stays; the category is the person's from here.
+        activeProvenance.categorySource = .user
         persist()
     }
 
     @discardableResult
     func start(workType: WorkType, intent: String, threadID: UUID = UUID(),
-               isAuto: Bool = false) -> Bool {
+               isAuto: Bool = false, nameByApp: Bool = false) -> Bool {
         if state != .idle, !stop() { return false }
         activeWorkType = workType
         activeDetectedApp = currentAppBundleID
@@ -127,6 +133,10 @@ extension SessionEngine {
         activeAutomaticAction = nil
         store.sessionName = intent.trimmingCharacters(in: .whitespacesAndNewlines)
         transition(on: .launch)
+        // After the launch transition, whose fresh session resets it to manual.
+        // A learned category is still the app's guess (B5): `.builtIn`.
+        activeProvenance = isAuto ? .automatic(nameByApp: nameByApp) : .manual
+        persist()
         return true
     }
 
@@ -167,6 +177,7 @@ extension SessionEngine {
         activeRecordID = UUID()
         activeIsAuto = true
         activeAutomaticAction = action
+        activeProvenance = .rule(action)
         store.sessionName = action.ruleName
         sessionStartDate = evidence.start
         totalPausedDuration = max(0, now().timeIntervalSince(evidence.end))

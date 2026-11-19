@@ -36,17 +36,29 @@ extension SessionEngine {
     /// `claims`: the person named or reclassified the running work in its
     /// card, which claims it as Save in the automatic row does: Name no longer
     /// asks for a name it already has, and no rule ends or switches it. A
-    /// tidy-up or an Undo changes the field and leaves ownership alone.
-    func stageActiveCorrection(_ correction: SessionCorrection, threadID: UUID, claims: Bool = false) {
+    /// tidy-up changes the field and leaves ownership alone. An Undo puts back
+    /// the provenance it saved (`restoring`), or leaves it where an older
+    /// correction saved none.
+    func stageActiveCorrection(_ correction: SessionCorrection, threadID: UUID, claims: Bool = false,
+                               fromUndo: Bool = false,
+                               restoring: SessionArchiveCorrectionSnapshot.Fields.Provenance? = nil) {
         guard state != .idle, activeThreadID == threadID else { return }
         switch correction {
-        case .rename(let name): store.sessionName = name
-        case .workType(let type): activeWorkType = type
+        case .rename(let name):
+            store.sessionName = name
+            // The person's own name or category.
+            if !fromUndo { activeProvenance.nameByApp = false }
+            else if let kept = restoring?.nameByApp { activeProvenance.nameByApp = kept }
+        case .workType(let type):
+            if fromUndo, let kept = restoring?.categorySource { activeProvenance.categorySource = kept }
+            else if !fromUndo, type != activeWorkType { activeProvenance.categorySource = .user }
+            activeWorkType = type
         case .removed: return   // never staged on a live stretch
         }
         if claims {
             activeIsAuto = false
             activeAutomaticAction = nil
+            activeProvenance.categorySource = .user
         }
     }
 
@@ -125,6 +137,7 @@ extension SessionEngine {
         activeDetectedApp = saved.activeDetectedApp
         activeIsAuto = saved.isAuto ?? false
         activeAutomaticAction = saved.automaticActivityAction
+        activeProvenance = saved.provenance ?? .legacy(isAuto: activeIsAuto, action: activeAutomaticAction)
         activeBreak = saved.activeBreak
         awayDecisions = saved.awayDecisions ?? saved.awayDecision.map { [$0] } ?? []
         correctionGeneration = saved.correctionGeneration ?? 0
@@ -157,6 +170,7 @@ extension SessionEngine {
         result.activeRecordID = activeRecordID
         result.activeDetectedApp = activeDetectedApp
         result.automaticActivityAction = activeAutomaticAction
+        result.provenance = activeProvenance
         result.pendingRests = pendingRests.isEmpty ? nil : pendingRests
         result.activeBreak = activeBreak
         return result

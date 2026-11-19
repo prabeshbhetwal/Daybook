@@ -61,6 +61,7 @@ extension SessionEngine {
         activeDetectedApp = snapshot.activeDetectedApp
         activeIsAuto = snapshot.isAuto ?? false
         activeAutomaticAction = snapshot.automaticActivityAction
+        activeProvenance = snapshot.provenance ?? .legacy(isAuto: activeIsAuto, action: activeAutomaticAction)
         // A break keeps its start and planned end across a relaunch. Whatever
         // way this returns, one that outgrew its cap while the app was closed
         // ends there, as it would have ended had the app been running. One

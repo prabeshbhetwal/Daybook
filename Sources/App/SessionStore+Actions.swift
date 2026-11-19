@@ -149,11 +149,13 @@ extension SessionStore {
     /// changing live identity. Callers perform their existing eligibility gate
     /// first, and only activate apps/clear drafts/backdate after true success.
     @discardableResult
-    func replaceSession(workType: WorkType, intent: String, threadID: UUID = UUID(), isAuto: Bool = false) -> Bool {
+    func replaceSession(workType: WorkType, intent: String, threadID: UUID = UUID(), isAuto: Bool = false,
+                        nameByApp: Bool = false) -> Bool {
         // Whichever way a session starts, a break under way is over first.
         guard endBreakIfNeeded() else { return false }
         let origin = (engine.activeThreadID, engine.sessionStartDate)
-        let started = engine.start(workType: workType, intent: intent, threadID: threadID, isAuto: isAuto)
+        let started = engine.start(workType: workType, intent: intent, threadID: threadID, isAuto: isAuto,
+                                   nameByApp: nameByApp)
         let retry = SessionCorrectionRetry.ending(threadID: origin.0, sessionStart: origin.1)
         let unfinishedEnding = engine.awayDecisionError != nil
             && engine.decisionHistory.document.pending.map { retry.matches($0) } == true

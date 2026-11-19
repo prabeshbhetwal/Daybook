@@ -222,6 +222,19 @@ extension SelfTest {
             + SiteSignalSecurityChecks.tests
             + BrowserPurposeChecks.tests
             + SiteLimitChecks.tests
+            + ProvenanceChecks.tests + ProvenanceEngineChecks.tests
+            + CategoryCorrectionChecks.tests + CorrectionsFileChecks.tests + CorrectionsStoreChecks.tests
+            + ProvenanceCarryChecks.tests + ProvenanceLiveEditChecks.tests
+            + CorrectionUndoChecks.tests + CorrectionUndoRuleChecks.tests
+            + ContradictionLineChecks.tests + OriginMarkChecks.tests
+            + SplitRecordChecks.tests + SplitStoreChecks.tests + SplitStoreRelaunchChecks.tests
+            + SplitOfferChecks.tests + SplitAutomaticChecks.tests + ContradictionLineChecks.watchingTests
+            + SplitRestructureChecks.tests
+            + RestructureRetryChecks.tests + RememberedUndoChecks.tests
+            + RestructureRetryChecks.finishedElsewhereTests
+            + RememberedUndoChecks.retriedTests + JoinedSummaryChecks.tests
+            + OlderFilingUndoChecks.tests + SplitAgainChecks.tests
+            + CorrectionUndoRuleChecks.laterTests
     }
 
     /// SelfTest's own checks 1 to 107.

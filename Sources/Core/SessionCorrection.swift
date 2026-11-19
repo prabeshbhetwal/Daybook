@@ -9,8 +9,10 @@ import Foundation
 enum SessionCorrection: Codable, Equatable {
     case rename(String)
     case workType(WorkType)
+    /// Also what a split and a merge are saved as, told apart by what they wrote in
+    /// (`SessionStoreCorrectionState.restructure`): a case of their own would be one a build from before
+    /// them cannot decode, and it would set the whole correction history aside.
     case removed
-
 }
 
 /// The original values of the records touched by one saved correction. Undo
@@ -21,6 +23,9 @@ struct SessionArchiveCorrectionSnapshot: Codable, Equatable {
         let recordID: UUID
         let name: String
         let workType: WorkType
+        /// Nil in snapshots written before provenance existed, and on the
+        /// stand-in fields Undo builds for a stretch added since.
+        var provenance: Provenance? = nil
     }
 
     let threadID: UUID

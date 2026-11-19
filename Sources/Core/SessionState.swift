@@ -295,6 +295,17 @@ struct SessionRecord: Codable, Equatable, Identifiable {
     var breakOrigin: BreakOrigin?
     /// The length a started break was planned for. Nil for every other record.
     var plannedLength: TimeInterval?
+    /// How the session began and where its category and name came from. Nil on
+    /// records written before this existed; read through `effectiveOrigin` and
+    /// `effectiveCategorySource`.
+    var origin: SessionOrigin?
+    var originRuleID: UUID?
+    /// The rule's name when it started the session, kept because rules are
+    /// renamed and deleted.
+    var originRuleName: String?
+    var categorySource: DecisionSource?
+    /// True while the name is the one Daybook chose, not the person.
+    var nameByApp: Bool?
 
     init(id: UUID = UUID(),
          name: String,
@@ -307,7 +318,12 @@ struct SessionRecord: Codable, Equatable, Identifiable {
          isAuto: Bool = false,
          pausedSpans: [DateInterval]? = nil,
          breakOrigin: BreakOrigin? = nil,
-         plannedLength: TimeInterval? = nil) {
+         plannedLength: TimeInterval? = nil,
+         origin: SessionOrigin? = nil,
+         originRuleID: UUID? = nil,
+         originRuleName: String? = nil,
+         categorySource: DecisionSource? = nil,
+         nameByApp: Bool? = nil) {
         self.id = id
         self.name = name
         self.workType = workType
@@ -320,6 +336,11 @@ struct SessionRecord: Codable, Equatable, Identifiable {
         self.pausedSpans = pausedSpans
         self.breakOrigin = breakOrigin
         self.plannedLength = plannedLength
+        self.origin = origin
+        self.originRuleID = originRuleID
+        self.originRuleName = originRuleName
+        self.categorySource = categorySource
+        self.nameByApp = nameByApp
     }
 
     /// Records written before threads existed remain one single-segment thread
@@ -343,6 +364,13 @@ struct SessionRecord: Codable, Equatable, Identifiable {
         breakOrigin = try container.decodeIfPresent(String.self, forKey: .breakOrigin)
             .flatMap(BreakOrigin.init(rawValue:))
         plannedLength = try container.decodeIfPresent(TimeInterval.self, forKey: .plannedLength)
+        // Both enums read a value they do not know as the app's, never the person's,
+        // and a malformed value reads as nil: it never sets the record aside.
+        origin = container.lenient(SessionOrigin.self, .origin)
+        originRuleID = container.lenient(UUID.self, .originRuleID)
+        originRuleName = container.lenient(String.self, .originRuleName)
+        categorySource = container.lenient(DecisionSource.self, .categorySource)
+        nameByApp = container.lenient(Bool.self, .nameByApp)
     }
 }
 
@@ -525,6 +553,9 @@ struct PersistedState: Codable, Equatable {
     /// The break under way, if any. Nil in snapshots written before breaks
     /// could be started, and whenever none is.
     var activeBreak: ActiveBreak? = nil
+    /// How the live stretch began. Nil in snapshots written before it existed;
+    /// the engine then reads it from `isAuto` and the rule action.
+    var provenance: SessionProvenance? = nil
 }
 
 extension PersistedState {

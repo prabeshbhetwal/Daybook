@@ -113,12 +113,13 @@ extension SessionEngine {
         var record: SessionRecord?
         if decision == .mergeTime || decision == .tookBreak {
             let trimmed = label?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            record = SessionRecord(id: receipt.id,
+            let answered = SessionRecord(id: receipt.id,
                 name: decision == .mergeTime ? receipt.name : trimmed.isEmpty ? "Break" : trimmed,
                 workType: decision == .mergeTime ? receipt.workType : .breakTime,
                 start: receipt.range.start, end: receipt.range.end, workSeconds: receipt.range.duration,
                 threadID: decision == .mergeTime ? receipt.threadID : receipt.id,
                 breakOrigin: decision == .tookBreak ? .answered : nil)
+            record = decision == .mergeTime ? beginningAsSession(of: receipt, answered) : answered
         }
         if let error = validateDecisionEffects(record.map { [$0] } ?? []) {
             awayDecisionError = error; return false
@@ -132,6 +133,16 @@ extension SessionEngine {
         persist()
         onStateChanged?(state)
         return true
+    }
+
+    /// Time counted back into the session behind `receipt` began as that session
+    /// did: its own saved stretch, else the stretch running on its thread now.
+    /// A stretch that neither can vouch for keeps no provenance, as before.
+    private func beginningAsSession(of receipt: AwayDecisionReceipt, _ counted: SessionRecord) -> SessionRecord {
+        if let saved = archive.records.first(where: { $0.threadID == receipt.threadID && $0.start == receipt.sessionStart }) {
+            return counted.carryingProvenance(of: saved)
+        }
+        return state != .idle && activeThreadID == receipt.threadID ? counted.stamped(activeProvenance) : counted
     }
 
     /// A legacy break has no original away receipt. Reclassifying it records
@@ -154,7 +165,7 @@ extension SessionEngine {
         let focus: SessionRecord? = target.map {
             SessionRecord(id: id, name: $0.name, workType: $0.workType,
                 start: original.start, end: original.end, workSeconds: original.end.timeIntervalSince(original.start),
-                threadID: $0.threadID)
+                threadID: $0.threadID).carryingProvenance(of: $0)
         }
         lastAwayDecision = AwayDecisionReceipt(id: id, range: DateInterval(start: original.start, end: original.end),
             name: target?.name ?? original.name, workType: target?.workType ?? original.workType,
