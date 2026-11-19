@@ -128,7 +128,10 @@ enum GoalDayResultsChecks: CheckSuite {
             if store.wasPerfectDay(place) { problems.append("a day with no record was perfect") }
             persistence.goalResultsByDay = [DailyGoalList.dayKey(yesterday, calendar: calendar):
                                                 [result(coding, met: true), result(video, met: true)]]
-            if !store.wasPerfectDay(place) { problems.append("a day with every goal met was not perfect") }
+            if !store.wasPerfectDay(place) || !store.wasPerfectDay(on: yesterday) {
+                problems.append("a day with every goal met was not perfect")
+            }
+            if !store.yesterdayWasPerfect { problems.append("the card did not know yesterday was perfect") }
             persistence.goalResultsByDay = [DailyGoalList.dayKey(yesterday, calendar: calendar):
                                                 [result(coding, met: true), result(video, met: false)]]
             if store.wasPerfectDay(place) { problems.append("a broken limit left the day perfect") }
@@ -168,7 +171,12 @@ enum GoalDayResultsChecks: CheckSuite {
             let second = DailyGoalItem(target: .app("com.example.other"), kind: .limit, seconds: 600)
             persistence.dailyGoalItems = [first, second]
             store.recordGoalResultsIfNewDay()
-            clock.advance(24 * 3_600)
+            // Just after midnight the day is not judged: quiet time before it may still roll back.
+            let sinceDayStart = clock.value.timeIntervalSince(day)
+            clock.advance(24 * 3_600 - sinceDayStart + 2 * 60)
+            store.updateTimeDrivenFigures()
+            if persistence.goalResultsByDay[dayKey] != nil { problems.append("a day was judged two minutes after midnight") }
+            clock.advance(4 * 60)
             store.updateTimeDrivenFigures()
             let written = persistence.goalResultsByDay[dayKey]
             if written?.map(\.goalID) != [first.id, second.id] {

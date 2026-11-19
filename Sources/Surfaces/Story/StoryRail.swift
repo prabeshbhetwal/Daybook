@@ -378,6 +378,15 @@ struct StoryRail: View {
             if !categoryGoals.isEmpty || !appLimits.isEmpty {
                 categoryGoalRows
             }
+            // The Yesterday notice says it when it is offered; without one (no focus
+            // session, or the on-device model unavailable) the card does.
+            if day == nil, noteOffers.yesterday == nil, store.yesterdayWasPerfect {
+                Label("Yesterday was a perfect day", systemImage: "checkmark.seal.fill")
+                    .font(Tokens.Typography.body)
+                    .foregroundStyle(StoryStyle.successInk)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("Yesterday was a perfect day: every goal met or kept")
+            }
             // Today's tile only: the tidy-up is about the record as it is now.
             if day == nil {
                 NameCategoryNotice(store: store, settings: settings)

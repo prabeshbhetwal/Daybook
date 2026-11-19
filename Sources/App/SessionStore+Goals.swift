@@ -44,7 +44,10 @@ extension SessionStore {
             engine.store.goalSnapshotsByDay = snapshots.filter { keep.contains($0.key) }
             goalSnapshotToday = (key, items)
         }
-        guard key != goalResultsDayKey, usage != nil else { return }
+        // Not until the new day is five minutes old: quiet time before midnight is
+        // counted until the idle cutoff rolls it back, and a closed day is never revisited.
+        guard key != goalResultsDayKey, usage != nil,
+              now().timeIntervalSince(today) >= Self.idleSettleSeconds else { return }
         goalResultsDayKey = key
         let snapshots = engine.store.goalSnapshotsByDay
         var recorded = engine.store.goalResultsByDay
@@ -64,11 +67,26 @@ extension SessionStore {
         if changed { engine.store.goalResultsByDay = recorded }
     }
 
-    /// Whether every goal was met or kept on the day `place` covers.
-    func wasPerfectDay(_ place: HistoryPlace) -> Bool {
-        let key = DailyGoalList.dayKey(place.start, calendar: Calendar.current)
+    /// How long after midnight before a closed day is judged: past the idle cutoff
+    /// that rolls usage back to the last input.
+    static let idleSettleSeconds: TimeInterval = 5 * 60
+
+    /// Whether every goal was met or kept on `day`.
+    func wasPerfectDay(on day: Date) -> Bool {
+        let key = DailyGoalList.dayKey(day, calendar: Calendar.current)
         return GoalDayResults.isPerfect(engine.store.goalResultsByDay[key] ?? [])
     }
+
+    /// Whether yesterday was a perfect day, for Today's goals when no Yesterday
+    /// notice carries it (no focus session, or the on-device model unavailable).
+    var yesterdayWasPerfect: Bool {
+        let calendar = Calendar.current
+        guard let yesterday = calendar.date(byAdding: .day, value: -1, to: calendar.startOfDay(for: now())) else { return false }
+        return wasPerfectDay(on: yesterday)
+    }
+
+    /// Whether every goal was met or kept on the day `place` covers.
+    func wasPerfectDay(_ place: HistoryPlace) -> Bool { wasPerfectDay(on: place.start) }
 
     /// Awards for the goals, from the recorded days.
     var goalAwards: [Award] {
