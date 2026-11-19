@@ -109,6 +109,12 @@ extension SessionStore {
             publishCorrectionError("That session is already back, or its stretches were rewritten since. Reopen the day to see it.")
             return false
         }
+        // The second part's note lives in the sidecar and goes with its record; Merge Back refuses such a part too.
+        if state.restructure == .split, let tail = state.restructuredParts?.tail,
+           metadataArchive.metadata(for: tail.id)?.note != nil {
+            publishCorrectionError("The second part of this session has a note, so undoing the split would lose it. Remove the note first.")
+            return false
+        }
         let done = engine.commitCorrection(before: before, removing: out, adding: back,
                                            fields: corrections.filter { $0.id != state.id })
         let landed = done || back.allSatisfy { engine.archive.records.contains($0) }
