@@ -596,6 +596,7 @@ extension SessionStore {
         case .legacy(let record, let decision, let target):
             return reclassifyLegacyBreak(recordID: record.id, decision: decision, focusTargetID: target?.id,
                                         expectedRecord: record, expectedTarget: target)
+        case .split, .merge: return retryRestructure(retry)
         case .ending, .discarding, .longAway:
             return retryCurrentTerminalIntent(retry) ?? false
         }
@@ -777,9 +778,7 @@ extension SessionStore {
         }
         guard engine.commitCorrection(before: before, removing: removed, adding: added,
                                       fields: corrections.filter { $0.id != state.id }) else {
-            publishCorrectionError(engine.awayDecisionError)
-            correctionRetry = .undo(state)
-            return false
+            return undoRefused(state)
         }
         publishCanUndoCorrection(!corrections.isEmpty || engine.canUndoAwayDecision)
         publishCorrectionError(nil); correctionRetry = nil

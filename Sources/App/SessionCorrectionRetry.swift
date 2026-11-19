@@ -2,6 +2,11 @@ import Foundation
 
 enum SessionCorrectionRetry {
     case correction(threadID: UUID, correction: SessionCorrection, claims: Bool = false)
+    /// A cut or a join refused before its records changed: Retry does it again with the same arguments, the
+    /// same tail id included. Held in memory like every retry, so a relaunch drops it and the person cuts or
+    /// joins again. Not a `SessionCorrection` case: the journal keeps them as removals (ruling B26).
+    case split(threadID: UUID, recordID: UUID, at: Date, tail: SplitTail, tailID: UUID)
+    case merge(threadID: UUID, tailID: UUID)
     case undo(SessionStoreCorrectionState)
     case awayUndo(UUID)
     case awayDecision(UserDecision, label: String?, reviewing: Bool, expectedID: UUID)
@@ -29,6 +34,10 @@ enum SessionCorrectionRetry {
                 receipt.threadID == thread && receipt.correction == correction
                     && !transaction.fieldsBefore.contains { $0.id == receipt.id }
             }
+        case .split(let thread, _, _, _, _):
+            return transaction.wrote(.split, for: thread)
+        case .merge(let thread, _):
+            return transaction.wrote(.merge, for: thread)
         case .legacy(let record, let decision, _):
             return transaction.removed.contains(record) && after.contains {
                 $0.legacyOriginalRecord == record && $0.decision == decision
@@ -45,6 +54,16 @@ enum SessionCorrectionRetry {
         case .longAway(let request, _):
             return transaction.operation == .endStretch && transaction.before.threadID == request.threadID
                 && transaction.before.sessionStart == request.sessionStart && transaction.after.kind == .idle
+        }
+    }
+}
+
+private extension DecisionHistory.Transaction {
+    /// Whether this transaction wrote a new receipt of `kind` for `thread`.
+    func wrote(_ kind: SessionStoreCorrectionState.Restructure, for thread: UUID) -> Bool {
+        fieldsAfter.contains { receipt in
+            receipt.threadID == thread && receipt.restructure == kind
+                && !fieldsBefore.contains { $0.id == receipt.id }
         }
     }
 }

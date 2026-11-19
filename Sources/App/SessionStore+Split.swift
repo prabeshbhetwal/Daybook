@@ -30,7 +30,8 @@ extension SessionStore {
             movePower(head: record.id, tail: cut.tail, toTail: true)
         }
         return finishRestructure(done: done, landed: landed,
-                                 retry: .correction(threadID: record.threadID, correction: .removed))
+                                 retry: .split(threadID: record.threadID, recordID: recordID, at: moment,
+                                               tail: choice, tailID: tailID))
     }
 
     /// The tail of a split, offered Merge Back: it touches its head, neither has been renamed or filed
@@ -48,7 +49,20 @@ extension SessionStore {
         let landed = done || !engine.archive.records.contains { $0.id == tailID }
         if landed { movePower(head: pair.head.id, tail: pair.tail, toTail: false) }
         return finishRestructure(done: done, landed: landed,
-                                 retry: .correction(threadID: pair.head.threadID, correction: .removed))
+                                 retry: .merge(threadID: pair.head.threadID, tailID: tailID))
+    }
+
+    /// Retry of a cut or a join refused before its records changed: done again, with the same arguments. One
+    /// that landed with only its journal save refused never gets here; the pending journal finishes it.
+    func retryRestructure(_ retry: SessionCorrectionRetry) -> Bool {
+        switch retry {
+        case .split(_, let recordID, let moment, let tail, let tailID):
+            return splitSession(recordID: recordID, at: moment, tail: tail, tailID: tailID)
+        case .merge(_, let tailID):
+            return mergeBack(tailID: tailID)
+        default:
+            return false
+        }
     }
 
     func mergePair(tailID: UUID) -> (head: SessionRecord, tail: SessionRecord)? {

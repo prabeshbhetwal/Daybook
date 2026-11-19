@@ -16,14 +16,14 @@ enum CorrectionsStoreChecks: CheckSuite {
     static let typical = CategoryCorrectionChecks.fingerprint()
 
     @MainActor
-    static func make() -> (store: SessionStore, clock: TestClock, suite: String) {
+    static func make(journal: (() -> String?)? = nil) -> (store: SessionStore, clock: TestClock, suite: String) {
         let suite = "fc-selftest-corrections-\(UUID().uuidString)"
         let clock = TestClock(SelfTest.anchoredNow())
         let archive = SessionArchive(directory: SelfTest.scratchDirectory(), now: { clock.value })
         let persistence = PersistenceStore(defaults: MemoryDefaults.suite(named: suite) ?? .standard)
         persistence.removeAll()
         let engine = SessionEngine(store: persistence, archive: archive, ownBundleID: "com.test",
-                                   schedulesDwell: false, now: { clock.value })
+                                   schedulesDwell: false, correctionWriteOverride: journal, now: { clock.value })
         return (SessionStore(engine: engine, now: { clock.value }), clock, suite)
     }
 

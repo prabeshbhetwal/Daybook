@@ -51,10 +51,22 @@ extension SessionStore {
     }
 
     /// Undo of a category change takes back what it taught: that kind of session is no longer offered
-    /// the category on its account.
+    /// the category on its account. The choices to fall back to are the filings of the corrections made
+    /// before this one that still stand, so one undone out of order is not revived.
     func forgetRemembered(of state: SessionStoreCorrectionState) {
-        guard let filings = state.remembered, !filings.isEmpty,
-              let why = categoryCorrections.forget(filings, at: now()) else { return }
+        guard let filings = state.remembered, !filings.isEmpty else { return }
+        let standing = corrections.filter { $0.sequence < state.sequence }.flatMap { $0.remembered ?? [] }
+        guard let why = categoryCorrections.forget(filings, standing: standing, at: now()) else { return }
         Diagnostics.log("Category choice not forgotten: \(why)")
+    }
+
+    /// An undo whose write was refused: the error and Retry stay. When its records changed and only the
+    /// journal save is owed (the correction is already gone from `corrections`), what the change taught is
+    /// taken back now, once: Retry then only finishes the save and never comes back here.
+    func undoRefused(_ state: SessionStoreCorrectionState) -> Bool {
+        publishCorrectionError(engine.awayDecisionError)
+        correctionRetry = .undo(state)
+        if !corrections.contains(where: { $0.id == state.id }) { forgetRemembered(of: state) }
+        return false
     }
 }

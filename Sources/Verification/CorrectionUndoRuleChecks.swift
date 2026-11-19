@@ -24,7 +24,7 @@ enum CorrectionUndoRuleChecks: CheckSuite {
         expect(first.before == nil && first.after.chosen == "learning", "the first filing reads \(first)", &problems)
         let second = corrections.record(fingerprint: typical, chosen: "deepWork", vetoed: "learning",
                                         at: start.addingTimeInterval(60))
-        corrections.forget(second)
+        corrections.forget(second, standing: [first])
         expect(corrections.entries == [first.after],
                "taking back the second left \(corrections.entries), not \(first.after)", &problems)
         corrections.forget(first)

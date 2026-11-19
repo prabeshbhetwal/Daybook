@@ -60,16 +60,21 @@ struct CategoryCorrections: Equatable {
         return RememberedFiling(before: previous, after: entry)
     }
 
-    /// Takes one filing back. An entry still as that filing left it goes back to how it stood (gone when
-    /// there was none), vetoes included. One filed again since keeps those later choices: it loses one
-    /// count, and goes at zero. shortcut: that second case leaves vetoes as they are, since a later
-    /// filing may rest on them; upgrade if a veto left by an undone choice proves to matter.
-    mutating func forget(_ filing: RememberedFiling) {
+    /// Takes one filing back. An entry still as that filing left it goes back to how the latest of `standing`
+    /// left it (those made before it that nobody has undone, oldest first), vetoes included, and is gone when
+    /// none stands. The filing's own `before` is not trusted: it may be the work of one undone out of order.
+    /// One filed again since keeps those later choices: it loses one count, and goes at zero. shortcut: that
+    /// second case leaves vetoes as they are, since a later filing may rest on them; upgrade if a veto left by
+    /// an undone choice proves to matter. A filing whose receipt aged out of the history is not standing, so
+    /// undoing a later one forgets what it rested on too; upgrade if that proves to matter.
+    mutating func forget(_ filing: RememberedFiling, standing: [RememberedFiling] = []) {
         guard let index = entries.firstIndex(where: {
             $0.kind == Self.categoryKind && $0.fingerprint == filing.after.fingerprint
         }), entries[index].chosen == filing.after.chosen else { return }
         if entries[index] == filing.after {
-            if let before = filing.before { entries[index] = before } else { entries.remove(at: index) }
+            if let kept = standing.last(where: { $0.after.fingerprint == filing.after.fingerprint }) {
+                entries[index] = kept.after
+            } else { entries.remove(at: index) }
         } else {
             entries[index].count = max(entries[index].count, 1) - 1
             if entries[index].count == 0 { entries.remove(at: index) }
