@@ -41,6 +41,17 @@ extension SessionEntryCard {
         }
     }
 
+    /// The row's second line after the times: how many stretches the session ran as.
+    @ViewBuilder var stretchesCaption: some View {
+        if session.stretches > 1 {
+            Text("· \(session.stretches) stretches")
+                .font(Tokens.Typography.body)
+                .foregroundStyle(StoryStyle.supportingInk)
+                .help("This session ran as \(session.stretches) separate stretches; "
+                      + "the gaps between them are not counted.")
+        }
+    }
+
     /// The duration on the title line, with the depth word after it once the phases are read. VoiceOver
     /// hears the depth with the phases (`SessionPhaseText.summary`): this line is hidden from it.
     func withDepth(_ duration: some View) -> some View {

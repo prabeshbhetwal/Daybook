@@ -107,7 +107,9 @@ extension SessionStore {
     func startAutomatically(workType: WorkType, name: String, backdatedTo: Date,
                             because: String) -> Bool {
         guard !automationWaits else { return false }
-        guard replaceSession(workType: workType, intent: name, isAuto: true) else { return false }
+        // The detector's name is the app's, unless it had none to give.
+        guard replaceSession(workType: workType, intent: name, isAuto: true,
+                             nameByApp: !name.isEmpty) else { return false }
         engine.backdate(to: backdatedTo)
         refresh()
         return true

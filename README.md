@@ -190,6 +190,26 @@ why rather than hiding the difference.
   for how long, never what is in it, with the one exception described under the
   site signal below. Session names, notes and everything else
   you write are kept on the Mac. There is no account and no analytics.
+- **Each session records how it began.** Alongside its times, a session keeps
+  whether you started it, one of your Activity Rules did (with the rule's
+  name) or Daybook did, where its category came from (you, a rule, a choice
+  you made before, or Daybook's own default) and whether Daybook chose its
+  name. It lives in the session's record on the Mac, so backups carry it.
+  Splitting a session in two, or merging the halves back, never changes the
+  time you worked: the halves add up to the original. A half you file under
+  another category takes its time to that category.
+- **A small file remembers how you file things.** When you file a finished
+  session under a different category, Daybook keeps `corrections.json` beside
+  your sessions. It holds only a pattern fingerprint of that kind of session
+  (the share of its time spent on each kind of activity, in steps of 20%, and
+  the two apps with the most time, by bundle identifier), category names, a
+  count and a date. It holds no session name, note, window title or page. It is
+  used only to suggest a category: for a session whose category Daybook chose,
+  and for the second half of a split. Daybook files that second half itself
+  only when it started the session and split it. A session you or a rule filed
+  is never offered another category. A choice you have not made again for 90
+  days stops being suggested, and is dropped the next time the file is saved.
+  Backups include the file.
 - **What can leave the Mac**, and only these:
   - The update check asks GitHub for the latest version. It sends the version
     number you have. You can turn it off in Settings.

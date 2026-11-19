@@ -14,91 +14,6 @@ extension EnvironmentValues {
     }
 }
 
-/// Everything the report says about one session, gathered once so the view
-/// reads from plain values and the numbers can be checked without a window.
-struct SessionReport {
-    struct Stretch: Identifiable {
-        let id: UUID
-        let start: Date
-        let end: Date
-        let worked: TimeInterval
-        let note: String?
-    }
-
-    let session: DaySession
-    let detail: StorySessionDetail
-    let stretches: [Stretch]
-    let power: PowerContextSummary?
-    /// Each visit's power reading, by interval id, only where it changed.
-    let powerChanges: [String: PowerReading]
-    /// Why each listed gap is there, by interval id.
-    var gapReasons: [String: StoryGapReason] = [:]
-
-    var title: String { session.workType.sessionTitle(named: session.name) }
-    var apps: [AppRank] { detail.apps }
-    /// Every recorded visit and every gap, in order.
-    var intervals: [RecordedActivity.Interval] { detail.activity.intervals }
-    var visitCount: Int { intervals.filter { !$0.isGap }.count }
-
-    /// When the session ran, with its day, for the header: a report opened
-    /// from History is for a past day, and clock times alone do not say which.
-    /// A session across midnight names both days.
-    var whenText: String { when(joiner: "–") }
-    /// The same line for VoiceOver, which would read the dash as a symbol.
-    var whenSpoken: String { when(joiner: "to") }
-
-    private func when(joiner: String) -> String {
-        guard session.isRunning else {
-            return DateFormats.datedClockRange(session.start, session.end, joiner: joiner)
-        }
-        // A session is clipped to its day; its stretches are not, and the
-        // earliest says when it really began.
-        let began = min(session.start, stretches.map(\.start).min() ?? session.start)
-        return "Running since \(DateFormats.datedClockTime(began))"
-    }
-
-    /// A stretch's times. They carry their day when the stretch crosses
-    /// midnight or lies on another day than the one the header gives, since
-    /// the session is clipped to its day and its stretches are not.
-    func stretchWhen(_ stretch: Stretch, joiner: String = "–") -> String {
-        let calendar = Calendar.current
-        return calendar.isDate(stretch.start, inSameDayAs: stretch.end)
-            && calendar.isDate(stretch.start, inSameDayAs: session.start)
-            ? "\(DateFormats.clockTime(stretch.start)) \(joiner) \(DateFormats.clockTime(stretch.end))"
-            : DateFormats.datedClockRange(stretch.start, stretch.end, joiner: joiner)
-    }
-
-    /// The power state a visit ended on, when it differs from the visit
-    /// before. Nil for a gap, an unchanged reading, or before any reading.
-    func power(for interval: RecordedActivity.Interval) -> PowerReading? {
-        powerChanges[interval.id]
-    }
-
-    static func make(for session: DaySession, store: SessionStore) -> SessionReport {
-        // The session's own day, not whichever day the Story happens to be
-        // on: a report opened from Insights or History is for a past day.
-        let detail = store.storySessionDetail(session, on: session.start)
-        let ids = Set(session.recordIDs)
-        let stretches = store.engine.archive.records
-            .filter { ids.contains($0.id) }
-            .sorted { $0.start < $1.start }
-            .map { record in
-                Stretch(id: record.id, start: record.start, end: record.end, worked: record.workSeconds,
-                        note: store.sessionMetadata(for: record.id)?.note)
-            }
-        let interval = DateInterval(start: session.start, end: max(session.start, session.end))
-        let power = session.recordIDs.isEmpty ? nil
-            : store.powerSummary(for: session.recordIDs, interval: interval)
-        return SessionReport(session: session, detail: detail, stretches: stretches,
-                             power: power,
-                             powerChanges: PowerReading.changes(
-                                 across: detail.activity.intervals,
-                                 in: store.powerObservations(for: session.recordIDs)),
-                             gapReasons: gapReasons(listing(detail.activity.intervals), store: store,
-                                                    day: session.start))
-    }
-}
-
 /// The report as a card over the story: dimmed canvas behind, Escape or a
 /// click outside to leave. Drawn in the window rather than as a sheet so it
 /// can be dismissed the way a reader expects and animates with the rest.
@@ -155,45 +70,6 @@ final class EscapeKeyMonitor: ObservableObject {
     }
 
     deinit { remove() }
-}
-
-/// A report and its activity list, kept for a session that has finished:
-/// nothing in it changes while the card is open, though the store publishes
-/// every second. A running session's is rebuilt as it grows.
-final class SessionReportCache: ObservableObject {
-    private var built: (report: SessionReport, list: ReportActivityList)?
-
-    func build(for session: DaySession, store: SessionStore) -> (report: SessionReport, list: ReportActivityList) {
-        if !session.isRunning, let built, built.report.session == session { return built }
-        let report = SessionReport.make(for: session, store: store)
-        let list = ReportActivityList.make(
-            listed: report.listedIntervals, power: report.power(for:),
-            gapTitle: { report.gapReasons[$0.id]?.title ?? "Not recorded" })
-        built = (report, list)
-        return (report, list)
-    }
-}
-
-struct SessionReportCard: View {
-    @ObservedObject var store: SessionStore
-    let session: DaySession
-    let onClose: () -> Void
-    @StateObject private var cache = SessionReportCache()
-
-    var body: some View {
-        let (report, list) = cache.build(for: session, store: store)
-        StorySheet(title: "Session report", onClose: onClose) {
-            ScrollView {
-                SessionReportView(report: report, activityList: list)
-                    .padding(Tokens.Space.xl)
-            }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: StoryStyle.tileRadius, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: StoryStyle.tileRadius, style: .continuous)
-            .strokeBorder(StoryStyle.line))
-        .shadow(color: .black.opacity(0.18), radius: 24.zoomed, y: 8.zoomed)
-        .accessibilityAddTraits(.isModal)
-    }
 }
 
 /// The full account of a session: what it was, each stretch, every app, the
@@ -255,8 +131,15 @@ struct SessionReportView: View {
                 figure("\(report.apps.count)", report.apps.count == 1 ? "app" : "apps")
                 figure("\(report.visitCount)", report.visitCount == 1 ? "app visit" : "app visits")
             }
+            if let origin = report.origin { OriginMark(text: origin, stacked: true) }
             if let text = report.detail.text {
                 Text(text)
+                    .font(Tokens.Typography.body)
+                    .foregroundStyle(StoryStyle.supportingInk)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if let line = report.contradiction {
+                Text(line)
                     .font(Tokens.Typography.body)
                     .foregroundStyle(StoryStyle.supportingInk)
                     .fixedSize(horizontal: false, vertical: true)

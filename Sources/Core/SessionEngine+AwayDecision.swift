@@ -67,7 +67,8 @@ extension SessionEngine {
                     start: originalStart, end: min(max(awayStarted ?? now(), originalStart), now()),
                     workSeconds: beforeReturn, detectedApp: activeDetectedApp,
                     threadID: originalThread, isAuto: activeIsAuto,
-                    pausedSpans: trustedPausedSpans(until: awayStarted ?? now())))
+                    pausedSpans: trustedPausedSpans(until: awayStarted ?? now()))
+                    .stamped(activeProvenance))
             }
         }
         if let existing = archive.records.first(where: { $0.id == decisionID }),
@@ -111,15 +112,16 @@ extension SessionEngine {
             // measured the span of the work rather than any stretch worked —
             // which is how the hero timer came to read 5h 57m.
             let thread = activeThreadID
-            // The earlier stretch was already saved, ending at departure and
-            // excluding work since return. Only now publish its successor.
-            beginFreshSession()
             // Same work, resumed — unless they said it was something else, or
             // came back into a different app than the one they left in, which
             // is new work. `Continue Today` groups by thread, so this is what
             // keeps an afternoon split by lunch reading as one job, and what
             // keeps the old job one click away when the afternoon moved on.
             let continues = decision != .resetTimer && keepsThread
+            // The earlier stretch was already saved, ending at departure and
+            // excluding work since return. Only now publish its successor, which
+            // keeps how it began exactly when it is the same work.
+            beginFreshSession(carryingOn: continues)
             activeThreadID = continues ? thread : UUID()
             if !continues { store.sessionName = "" }
             // Answering is not the start of the work — coming back was.

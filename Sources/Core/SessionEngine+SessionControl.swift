@@ -21,6 +21,7 @@ extension SessionEngine {
                             detectedApp: activeDetectedApp,
                             threadID: activeThreadID, isAuto: true,
                             pausedSpans: trustedPausedSpans(until: evidence.start))
+                .stamped(activeProvenance)
         activeWorkType = action.workType
         activeDetectedApp = currentAppBundleID
         let continued = continuedThread(for: action, at: evidence.start)
@@ -29,6 +30,7 @@ extension SessionEngine {
         activeRecordID = UUID()
         activeIsAuto = true
         activeAutomaticAction = action
+        activeProvenance = .rule(action)
         store.sessionName = action.ruleName
         sessionStartDate = evidence.start
         totalPausedDuration = max(0, now().timeIntervalSince(evidence.end))

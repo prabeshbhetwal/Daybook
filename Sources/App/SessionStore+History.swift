@@ -484,7 +484,7 @@ extension SessionStore {
     /// what happened.
     @discardableResult
     func setWorkType(_ workType: WorkType, for session: DaySession) -> Bool {
-        applyCorrection(threadID: session.threadID, correction: .workType(workType), claims: true)
+        fileSession(session, as: workType)
     }
 
     /// The same, by thread, for corrections made outside a session's card:
@@ -585,8 +585,8 @@ extension SessionStore {
             }
         }
         switch retry {
-        case .correction(let threadID, let correction, let claims):
-            return applyCorrection(threadID: threadID, correction: correction, claims: claims)
+        case .correction(let threadID, let correction, let claims, let filing):
+            return retryCorrection(threadID: threadID, correction: correction, claims: claims, filing: filing)
         case .undo(let state):
             return undo(state)
         case .awayUndo(let id):
@@ -596,6 +596,7 @@ extension SessionStore {
         case .legacy(let record, let decision, let target):
             return reclassifyLegacyBreak(recordID: record.id, decision: decision, focusTargetID: target?.id,
                                         expectedRecord: record, expectedTarget: target)
+        case .split, .merge: return retryRestructure(retry)
         case .ending, .discarding, .longAway:
             return retryCurrentTerminalIntent(retry) ?? false
         }
@@ -654,7 +655,8 @@ extension SessionStore {
 
     /// `claims`: made in the session's own card, so a running automatic
     /// session becomes the person's (see `stageActiveCorrection`).
-    private func applyCorrection(threadID: UUID, correction: SessionCorrection, claims: Bool = false) -> Bool {
+    func applyCorrection(threadID: UUID, correction: SessionCorrection, claims: Bool = false,
+                         remembering filings: [RememberedFiling] = []) -> Bool {
         guard engine.prepareCorrection() else {
             publishCorrectionError(engine.awayDecisionError); return false
         }
@@ -664,7 +666,7 @@ extension SessionStore {
             .map(\.id))
         let activeBefore: SessionStoreCorrectionState.ActiveFields?
         if engine.state != .idle, engine.activeThreadID == threadID {
-            activeBefore = .init(name: engine.sessionName, workType: engine.activeWorkType)
+            activeBefore = .init(name: engine.sessionName, workType: engine.activeWorkType, provenance: engine.activeProvenance.undoable)
         } else {
             activeBefore = nil
         }
@@ -673,16 +675,14 @@ extension SessionStore {
         for record in engine.archive.records where record.threadID == threadID {
             var changed = record
             switch correction {
-            case .rename(let name): changed.name = name
-            case .workType(let type): changed.workType = type
-            case .removed: continue   // has its own path, `removeSession`
+            case .rename(let name): changed.rename(to: name)
+            case .workType(let type): changed.recategorise(to: type)
+            case .removed: continue   // each has its own path
             }
             if changed != record { removed.append(record); added.append(changed) }
         }
         let archiveSnapshot: SessionArchiveCorrectionSnapshot? = removed.isEmpty ? nil : .init(
-            threadID: threadID, correction: correction, fields: removed.map {
-                .init(recordID: $0.id, name: $0.name, workType: $0.workType)
-            })
+            threadID: threadID, correction: correction, fields: removed.map { .init(record: $0) })
         let activeChanged: Bool = activeBefore.map { value in
             switch correction {
             case .rename(let name): return value.name != name
@@ -701,7 +701,7 @@ extension SessionStore {
         }
 
         guard let originalFields = activeBefore ?? archiveSnapshot?.fields.first.map({
-            SessionStoreCorrectionState.ActiveFields(name: $0.name, workType: $0.workType)
+            SessionStoreCorrectionState.ActiveFields(name: $0.name, workType: $0.workType, provenance: $0.provenance)
         }) else {
             // The success branches above necessarily carry a prior field value;
             // keep this fail-closed guard rather than inventing one for Undo.
@@ -711,10 +711,9 @@ extension SessionStore {
 
         let receipt = SessionStoreCorrectionState(sequence: (before.correctionGeneration ?? 0) + 1,
                                threadID: threadID, correction: correction,
-                               archiveSnapshot: archiveSnapshot,
-                               originalFields: originalFields,
+                               archiveSnapshot: archiveSnapshot, originalFields: originalFields,
                                archiveRecordIDs: archiveRecordIDs,
-                               madeAt: now())
+                               madeAt: now(), remembered: filings.isEmpty ? nil : filings)
         engine.stageActiveCorrection(correction, threadID: threadID, claims: claims)
         guard engine.commitCorrection(before: before, removing: removed, adding: added,
                                       fields: corrections + [receipt]) else {
@@ -735,27 +734,7 @@ extension SessionStore {
             return false
         }
         let before = engine.snapshot()
-        if state.correction == .removed {
-            // Put the records back exactly as they were, provided nothing has
-            // since taken their identity.
-            let records = state.removedRecords ?? []
-            let present = Set(engine.archive.records.map(\.id))
-            guard !records.isEmpty, records.allSatisfy({ !present.contains($0.id) }) else {
-                publishCorrectionError("That session is already back, or its stretches were rewritten since. Reopen the day to see it.")
-                return false
-            }
-            guard engine.commitCorrection(before: before, removing: [], adding: records,
-                                          fields: corrections.filter { $0.id != state.id }) else {
-                publishCorrectionError(engine.awayDecisionError)
-                correctionRetry = .undo(state)
-                return false
-            }
-            publishCanUndoCorrection(!corrections.isEmpty || engine.canUndoAwayDecision)
-            publishCorrectionError(nil)
-            correctionRetry = nil
-            refresh()
-            return true
-        }
+        if state.correction == .removed { return undoRestoringRecords(state, before: before) }
         let originals = Dictionary(uniqueKeysWithValues: (state.archiveSnapshot?.fields ?? []).map { ($0.recordID, $0) })
         let existingIDs = Set(engine.archive.records.map(\.id))
         guard Set(originals.keys).isSubset(of: existingIDs) else {
@@ -766,16 +745,18 @@ extension SessionStore {
         var removed: [SessionRecord] = [], added: [SessionRecord] = []
         for record in engine.archive.records where record.threadID == state.threadID {
             guard let original = originals[record.id] ?? (!state.archiveRecordIDs.contains(record.id)
-                ? .init(recordID: record.id, name: state.originalFields.name, workType: state.originalFields.workType) : nil)
+                ? .init(recordID: record.id, name: state.originalFields.name, workType: state.originalFields.workType, provenance: state.originalFields.provenance) : nil)
             else { continue }
             var changed = record
             switch state.correction {
             case .rename(let expected):
                 guard record.name == expected || record.name == original.name else { return correctionConflict(state) }
                 changed.name = original.name
+                if let kept = original.provenance { changed.nameByApp = kept.nameByApp }
             case .workType(let expected):
                 guard record.workType == expected || record.workType == original.workType else { return correctionConflict(state) }
                 changed.workType = original.workType
+                if let kept = original.provenance { changed.categorySource = kept.categorySource }
             case .removed: continue
             }
             if changed != record { removed.append(record); added.append(changed) }
@@ -786,24 +767,22 @@ extension SessionStore {
                 guard engine.sessionName == expected || engine.sessionName == state.originalFields.name else {
                     return correctionConflict(state)
                 }
-                engine.stageActiveCorrection(.rename(state.originalFields.name), threadID: state.threadID)
+                engine.stageActiveCorrection(.rename(state.originalFields.name), threadID: state.threadID, fromUndo: true, restoring: state.originalFields.provenance)
             case .workType(let expected):
                 guard engine.activeWorkType == expected || engine.activeWorkType == state.originalFields.workType else {
                     return correctionConflict(state)
                 }
-                engine.stageActiveCorrection(.workType(state.originalFields.workType), threadID: state.threadID)
+                engine.stageActiveCorrection(.workType(state.originalFields.workType), threadID: state.threadID, fromUndo: true, restoring: state.originalFields.provenance)
             case .removed: break
             }
         }
         guard engine.commitCorrection(before: before, removing: removed, adding: added,
                                       fields: corrections.filter { $0.id != state.id }) else {
-            publishCorrectionError(engine.awayDecisionError)
-            correctionRetry = .undo(state)
-            return false
+            return undoRefused(state)
         }
         publishCanUndoCorrection(!corrections.isEmpty || engine.canUndoAwayDecision)
-        publishCorrectionError(nil)
-        correctionRetry = nil
+        publishCorrectionError(nil); correctionRetry = nil
+        forgetRemembered(of: state)
         refresh()
         return true
     }
