@@ -35,7 +35,7 @@ enum NameMigration {
     /// when it has to stay in use, nil when `named` is the one to use.
     static func carryFolders(support: URL, named: URL,
                              fileManager: FileManager = .default,
-                             log: (String) -> Void = Diagnostics.log) -> URL? {
+                             log: (String) -> Void = { Diagnostics.log($0) }) -> URL? {
         let legacy = support.appendingPathComponent(legacyFolderName, isDirectory: true)
         let used = carryFolder(from: legacy, to: named, fileManager: fileManager, log: log)
         return used.standardizedFileURL == named.standardizedFileURL ? nil : used
@@ -49,7 +49,7 @@ enum NameMigration {
     @discardableResult
     static func carryFolder(from legacy: URL, to current: URL,
                             fileManager: FileManager = .default,
-                            log: (String) -> Void = Diagnostics.log) -> URL {
+                            log: (String) -> Void = { Diagnostics.log($0) }) -> URL {
         var isFolder: ObjCBool = false
         guard legacy.standardizedFileURL != current.standardizedFileURL,
               fileManager.fileExists(atPath: legacy.path, isDirectory: &isFolder),

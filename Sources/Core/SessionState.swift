@@ -796,9 +796,20 @@ enum Diagnostics {
     /// Set by checks to see what was logged; nil in the app.
     static var observer: ((String) -> Void)?
 
-    static func log(_ message: String) {
+    /// Off in the self-test, whose checks walk failure paths on purpose:
+    /// their lines carried the app's own subsystem, so every build's check
+    /// run read as a burst of real errors in the person's log.
+    static var writesUnifiedLog = true
+
+    /// `level` is `.error` for failures and `.info` for routine events. The
+    /// call site is public so a line says where it came from even where the
+    /// message text shows as private.
+    static func log(_ message: String, level: OSLogType = .error,
+                    fileID: String = #fileID, line: Int = #line) {
         observer?(message)
-        logger.error("\(message, privacy: .private)")
+        if writesUnifiedLog {
+            logger.log(level: level, "\(fileID, privacy: .public):\(line, privacy: .public) \(message, privacy: .private)")
+        }
         FileHandle.standardError.write(Data("[Daybook] \(message)\n".utf8))
     }
 }

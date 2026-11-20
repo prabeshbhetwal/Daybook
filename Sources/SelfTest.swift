@@ -57,6 +57,7 @@ enum SelfTest: CheckSuite {
     static func run() -> Bool {
         // Earlier runs' suites that cfprefsd emptied after those runs ended.
         removeEmptiedPreferenceFiles()
+        Diagnostics.writesUnifiedLog = false
         var failures: [String] = []
         var passed = 0
         let tests = registeredTests
