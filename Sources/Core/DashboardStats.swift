@@ -367,9 +367,8 @@ struct DashboardStats {
     func focusSessions(for day: Date) -> [SessionRecord] {
         guard let bounds = SessionRecord.dayBounds(day, calendar: calendar) else { return [] }
         return sessions.records.compactMap { record in
-            guard record.workType.countsAsFocus else { return nil }
             let work = record.workSeconds(in: bounds)
-            guard work > 0 else { return nil }
+            guard work > 0, record.workType.countsAsFocus else { return nil }
             var clipped = record
             clipped.start = max(record.start, bounds.start)
             clipped.end = min(record.end, bounds.end)

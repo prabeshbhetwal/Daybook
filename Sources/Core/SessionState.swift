@@ -222,32 +222,6 @@ struct WorkType: Hashable, Codable, Identifiable, CaseIterable {
     /// lecture is watched. Anywhere else, watching without input is a pause.
     var countsWhileWatching: Bool { definition.countsWhileWatching }
 
-    /// Rest is not focus. A break belongs on the timeline, where it explains a
-    /// gap, but never in the day's focused total — nothing else was stopping a
-    /// session logged as "Break" from filling the daily goal and holding up a
-    /// streak, which is the opposite of what recording it is for.
-    var countsAsFocus: Bool { self != .breakTime }
-
-    /// The kinds a person can actually start. `.breakTime` is written by the
-    /// away card and by nothing else: offering it in the picker put "Break"
-    /// under a button reading "Start Focus", and starting one produced a session
-    /// that could not fill a goal, hold a streak, or count as focus — a session
-    /// whose only effect was to exist.
-    static var startable: [WorkType] { allCases.filter(\.countsAsFocus) }
-
-    /// What to start under when the wanted category cannot be: Deep work, or
-    /// the first category still offered when Deep work is retired too.
-    static var fallbackStartable: WorkType {
-        let offered = startable
-        return offered.contains(.deepWork) ? .deepWork : (offered.first ?? .deepWork)
-    }
-
-    /// This kind, or the fallback when it is a focus category no longer
-    /// offered. Break is never offered and never replaced.
-    var startableOrFallback: WorkType {
-        !countsAsFocus || WorkType.startable.contains(self) ? self : .fallbackStartable
-    }
-
     /// The given kinds in catalogue order — built-ins, then the user's own,
     /// Break last — with anything the catalogue has never heard of after
     /// them. For totals: a retired category is offered nowhere new, but the

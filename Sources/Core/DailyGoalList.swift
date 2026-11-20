@@ -173,7 +173,7 @@ enum DailyGoalList {
         var items = existing
         for definition in definitions {
             guard let seconds = definition.dailyGoal, seconds > 0,
-                  definition.workType.countsAsFocus,
+                  definition.countsAsFocus,
                   !items.contains(where: { $0.target == .category(definition.id) }) else { continue }
             let item = DailyGoalItem(target: .category(definition.id), kind: .target, seconds: seconds)
             guard canAdd(item, to: items) else { break }
@@ -186,7 +186,7 @@ enum DailyGoalList {
     /// the list holds no goal for it.
     static func hasUnmoved(_ definitions: [WorkTypeDefinition], in items: [DailyGoalItem]) -> Bool {
         definitions.contains { definition in
-            (definition.dailyGoal ?? 0) > 0 && definition.workType.countsAsFocus
+            (definition.dailyGoal ?? 0) > 0 && definition.countsAsFocus
                 && !items.contains { $0.target == .category(definition.id) }
         }
     }

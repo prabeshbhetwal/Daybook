@@ -29,6 +29,7 @@ extension SettingsGroups {
                     toggleRow("Use on-device AI", detail: "For notes and suggestions. Nothing leaves this Mac.",
                               isOn: $model.useAppleIntelligence)
                 }
+                aiCategoryRows
                 // Only an upgrade from the oldest format leaves this copy;
                 // without one the row said nothing worth reading.
                 if let backup = model.diagnostics.legacyBackupURL {

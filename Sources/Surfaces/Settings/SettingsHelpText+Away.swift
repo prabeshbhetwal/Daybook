@@ -168,12 +168,19 @@ extension SettingsHelpText {
                 From this date, recorded app use leaves out time you were away. Records from before it may \
                 count some time away as app use.
                 """)
-        ] + (ModelGate.modelAvailable ? [onDeviceAI] : [])
+        ] + (ModelGate.modelAvailable ? [onDeviceAI] : []) + [aiAssign]
     }
 
+    static let aiAssign = HelpEntry("Let AI assign categories to automatic sessions", """
+        It sees minutes per activity, depth, up to two app names, the site kind if the site signal is on and \
+        up to 20 category names; never names, notes, titles, addresses or app identifiers. Off, it is still \
+        asked, for a suggestion only.
+        """)
+
     static let onDeviceAI = HelpEntry("Use on-device AI", """
-        Lets on-device AI write short notes about your days, suggest names for unnamed sessions and help \
-        History's search understand you. It runs on this Mac and nothing leaves it. Ask has its own switch.
+        Lets on-device AI write notes about your days, suggest names and categories for sessions and help \
+        History's search. Each question runs on this Mac in a fresh session, and nothing leaves it. Ask has \
+        its own switch.
         """)
 
     static let backups: [HelpEntry] = [

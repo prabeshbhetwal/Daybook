@@ -6,9 +6,10 @@ import SwiftUI
 /// the way the app makes them, from the engine, an away answer and a stored shape, never from hand-made text.
 extension SnapshotScenario {
     /// The review cards of how a session began and of the offer to split one: compact, one card each.
-    var isReviewCard: Bool { self == .storyOrigin || self == .storySplit }
+    var isReviewCard: Bool { self == .storyOrigin || self == .storySplit || self == .storyAI }
     var reviewTitle: String {
-        self == .storyOrigin ? "Story — how sessions began, a contradiction line and the suggestion row"
+        if self == .storyAI { return aiReviewTitle }
+        return self == .storyOrigin ? "Story — how sessions began, a contradiction line and the suggestion row"
             : "Story — the offer to split a session, and Merge Back on the tail of a split"
     }
 }
@@ -17,6 +18,7 @@ extension Snapshotter {
         switch scenario {
         case .storyOrigin: return originMarks()
         case .storySplit: return splitOffers()
+        case .storyAI: return aiFilings()
         default: return AnyView(Text("Unsupported compact snapshot"))
         }
     }

@@ -222,7 +222,7 @@ enum HistoryStats {
             switch boundedSpan(start: record.start, end: record.end, calendar: calendar) {
             case .accepted(let first, let last): span = (first, last)
             case .exceedsBound:
-                if record.workType.countsAsFocus { droppedFocusSpans += 1 }
+                if !record.workType.isBreak { droppedFocusSpans += 1 }
                 else { droppedRestSpans += 1 }
                 continue
             case .invalid:

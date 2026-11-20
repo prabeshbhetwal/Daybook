@@ -15,7 +15,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
     case settingsActivityRules, settingsTracking, settingsAppearance, settingsData, settingsUpdates, settingsAdvanced
     case activityRuleAmbiguity, activityRuleAutomatic
     case awayQuick, awayFull, awayQuickFailure, awayFullFailure, rewardEarned, settingsHelp, storyPhases
-    case storyOrigin, storySplit
+    case storyOrigin, storySplit, storyAI
 
     var id: String { rawValue }
 
@@ -84,7 +84,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .rewardEarned: return "Reward — earned"
         case .settingsHelp: return "Settings — every panel's explanation, as its info mark opens it"
         case .storyPhases: return "Story — phase strips of four traced sessions, and one's report"
-        case .storyOrigin, .storySplit: return reviewTitle
+        case .storyOrigin, .storySplit, .storyAI: return reviewTitle
         }
     }
 
@@ -150,7 +150,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
              .settingsActivityRules:
             return .settings
         case .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned, .settingsHelp, .storyPhases,
-             .storyOrigin, .storySplit:
+             .storyOrigin, .storySplit, .storyAI:
             return nil
         }
     }
@@ -235,9 +235,9 @@ enum Snapshotter {
 
     /// The data folder every settings card names. Never created: Settings —
     /// Data prints its path, and a fresh scratch name in each run wrapped that
-    /// line differently in every capture.
-    static let settingsDataDirectory = FileManager.default.temporaryDirectory
-        .appendingPathComponent("fc-gallery-settings", isDirectory: true)
+    /// line differently in every capture. A made-up user's folder: no real path.
+    static let settingsDataDirectory = URL(fileURLWithPath: "/Users/you/Library/Application Support/Daybook",
+                                           isDirectory: true)
 
     /// The zoom `run` renders at, as a scale; nil leaves the zoom alone, as
     /// the Gallery and the checks need.
@@ -511,7 +511,7 @@ enum Snapshotter {
              .settingsActivityRules:
             return FixtureFactory.store(for: .running)
         case .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned, .settingsHelp, .storyPhases,
-             .storyOrigin, .storySplit:
+             .storyOrigin, .storySplit, .storyAI:
             return FixtureFactory.store(for: .firstRun)
         case .welcomeOpening, .welcomeStep:
             // The welcome is read on a day with nothing in it, which is the
@@ -696,9 +696,9 @@ enum Snapshotter {
         if let renderZoom { model.interfaceZoom = renderZoom }
         model.appearancePreference = item.appearance.preference
         model.showsTimelineLabels = showsTimelineLabels
-        // The Updates page's controls appear only with an updater; this
-        // stand-in draws them without starting Sparkle or the network.
+        // The Updates page's controls appear only with an updater; this stand-in draws them without Sparkle.
         model.updater = SnapshotUpdater()
+        FixtureFactory.giveAICategories(to: model)
         return model
     }
 }

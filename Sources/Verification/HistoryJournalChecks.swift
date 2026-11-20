@@ -95,7 +95,7 @@ enum HistoryJournalChecks {
             failures.append("a month starting at 01:00 lost its next day's canonical focus/app-use figures")
         }
         let hit = HistorySearchHit(id: UUID(), threadID: UUID(), name: "Draft", workType: .deepWork,
-                                   start: anchor, end: anchor.addingTimeInterval(600), worked: 600,
+                                   start: anchor, end: anchor.addingTimeInterval(600), worked: 600, focusWorked: 600,
                                    day: day, noteSnippet: nil, matchedApps: [])
         guard case .month(let searched)? = HistoryJournalBuilder.entries(
             matching: [hit], calendar: midnight).first else {
@@ -114,7 +114,7 @@ enum HistoryJournalChecks {
             let start = date(month, day).addingTimeInterval(9 * 3_600)
             return HistorySearchHit(id: UUID(), threadID: thread, name: "Parser", workType: .deepWork,
                                     start: start, end: start.addingTimeInterval(worked), worked: worked,
-                                    day: date(month, day), noteSnippet: nil, matchedApps: [])
+                                    focusWorked: worked, day: date(month, day), noteSnippet: nil, matchedApps: [])
         }
         let hits = [hit(a, 9, 28, 1_200), hit(b, 9, 28, 600), hit(c, 8, 29, 900)]
         let entries = HistoryJournalBuilder.entries(matching: hits, calendar: calendar)
@@ -136,7 +136,7 @@ enum HistoryJournalChecks {
             let start = date(month, day).addingTimeInterval(13 * 3_600)
             return HistorySearchHit(id: restIDs[index], threadID: UUID(), name: "Café", workType: .breakTime,
                                     start: start, end: start.addingTimeInterval(length), worked: length,
-                                    day: date(month, day), noteSnippet: nil, matchedApps: [],
+                                    focusWorked: nil, day: date(month, day), noteSnippet: nil, matchedApps: [],
                                     recordIDs: [restIDs[index]])
         }
         let withBreaks = HistoryJournalBuilder.entries(

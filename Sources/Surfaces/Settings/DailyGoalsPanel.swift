@@ -52,7 +52,7 @@ extension SettingsGroups {
     }
 
     private func addGoalRow(_ items: [DailyGoalItem]) -> some View {
-        let free = WorkType.startable.filter { type in
+        let free = WorkType.goalable.filter { type in
             !items.contains { $0.target == .category(type.rawValue) }
         }
         let freeActivities = DailyGoalList.limitablePurposes.filter { purpose in

@@ -71,13 +71,17 @@ enum HistoryJournalBuilder {
             for hit in monthHits {
                 let day = calendar.startOfDay(for: hit.day)
                 if listed[day] == nil { order.append(day) }
-                if hit.workType.countsAsFocus {
-                    worked[day, default: 0] += hit.worked
-                    sessions[day, default: []].insert(hit.threadID)
-                    listed[day, default: []].insert(hit.threadID)
-                } else {
+                if hit.workType.isBreak {
                     breaks[day, default: 0] += 1
                     listed[day, default: []].formUnion(hit.recordIDs.isEmpty ? [hit.id] : hit.recordIDs)
+                    continue
+                }
+                // A session that does not count toward focus is still a session: its row is found by thread. Its
+                // focus is its counting stretches, whichever category its newest one carries.
+                listed[day, default: []].insert(hit.threadID)
+                if let focus = hit.focusWorked {
+                    worked[day, default: 0] += focus
+                    sessions[day, default: []].insert(hit.threadID)
                 }
             }
             let count = calendar.range(of: .day, in: .month, for: start)?.count ?? 31

@@ -66,7 +66,7 @@ extension SessionStore {
         guard let bounds = SessionRecord.dayBounds(day, calendar: calendar) else { return [:] }
         let interval = (start: bounds.start, end: bounds.end)
         var seconds: [WorkType: TimeInterval] = [:]
-        for record in engine.archive.records where record.workType.countsAsFocus {
+        for record in engine.archive.records where record.end >= interval.start && record.start < interval.end && record.workType.countsAsFocus {
             let worked = record.workSeconds(in: interval)
             if worked > 0 { seconds[record.workType, default: 0] += worked }
         }
@@ -84,7 +84,7 @@ extension SessionStore {
         let calendar = Calendar.current
         guard let bounds = SessionRecord.dayBounds(day, calendar: calendar) else { return 0 }
         var threadIDs = Set(engine.archive.records.compactMap { record -> UUID? in
-            guard record.workType.countsAsFocus,
+            guard record.end >= bounds.start, record.start < bounds.end, record.workType.countsAsFocus,
                   record.workSeconds(in: bounds) > 0 else { return nil }
             return record.threadID
         })
@@ -320,7 +320,7 @@ extension SessionStore {
     func storyLongestFocusStretch(in interval: DateInterval)
         -> (seconds: TimeInterval, name: String, start: Date)? {
         var candidates: [(seconds: TimeInterval, name: String, start: Date)] = []
-        for record in engine.archive.records where record.workType.countsAsFocus {
+        for record in engine.archive.records where record.end >= interval.start && record.start < interval.end && record.workType.countsAsFocus {
             let seconds = record.workSeconds(in: (start: interval.start, end: interval.end))
             guard seconds > 0 else { continue }
             candidates.append((seconds: seconds,

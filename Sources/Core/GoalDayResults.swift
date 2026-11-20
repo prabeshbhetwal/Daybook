@@ -1,7 +1,8 @@
 import Foundation
 
 /// How a day's goals came out, and the awards that follow from a run of such
-/// days. Pure: values in, values out, so a test hands it a history directly.
+/// days. Values in, values out, so a test hands it a history directly, except that whether a category
+/// counts toward focus is read from the shared category catalogue (`countsNothing`).
 enum GoalDayResults {
     /// Judges the active goals against what the day came to. A target is met at
     /// its amount; an app limit is kept at or under it. Both compare the
@@ -17,8 +18,9 @@ enum GoalDayResults {
                       unreadUse: TimeInterval = 0) -> [DailyGoalResult] {
         let minutes = { (DurationText.wholeSeconds($0) ?? 0) / 60 }
         return DailyGoalList.usable(items).compactMap { item in
-            // A paused goal is recorded as paused, so the day is known to have skipped it.
-            if item.isPaused {
+            // A paused goal is recorded as paused, so the day is known to have skipped it. So is one on a category
+            // set not to count toward focus: nothing could fill it, and it is judged again once the category counts.
+            if item.isPaused || countsNothing(item.target) {
                 return DailyGoalResult(goalID: item.id, target: item.target, kind: item.kind,
                                        amount: item.seconds, counted: 0, met: false, paused: true)
             }
@@ -45,6 +47,12 @@ enum GoalDayResults {
             default: return nil
             }
         }
+    }
+
+    /// A category set not to count toward focus: no time can fill a goal on it.
+    private static func countsNothing(_ target: DailyGoalTarget) -> Bool {
+        if case .category(let id) = target { return !WorkType(rawValue: id).countsAsFocus }
+        return false
     }
 
     /// The results to record for a closed day, from the goals that stood on it.

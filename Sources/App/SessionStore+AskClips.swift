@@ -6,7 +6,12 @@ import Foundation
 struct AskClip {
     let hit: HistorySearchHit
     let worked: TimeInterval
+    /// The part of `worked` in stretches whose category counts toward focus: a hit is named by its newest stretch,
+    /// whatever the others were filed under.
+    let focusWorked: TimeInterval
     let days: Set<Date>
+    /// The days those counting stretches fall on.
+    let focusDays: Set<Date>
     let spans: [DateInterval]
 }
 
@@ -105,12 +110,17 @@ extension SessionStore {
         let interval = askInterval(range)
         let records = Dictionary(engine.archive.records.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let hits = historySearchHits(matching: filter ?? HistoryFilter(), limit: .max, listingAll: filter == nil)
+        func days(_ stretches: [SessionRecord]) -> Set<Date> {
+            stretches.reduce(into: Set<Date>()) { $0.formUnion(askDays(of: $1, in: interval)) }
+        }
         return hits.compactMap { hit -> AskClip? in
             let inside = hit.recordIDs.compactMap { records[$0] }.filter { askTouches($0, interval) }
             let worked = inside.reduce(0) { $0 + $1.workSeconds(in: (interval.start, interval.end)) }
             guard !inside.isEmpty, !needingWork || worked > 0 else { return nil }
+            let counting = inside.filter(\.workType.countsAsFocus)
             return AskClip(hit: hit, worked: worked,
-                           days: inside.reduce(into: Set<Date>()) { $0.formUnion(askDays(of: $1, in: interval)) },
+                           focusWorked: counting.reduce(0) { $0 + $1.workSeconds(in: (interval.start, interval.end)) },
+                           days: days(inside), focusDays: days(counting),
                            spans: inside.map {
                                let start = max($0.start, interval.start)
                                return DateInterval(start: start, end: max(start, min($0.end, interval.end)))

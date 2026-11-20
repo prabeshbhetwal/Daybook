@@ -79,7 +79,7 @@ extension SessionStore {
     func saveActivity(_ activity: SavedActivity) -> Bool {
         var items = engine.store.savedActivities
         let name = SavedActivities.normalisedName(activity.name)
-        guard !name.isEmpty, activity.workType.countsAsFocus else { return false }
+        guard !name.isEmpty, !activity.workType.isBreak else { return false }
         let taken = items.contains { $0.id != activity.id && SavedActivities.key($0.name) == SavedActivities.key(name) }
         guard !taken else { return false }
         if let index = items.firstIndex(where: { $0.id == activity.id }) {

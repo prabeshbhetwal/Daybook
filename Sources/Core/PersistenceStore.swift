@@ -145,7 +145,7 @@ final class PersistenceStore {
     static let categoryChoiceMemory = 3
 
     func rememberCategoryChoice(_ workType: WorkType, for bundleID: String?) {
-        guard let bundleID, !bundleID.isEmpty, workType.countsAsFocus else { return }
+        guard let bundleID, !bundleID.isEmpty, !workType.isBreak else { return }
         var choices = categoryChoices
         var recent = choices[bundleID] ?? []
         recent.append(workType.rawValue)
@@ -183,7 +183,7 @@ final class PersistenceStore {
         }
         set {
             var seen = Set<String>()
-            let normalised = newValue.filter { seen.insert($0.id).inserted }
+            let normalised = newValue.filter { !$0.isHidden && seen.insert($0.id).inserted }
             if normalised.isEmpty {
                 defaults.removeObject(forKey: Key.workTypes)
             } else if let data = try? encoder.encode(normalised) {
@@ -1027,7 +1027,7 @@ final class PersistenceStore {
     /// Every preference this app stores, for a backup: its own `fc.` keys and
     /// nothing from the shared global domain.
     var backupSnapshot: [String: Any] {
-        defaults.dictionaryRepresentation().filter { $0.key.hasPrefix("fc.") && !$0.key.hasPrefix(SiteSignalSettings.keyPrefix) }
+        defaults.dictionaryRepresentation().filter { $0.key.hasPrefix("fc.") && !$0.key.hasPrefix(SiteSignalSettings.keyPrefix) && !AIAssignSetting.keys.contains($0.key) }
     }
 
     /// Used by the self-test harness to leave no residue behind.
@@ -1061,7 +1061,7 @@ final class PersistenceStore {
                     Key.paceWindowDays, Key.suggestionWindowDays, Key.breakTiersDisabled,
                     Key.quietFold, Key.welcomeLeftAt, Key.globalShortcut, Key.skippedConfirmations,
                     Key.nameSuggestionKept, Key.backupSchedule, Key.backupRetention, Key.backupFolder, Key.backupLog,
-                    Key.backupOfferPending] + SiteSignalSettings.keys
+                    Key.backupOfferPending] + SiteSignalSettings.keys + AIAssignSetting.keys
         for key in keys { defaults.removeObject(forKey: key) }
         // And the unreadable values kept aside from those keys, but nothing else.
         for stored in defaults.dictionaryRepresentation().keys

@@ -36,6 +36,16 @@ final class ActivityEvidence {
     var splitSeen: Set<UUID>?
     /// Automatic sessions whose own split was refused: the person is offered the cut instead (until a relaunch).
     var splitRefused: Set<UUID> = []
+    /// Told of every session that ends, to ask the on-device model about it (Phase C); nil asks nothing.
+    var categoryAssistant: CategoryAssistant?
+    /// Its label file, for the person's answers to what it said (Keep, Merge Into, Remove, the tally).
+    var aiLabels: AILabelStore?
+    /// The records it has been told of or that were there when the app opened, so none is asked about twice
+    /// and none from before the launch is asked about at all; nil until the first sweep of a launch.
+    var assistantSeen: Set<UUID>?
+    /// When that first sweep ran: a record that ended before it is never asked about, whatever id a split, a
+    /// merge or an Undo has since given it (C4).
+    var assistantSince: Date?
 
     init(archive: BeatArchive = BeatArchive(), counters: InputCounters = InputCounters()) {
         self.archive = archive

@@ -10,6 +10,9 @@ struct HistorySearchHit: Identifiable, Equatable {
     let start: Date
     let end: Date
     let worked: TimeInterval
+    /// The part of `worked` in stretches whose category counts toward focus, or nil when none does: a hit is
+    /// named by its newest stretch, whatever the others were filed under.
+    let focusWorked: TimeInterval?
     let day: Date
     /// The note's text when the note matched, trimmed to a line.
     let noteSnippet: String?
@@ -75,7 +78,7 @@ extension SessionStore {
         for records in groups {
             let first = records[0]
             let day = calendar.startOfDay(for: first.start)
-            let isBreak = !first.workType.countsAsFocus
+            let isBreak = first.workType.isBreak
             guard filter.holds(day: day, in: calendar) else { continue }
             if filter.minLength != nil || filter.maxLength != nil {
                 let worked = records.reduce(0) { $0 + $1.workSeconds }
@@ -118,12 +121,15 @@ extension SessionStore {
                     .first(where: holdsAWord)
                 matchedApps = apps.filter(holdsAWord)
             }
+            let counting = records.filter(\.workType.countsAsFocus).map(\.workSeconds)
             hits.append(HistorySearchHit(id: first.id, threadID: first.threadID,
                                          name: first.workType.sessionTitle(named: first.name),
                                          workType: first.workType,
                                          start: records.map(\.start).min() ?? first.start,
                                          end: records.map(\.end).max() ?? first.end,
-                                         worked: records.reduce(0) { $0 + $1.workSeconds }, day: day,
+                                         worked: records.reduce(0) { $0 + $1.workSeconds },
+                                         focusWorked: counting.isEmpty ? nil : counting.reduce(0, +),
+                                         day: day,
                                          noteSnippet: noteSnippet, matchedApps: matchedApps,
                                          recordIDs: records.map(\.id)))
             if hits.count >= limit { break }

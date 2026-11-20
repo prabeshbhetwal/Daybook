@@ -82,6 +82,13 @@ final class SiteSignalReader {
         onReading(SiteReading(kind: kind, app: app, requestedAt: at))
     }
 
+    /// Whether a site kind already recorded may be told to the on-device model: the gate is open for this macOS
+    /// and the person agreed to the signal, as they must for one to be read (C5), and the signal is on now: with
+    /// Accessibility taken away it is awaiting permission, and nothing it recorded before is told.
+    var sharesKind: Bool {
+        SiteSignalSettings.state(consented: settings.isConsented, gateOn: gateOn(), trusted: trusted()) == .on
+    }
+
     private func allows(_ app: String) -> Bool {
         gateOn() && settings.isConsented && trusted() && settings.apps.contains(app)
     }

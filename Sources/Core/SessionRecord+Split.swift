@@ -17,7 +17,7 @@ extension SessionRecord {
     /// span, edges included, since a cut at a pause would leave one half starting or ending on time that
     /// does not count.
     func canSplit(at moment: Date) -> Bool {
-        workType.countsAsFocus && breakOrigin == nil && start < moment && moment < end
+        !workType.isBreak && breakOrigin == nil && start < moment && moment < end
             && !(pausedSpans ?? []).contains(where: { $0.start <= moment && moment <= $0.end })
     }
 
@@ -54,7 +54,7 @@ extension SessionRecord {
     /// `head` and `tail` as the one record: the head's identity and fields, running to the tail's end, with
     /// both halves' work and pauses. Nil unless they touch, in that order, and are both work.
     static func merged(head: SessionRecord, tail: SessionRecord) -> SessionRecord? {
-        guard head.id != tail.id, head.end == tail.start, head.workType.countsAsFocus, tail.workType.countsAsFocus,
+        guard head.id != tail.id, head.end == tail.start, !head.workType.isBreak, !tail.workType.isBreak,
               head.breakOrigin == nil, tail.breakOrigin == nil else { return nil }
         var joined = head
         joined.end = tail.end

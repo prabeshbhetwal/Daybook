@@ -132,7 +132,7 @@ extension SessionStore {
             }
         }
 
-        for record in engine.archive.records where record.workType.countsAsFocus {
+        for record in engine.archive.records where record.end > rangeStart && record.start < rangeEnd && record.workType.countsAsFocus {
             let start = max(record.start, rangeStart), end = min(record.end, rangeEnd)
             guard end > start else { continue }
             spread(start: start, end: end, type: record.workType, work: record.workSeconds(in:))

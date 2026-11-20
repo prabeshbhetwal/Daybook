@@ -338,16 +338,9 @@ final class AppUsageArchive {
     /// idle timer has already reset by the time the stretch closes and only its
     /// tail is trimmed.
     static let systemProcesses: Set<String> = [
-        "com.apple.loginwindow",
-        "com.apple.ScreenSaver.Engine",
-        "com.apple.screensaver",
-        "com.apple.SecurityAgent",
-        "com.apple.coreautha",
-        "com.apple.controlcenter",
-        "com.apple.notificationcenterui",
-        "com.apple.dock",
-        "com.apple.Spotlight",
-        "com.apple.WindowManager"
+        "com.apple.loginwindow", "com.apple.ScreenSaver.Engine", "com.apple.screensaver", "com.apple.SecurityAgent",
+        "com.apple.coreautha", "com.apple.controlcenter", "com.apple.notificationcenterui", "com.apple.dock",
+        "com.apple.Spotlight", "com.apple.WindowManager",
     ]
 
     /// Filtered on read rather than on write, so stretches already recorded
@@ -360,6 +353,13 @@ final class AppUsageArchive {
     /// stops at the first record that counts.
     var hasSessions: Bool {
         cache.contains { !AppUsageArchive.systemProcesses.contains($0.bundleID) }
+    }
+
+    /// The newest real name recorded for the app (not empty, not its bundle identifier), read from the end with no
+    /// copy; nil for a system process, which `sessions` leaves out.
+    func latestName(for bundleID: String) -> String? {
+        Self.systemProcesses.contains(bundleID) ? nil
+            : cache.last { $0.bundleID == bundleID && !$0.appName.isEmpty && $0.appName != bundleID }?.appName
     }
 
     /// Appends verbatim. Merging at write time destroyed the gap evidence that

@@ -142,9 +142,13 @@ enum ProvenanceChecks: CheckSuite {
             expect(stored(thread)?.categorySource == .builtIn && stored(thread)?.workType == .deepWork,
                    "Undo did not put back the built-in source", &problems)
 
-            expect(!store.setWorkType(.deepWork, for: row(thread, "Coding", at: 0)),
-                   "choosing the category it already has must change nothing", &problems)
-            expect(stored(thread)?.categorySource == .builtIn, "a no-op category change claimed the source", &problems)
+            // Choosing the category Daybook chose makes it the person's, so nothing replaces it later (Phase C review).
+            expect(store.setWorkType(.deepWork, for: row(thread, "Coding", at: 0)),
+                   "choosing the category Daybook chose was refused", &problems)
+            expect(stored(thread)?.categorySource == .user && stored(thread)?.workType == .deepWork,
+                   "choosing the category Daybook chose did not make it the person's", &problems)
+            expect(store.undoLastCorrection() && stored(thread)?.categorySource == .builtIn,
+                   "Undo did not give Daybook's choice back", &problems)
 
             // A record that never said stays that way through a rename and its Undo.
             expect(store.renameSession(row(legacyThread, "Old", at: 700), to: "Older"), "the legacy rename was refused", &problems)

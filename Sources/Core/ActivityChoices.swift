@@ -41,7 +41,7 @@ enum SavedActivities {
         var seen = Set<String>()
         return items.compactMap { item -> SavedActivity? in
             let name = normalisedName(item.name)
-            guard !name.isEmpty, item.workType.countsAsFocus, seen.insert(key(name)).inserted else { return nil }
+            guard !name.isEmpty, !item.workType.isBreak, seen.insert(key(name)).inserted else { return nil }
             return SavedActivity(id: item.id, name: name, workType: item.workType)
         }.prefix(limit).map { $0 }
     }
@@ -66,7 +66,7 @@ enum ActivityChoices {
             let name = item.name.trimmingCharacters(in: .whitespacesAndNewlines)
             let key = name.folding(options: [.caseInsensitive, .diacriticInsensitive],
                                    locale: Locale(identifier: "en_AU"))
-            guard !name.isEmpty, item.workType.countsAsFocus, seen.insert(key).inserted else { return nil }
+            guard !name.isEmpty, !item.workType.isBreak, seen.insert(key).inserted else { return nil }
             return QuickStart(id: key, name: name, workType: item.workType)
         }.prefix(limit).map { $0 }
     }
