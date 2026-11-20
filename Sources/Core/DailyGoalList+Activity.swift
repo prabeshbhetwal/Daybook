@@ -43,4 +43,22 @@ extension DailyGoalList {
             return (item.id, purpose, item.seconds)
         }
     }
+
+    /// Where each activity limit stands on a day of `apps`, judged by the same
+    /// rule that closes the day, so the card never says kept while the record
+    /// will say unjudged (browser time with no purpose that could break it).
+    static func activityLimitStatus(_ items: [DailyGoalItem], apps: [(bundleID: String, total: TimeInterval)],
+                                    overrides: [String: String])
+        -> [(id: UUID, purpose: AppPurpose, limit: TimeInterval, used: TimeInterval, unjudged: Bool)] {
+        let limits = activityLimits(items)
+        guard !limits.isEmpty else { return [] }
+        let results = GoalDayResults.judge(items.filter { item in limits.contains { $0.id == item.id } },
+                                           credit: [:], appUse: [:],
+                                           purposeUse: purposeUse(apps: apps, overrides: overrides),
+                                           unreadUse: unreadUse(apps: apps, overrides: overrides))
+        return limits.map { limit in
+            let result = results.first { $0.goalID == limit.id }
+            return (limit.id, limit.purpose, limit.limit, result?.counted ?? 0, result?.unjudged == true)
+        }
+    }
 }
