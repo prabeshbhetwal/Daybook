@@ -33,8 +33,8 @@ final class NonCountingFixture {
                              end: start.addingTimeInterval(Double(minutes) * 60), workSeconds: Double(minutes) * 60)
     }
 
-    /// Nil when there are no in-memory preferences or Reading did not take the setting.
-    init?() {
+    /// Nil when there are no in-memory preferences or Reading did not take the setting. `extra` joins the archive.
+    init?(extra: [SessionRecord] = []) {
         deep = Self.record("Parser", .deepWork, hour: 9, minutes: 60)
         novel = Self.record("Novel", Base.reading, hour: 11, minutes: 60)
         lunch = Self.record("Lunch", .breakTime, hour: 12, minutes: 15)
@@ -43,7 +43,7 @@ final class NonCountingFixture {
         // Through the store, so a later store on the same preferences does not put the catalogue back.
         persistence.workTypeDefinitions = [Self.notCounted()]
         let clock = self.clock
-        archive = SelfTest.makeArchive(clock, records: [deep, novel, lunch], calendar: Base.calendar)
+        archive = SelfTest.makeArchive(clock, records: [deep, novel, lunch] + extra, calendar: Base.calendar)
         engine = SessionEngine(store: persistence, archive: archive, ownBundleID: "fc.noncounting.test",
                                schedulesDwell: false, now: { clock.value })
         store = SessionStore(engine: engine, schedulesTicker: false, applicationIsRunning: { _ in false },

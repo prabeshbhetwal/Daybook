@@ -43,7 +43,7 @@ enum PeriodCalendarChecks: CheckSuite {
             // Search hits newest first, two in October and one in September.
             let hits = [date(10, 7, hour: 9), date(10, 1, hour: 9), date(9, 30, hour: 9)].map { start in
                 HistorySearchHit(id: UUID(), threadID: UUID(), name: "Draft", workType: .deepWork,
-                                 start: start, end: start.addingTimeInterval(600), worked: 600,
+                                 start: start, end: start.addingTimeInterval(600), worked: 600, focusWorked: 600,
                                  day: start, noteSnippet: nil, matchedApps: [])
             }
             let months = HistoryJournalBuilder.entries(matching: hits, calendar: islamic).compactMap { entry -> JournalMonth? in
