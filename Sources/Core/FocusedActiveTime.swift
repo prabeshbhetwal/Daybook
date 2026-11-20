@@ -42,12 +42,15 @@ enum FocusedActiveTime {
                         runningPaused: [DateInterval]? = nil) -> TimeInterval {
         guard interval.duration > 0 else { return 0 }
         let bounds = (start: interval.start, end: interval.end)
+        // A running session with no work here (one in a category that does not count) credits nothing, and its
+        // span must not widen the union below either.
+        let running = runningWork == 0 ? nil : running
         // Only what can touch the interval: anything else clips to nothing and
         // credits exactly zero below. `>=` keeps a zero-length record ending on
         // the opening instant, which `workSeconds(in:)` still assigns here.
         // Today's goal reads this every second over the whole history.
         let focusRecords = records.filter {
-            $0.workType.countsAsFocus && $0.end >= bounds.start && $0.start < bounds.end
+            $0.end >= bounds.start && $0.start < bounds.end && $0.workType.countsAsFocus
         }
         // Known pauses are not focus. Credited across the whole span, app use
         // inside an explicit pause filled the goal while no work was logged.

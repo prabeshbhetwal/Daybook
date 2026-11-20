@@ -75,7 +75,7 @@ extension SessionStore {
         for records in groups {
             let first = records[0]
             let day = calendar.startOfDay(for: first.start)
-            let isBreak = !first.workType.countsAsFocus
+            let isBreak = first.workType.isBreak
             guard filter.holds(day: day, in: calendar) else { continue }
             if filter.minLength != nil || filter.maxLength != nil {
                 let worked = records.reduce(0) { $0 + $1.workSeconds }

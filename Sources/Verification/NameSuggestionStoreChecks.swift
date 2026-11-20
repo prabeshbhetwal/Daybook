@@ -48,7 +48,7 @@ enum NameSuggestionStoreChecks: CheckSuite {
     /// A store over scratch archives and in-memory preferences. `zone` is the
     /// store's calendar base; nil keeps the Mac's.
     static func withFixture(zone: TimeZone? = nil, now: Date = SelfTest.base, records: (Days) -> [SessionRecord],
-                            usage: (Days) -> [AppUsageSession] = { _ in [] },
+                            usage: (Days) -> [AppUsageSession] = { _ in [] }, journal: (() -> String?)? = nil,
                             _ body: @MainActor (Fixture, Days, inout [String]) -> Void) -> [String] {
         MainActor.assumeIsolated {
             var base = Calendar.current
@@ -70,7 +70,7 @@ enum NameSuggestionStoreChecks: CheckSuite {
             let usageArchive = AppUsageArchive(directory: directories[1], now: { clock.value })
             let persistence = PersistenceStore(defaults: defaults)
             let engine = SessionEngine(store: persistence, archive: archive, ownBundleID: "com.example.names",
-                                       schedulesDwell: false, now: { clock.value })
+                                       schedulesDwell: false, correctionWriteOverride: journal, now: { clock.value })
             let tracker = AppUsageTracker(archive: usageArchive, ownBundleID: "com.example.names", idle: .disabled,
                                           now: { clock.value })
             let metadata = SessionMetadataArchive(directory: directories[2])

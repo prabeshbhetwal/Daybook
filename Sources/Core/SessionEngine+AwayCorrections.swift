@@ -155,7 +155,7 @@ extension SessionEngine {
               original.end > original.start,
               !awayDecisions.contains(where: { $0.insertedRecord?.id == recordID || $0.legacyOriginalRecord?.id == recordID })
         else { return false }
-        let target = focusTargetID.flatMap { id in archive.records.first { $0.id == id && $0.workType.countsAsFocus } }
+        let target = focusTargetID.flatMap { id in archive.records.first { $0.id == id && !$0.workType.isBreak } }
         if decision == .mergeTime && target == nil {
             awayDecisionError = "Choose a valid recorded focus session before counting this stretch. Leave Uncounted is still available."
             return false

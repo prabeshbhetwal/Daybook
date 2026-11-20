@@ -153,6 +153,7 @@ extension SessionStore {
             updateTicker()
             // The launch sweep first, so a record at the edge of the 90 days is written before its beats go.
             writeActivitySnapshotsAfterStop()
+            followAppleIntelligenceSwitch()
             pruneBeatsOncePerDay(at: moment)
         }
     }

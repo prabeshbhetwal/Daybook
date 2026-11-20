@@ -75,9 +75,12 @@ enum HistoryJournalBuilder {
                     worked[day, default: 0] += hit.worked
                     sessions[day, default: []].insert(hit.threadID)
                     listed[day, default: []].insert(hit.threadID)
-                } else {
+                } else if hit.workType.isBreak {
                     breaks[day, default: 0] += 1
                     listed[day, default: []].formUnion(hit.recordIDs.isEmpty ? [hit.id] : hit.recordIDs)
+                } else {
+                    // A session that does not count toward focus is still a session: its row is found by thread.
+                    listed[day, default: []].insert(hit.threadID)
                 }
             }
             let count = calendar.range(of: .day, in: .month, for: start)?.count ?? 31

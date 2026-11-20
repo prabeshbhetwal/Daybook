@@ -22,11 +22,8 @@ extension SessionStore {
         // session resumed after a break is several, and this award is
         // deliberately about the unbroken one.
         var longest: (seconds: TimeInterval, day: Date)?
-        for record in engine.archive.records where record.workType.countsAsFocus {
-            let seconds = record.workSeconds
-            if seconds > (longest?.seconds ?? 0) {
-                longest = (seconds, calendar.startOfDay(for: record.start))
-            }
+        for record in engine.archive.records where record.workSeconds > (longest?.seconds ?? 0) && record.workType.countsAsFocus {
+            longest = (record.workSeconds, calendar.startOfDay(for: record.start))
         }
 
         return AwardFacts(

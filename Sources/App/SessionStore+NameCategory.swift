@@ -61,7 +61,7 @@ extension SessionStore {
     func nameCategoryTidies(rules: [ActivityRule], on day: Date? = nil) -> [NameCategoryTidy] {
         let calendar = Calendar.current
         var threads: [UUID: (name: String, type: WorkType)] = [:]
-        for record in engine.archive.records where record.workType.countsAsFocus {
+        for record in engine.archive.records where !record.workType.isBreak {
             if let day, !calendar.isDate(record.start, inSameDayAs: day),
                !calendar.isDate(record.end, inSameDayAs: day) { continue }
             threads[record.threadID] = (record.name, record.workType)

@@ -18,7 +18,7 @@ extension SessionStore {
         }
         let today = Date()
         let earlier = engine.archive.records(on: today).filter {
-            $0.threadID == engine.activeThreadID && $0.workType.countsAsFocus
+            $0.threadID == engine.activeThreadID && !$0.workType.isBreak
         }
         threadBaseSeconds = earlier.reduce(0) { $0 + $1.workSeconds(on: today, calendar: .current) }
         threadSegments = earlier.count + 1

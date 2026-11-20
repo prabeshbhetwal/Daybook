@@ -111,10 +111,10 @@ extension SessionStore {
     }
 
     private func askMatchingTotals(_ range: AskRange, words: String) -> AskLookupResult {
-        let clips = askHits(matching: HistoryFilter(query: words), in: range).filter { $0.hit.workType.countsAsFocus }
-        var totals = AskTotals(dates: askDates(range), focused: clips.reduce(0) { $0 + $1.worked },
+        let clips = askHits(matching: HistoryFilter(query: words), in: range).filter { $0.focusWorked > 0 }
+        var totals = AskTotals(dates: askDates(range), focused: clips.reduce(0) { $0 + $1.focusWorked },
                                sessions: Set(clips.map(\.hit.threadID)).count,
-                               focusedDays: Set(clips.flatMap(\.days)).count)
+                               focusedDays: Set(clips.flatMap(\.focusDays)).count)
         let longest = askLongest(clips, into: &totals)
         // Asked how long Safari was used, the model searched for the word
         // and gave the time of the sessions Safari was used in (probe,
@@ -146,11 +146,11 @@ extension SessionStore {
     /// first day in the range. On a tie, the newest. It is set in `totals`,
     /// and returned as a place when the text names it.
     private func askLongest(_ clips: [AskClip], into totals: inout AskTotals) -> [AskLink] {
-        let sessions = Dictionary(grouping: clips.filter { $0.hit.workType.countsAsFocus }, by: \.hit.threadID)
+        let sessions = Dictionary(grouping: clips.filter { $0.focusWorked > 0 }, by: \.hit.threadID)
         let longest = sessions.values.compactMap { parts -> (thread: UUID, name: String, day: Date, worked: TimeInterval)? in
             guard let first = parts.first else { return nil }
-            return (thread: first.hit.threadID, name: first.hit.name, day: parts.flatMap(\.days).min() ?? first.hit.day,
-                    worked: parts.reduce(0) { $0 + $1.worked })
+            return (thread: first.hit.threadID, name: first.hit.name, day: parts.flatMap(\.focusDays).min() ?? first.hit.day,
+                    worked: parts.reduce(0) { $0 + $1.focusWorked })
         }.max { ($0.worked, $0.day, $0.name, $0.thread.uuidString) < ($1.worked, $1.day, $1.name, $1.thread.uuidString) }
         guard let longest else { return [] }
         totals.longest = (name: longest.name, day: askDay(longest.day), worked: longest.worked)
@@ -164,8 +164,7 @@ extension SessionStore {
         let today = periodCalendar.startOfDay(for: now())
         func side(_ range: AskRange) -> AskSide {
             let focused = words.map { words in
-                askHits(matching: HistoryFilter(query: words), in: range).filter { $0.hit.workType.countsAsFocus }
-                    .reduce(0) { $0 + $1.worked }
+                askHits(matching: HistoryFilter(query: words), in: range).reduce(0) { $0 + $1.focusWorked }
             } ?? askSummary(range).focused
             return AskSide(range: range, focused: focused, isCurrent: askInterval(range).holds(today),
                            dates: askDates(range))

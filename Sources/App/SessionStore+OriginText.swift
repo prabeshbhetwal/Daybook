@@ -45,7 +45,17 @@ extension SessionStore {
     /// The mark and how the session began, from one pass over the archive: the first stretch says how it
     /// began, and a running stretch not yet written says it through the engine.
     func origin(for session: DaySession) -> (text: OriginText?, provenance: SessionProvenance?) {
+        origin(of: session, in: records(of: session))
+    }
+
+    /// A session row's two marks from that one pass: how it began, and whether the AI set its category (C17).
+    func rowMarks(for session: DaySession) -> (origin: OriginText?, aiMark: Bool) {
         let stretches = records(of: session)
+        return (origin(of: session, in: stretches).text, aiFiledStretch(of: session, in: stretches) != nil)
+    }
+
+    private func origin(of session: DaySession, in stretches: [SessionRecord])
+        -> (text: OriginText?, provenance: SessionProvenance?) {
         guard let began = provenance(of: session, in: stretches) else { return (nil, nil) }
         return (OriginText.make(began, rules: began.origin == .rule ? engine.store.activityRules : [],
                                 carriedOn: carriedOn(session, in: stretches)), began)
@@ -62,8 +72,9 @@ extension SessionStore {
 
     /// Newest first, and done once every stretch is found: a session is nearly always among the last records,
     /// and with none to find no record is read. An explicit loop: a lazy filter over the archive looks for its
-    /// matches up front, so it would read every record however few are wanted.
-    private func records(of session: DaySession) -> [SessionRecord] {
+    /// matches up front, so it would read every record however few are wanted. The origin mark and the AI report
+    /// (`SessionStore+AIReport.swift`) read them.
+    func records(of session: DaySession) -> [SessionRecord] {
         var wanted = originSearch(for: session), found: [SessionRecord] = []
         for record in engine.archive.records.reversed() {
             if wanted.isEmpty { break }

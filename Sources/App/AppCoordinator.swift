@@ -28,8 +28,8 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         // The real input counters too: a store built for a check or a gallery
         // keeps the plain idle timer, whatever the Mac running it is doing.
         let created = SessionStore(engine: engine, powerMonitor: powerMonitor, idle: .system)
-        // The engine's own preferences, `UserDefaults.standard`: the site signal's consent lives beside them.
-        created.installSiteSignal(defaults: .standard)
+        // The engine's own preferences, `UserDefaults.standard`: the site signal's consent and the AI switch live beside them.
+        created.installSiteSignal(defaults: .standard); created.installCategoryAssistant(defaults: .standard)
         return created
     }()
     /// The Site signal panel's model, on the preferences the store's reader was installed with above.
@@ -611,7 +611,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
             self.map { AppUpdater.wouldLoseWork(store: $0.store, settings: $0.settings) } ?? false
         }
         updater.onRelaunch = { [weak self] in self?.machineEvents.markUpdateRelaunch() }
-        settings.updater = updater
+        settings.updater = updater; settings.aiCategories = AICategorySource(setting: AIAssignSetting(defaults: .standard), labels: store.aiLabelStore)
         // New or not by the welcome's own rule: recorded app use alone makes
         // an install an existing one, so its history is not uploaded unasked.
         engine.store.settleBackupSchedule(isExistingInstall: !FirstRunGate.shouldWelcome(

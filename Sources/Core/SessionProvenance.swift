@@ -66,9 +66,13 @@ extension SessionRecord {
     }
 
     /// The person's category change. Choosing the category it already has
-    /// changes nothing, as before.
-    mutating func recategorise(to proposed: WorkType) {
-        guard workType != proposed else { return }
+    /// changes nothing, unless they chose it in the session's own card
+    /// (`confirming`) and Daybook or the AI had chosen it: then it becomes
+    /// the person's, so the AI mark goes and no later answer replaces it.
+    mutating func recategorise(to proposed: WorkType, confirming: Bool = false) {
+        // The effective source, as `AITrigger` reads it: an automatic record that never said is the app's guess.
+        let source = effectiveCategorySource
+        guard workType != proposed || (confirming && (source == .builtIn || source == .ai)) else { return }
         workType = proposed
         categorySource = .user
     }

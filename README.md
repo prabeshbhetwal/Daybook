@@ -193,8 +193,9 @@ why rather than hiding the difference.
 - **Each session records how it began.** Alongside its times, a session keeps
   whether you started it, one of your Activity Rules did (with the rule's
   name) or Daybook did, where its category came from (you, a rule, a choice
-  you made before, or Daybook's own default) and whether Daybook chose its
-  name. It lives in the session's record on the Mac, so backups carry it.
+  you made before, the on-device AI, or Daybook's own default) and whether
+  Daybook chose its name. It lives in the session's record on the Mac, so
+  backups carry it.
   Splitting a session in two, or merging the halves back, never changes the
   time you worked: the halves add up to the original. A half you file under
   another category takes its time to that category.
@@ -221,6 +222,28 @@ why rather than hiding the difference.
 - **On-device AI stays on the device.** Ask, review notes, name suggestions and
   History's search run on the Mac, and your questions, history and answers are
   not sent anywhere.
+- **On-device AI can suggest a category, and sees little.** When an automatic
+  session of 10 minutes or more ends with the category Daybook chose for it, and
+  the apps used do not settle which category fits, Daybook asks the on-device
+  model once. It is told only the whole minutes spent on each kind of activity,
+  how deep the work was, the names of up to two apps, the kind of site when the
+  site signal is on, and a numbered list of up to 20 of your category names. It
+  is never told the session's name or note, window titles, addresses or bundle
+  identifiers. Each question runs on the Mac in a fresh session, so nothing
+  carries over from one question to the next. While "Let AI assign categories to
+  automatic sessions" is off, Daybook still asks whenever on-device AI is on,
+  and shows the answer only as a suggestion in the session report. With the
+  switch on, when the AI picks a category, Daybook files the session under it
+  and marks it with a small sparkle on the session's row and in its report,
+  where you can keep or change it. The AI makes at most one new label in any 24
+  hours, and Remove on a label it made files every session carrying it as
+  Unsorted. Daybook keeps `ai-labels.json` beside your sessions. It holds the
+  labels the AI proposed and when each was made, the pattern fingerprints they
+  stand for (the same kind `corrections.json` keeps, with the kind of site), the
+  answer given for each kind of session, names you removed so they are not
+  proposed again, and the last 50 comparisons of an answer with your own choice.
+  It holds no session name, note, window title or address. Backups include the
+  file.
 - **No special access unless you turn on the site signal.** Daybook asks for no
   Accessibility, Automation, Screen Recording or Input Monitoring permission;
   it tells when you are away from system counters, not from what you type. The

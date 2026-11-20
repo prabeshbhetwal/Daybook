@@ -23,7 +23,7 @@ enum ContinuationPolicy {
             for record in records {
                 if byID[record.id] != nil { duplicates.insert(record.id) }
                 byID[record.id] = record
-                guard record.workType.countsAsFocus else { continue }
+                guard !record.workType.isBreak else { continue }
                 if let previous = threads[record.threadID] {
                     if isLater(record, than: previous) { threads[record.threadID] = record }
                 } else {
@@ -43,7 +43,7 @@ enum ContinuationPolicy {
         }
 
         func isEligible(_ canonical: SessionRecord, active: RunningThread?, now: Date) -> Bool {
-            guard canonical.workType.countsAsFocus,
+            guard !canonical.workType.isBreak,
                   canonical.end >= canonical.start,
                   !duplicateIDs.contains(canonical.id),
                   recordsByID[canonical.id] == canonical,

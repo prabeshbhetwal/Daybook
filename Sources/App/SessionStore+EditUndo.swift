@@ -21,6 +21,7 @@ enum EditUndoKind: Equatable {
             switch state.restructure {
             case .split?: self = .split(state.originalFields.name)
             case .merge?: self = .merge(state.originalFields.name)
+            case .rewrite?: self = .category(state.originalFields.name)
             case .removal?, nil: self = .removal(state.originalFields.name)
             }
         }

@@ -25,9 +25,7 @@ final class SessionArchive {
         didSet {
             revision &+= 1
             cachedDayRecords.removeAll(keepingCapacity: true)
-            cachedDailyTotals = nil
-            cachedBestStreak = nil
-            cachedCurrentStreak = nil
+            derived.clear()
         }
     }
     private(set) var revision = 0
@@ -35,9 +33,8 @@ final class SessionArchive {
     /// still in `sessions.json` and may be the only copy, so nothing is written.
     private(set) var isReadOnly = false
     private var cachedDayRecords: [Date: [SessionRecord]] = [:]
-    private var cachedDailyTotals: [Date: TimeInterval]?
-    private var cachedBestStreak: Int?
-    private var cachedCurrentStreak: (day: Date, qualifiesToday: Bool, count: Int)?
+    /// The totals and streaks, emptied by a record change and by a catalogue change (`dailyTotals` checks it).
+    private var derived = ArchiveTotalsCache()
 
     init(directory: URL = SessionArchive.defaultDirectory,
          calendar: Calendar = .current,
@@ -400,7 +397,8 @@ final class SessionArchive {
     /// Focused seconds per day across the whole archive, cross-midnight work
     /// split. Built in one pass because the streak walks need every day at once.
     private func dailyTotals() -> [Date: TimeInterval] {
-        if let cachedDailyTotals { return cachedDailyTotals }
+        derived.dropIfCatalogueChanged()
+        if let cached = derived.dailyTotals { return cached }
         var totals: [Date: TimeInterval] = [:]
         for record in cache where record.workType.countsAsFocus {
             var cursor = calendar.startOfDay(for: record.start)
@@ -417,7 +415,7 @@ final class SessionArchive {
                 cursor = calendar.startOfDay(for: next)
             }
         }
-        cachedDailyTotals = totals
+        derived.dailyTotals = totals
         return totals
     }
 
@@ -450,8 +448,8 @@ final class SessionArchive {
     var streakMinimum: TimeInterval = FocusConstants.streakMinimum {
         didSet {
             guard streakMinimum != oldValue else { return }
-            cachedBestStreak = nil
-            cachedCurrentStreak = nil
+            derived.bestStreak = nil
+            derived.currentStreak = nil
         }
     }
     /// How far back activity suggestions look, in days. A preference.
@@ -467,7 +465,7 @@ final class SessionArchive {
         let totals = dailyTotals()
         let today = calendar.startOfDay(for: now())
         let qualifies = (totals[today] ?? 0) + max(0, inFlight) >= streakMinimum
-        if let cached = cachedCurrentStreak, cached.day == today, cached.qualifiesToday == qualifies {
+        if let cached = derived.currentStreak, cached.day == today, cached.qualifiesToday == qualifies {
             return cached.count
         }
         var cursor = today
@@ -484,7 +482,7 @@ final class SessionArchive {
             guard let previous = calendar.date(byAdding: .day, value: -1, to: cursor) else { break }
             cursor = calendar.startOfDay(for: previous)
         }
-        cachedCurrentStreak = (today, qualifies, streak)
+        derived.currentStreak = (today, qualifies, streak)
         return streak
     }
 
@@ -501,10 +499,10 @@ final class SessionArchive {
     }
 
     private func finishedBestStreak() -> Int {
-        if let cachedBestStreak { return cachedBestStreak }
         // The injected calendar, not `Calendar.current`: an archive built for a
         // test in another time zone was silently bucketing by the host's days.
-        let totals = dailyTotals()
+        let totals = dailyTotals()   // first, so a catalogue change has emptied the cache before it is read
+        if let cached = derived.bestStreak { return cached }
         let qualifying = totals
             .filter { $0.value >= streakMinimum }
             .keys
@@ -523,7 +521,7 @@ final class SessionArchive {
             best = max(best, run)
             previous = day
         }
-        cachedBestStreak = best
+        derived.bestStreak = best
         return best
     }
 

@@ -92,8 +92,13 @@ extension SessionStore {
     /// Whether a record still in the archive was cut from this one. Its link names this record as the head, so
     /// joining this one to its own head first would take away the record that link points at. Any such link
     /// counts, held or not: a part renamed since can be joined again once the rename is undone.
-    private func hasLaterPart(of recordID: UUID) -> Bool {
+    func hasLaterPart(of recordID: UUID) -> Bool {
         engine.archive.records.contains { metadataArchive.metadata(for: $0.id)?.splitFrom?.head == recordID }
+    }
+
+    /// Every record `hasLaterPart` is true of, from one archive scan, for a caller asking about many.
+    func splitHeads() -> Set<UUID> {
+        Set(engine.archive.records.compactMap { metadataArchive.metadata(for: $0.id)?.splitFrom?.head })
     }
 
     /// Undo of a correction that swapped whole records: a removal, a split or a merge. The records it wrote
@@ -118,10 +123,32 @@ extension SessionStore {
             [powerStep(head: parts.head, tail: parts.tail, toTail: state.restructure == .merge)]
                 + undoSummarySteps(of: state, parts: parts)
         } ?? []
-        let done = engine.commitCorrection(before: before, removing: out, adding: back,
-                                           fields: corrections.filter { $0.id != state.id }, owing: owedWork(steps))
+        let done = engine.commitCorrection(before: before, removing: out, adding: back, fields: corrections.filter { $0.id != state.id },
+                                           owing: owedWork(steps) + owedForgetting(state))
         let landed = done || back.allSatisfy { engine.archive.records.contains($0) }
-        return finishRestructure(done: done, landed: landed, retry: .undo(state))
+        let labelsOwed = landed && state.restructure == .rewrite ? aiLabelsFollowUndo(of: back) : nil
+        let finished = finishRestructure(done: done, landed: landed, retry: .undo(state))
+        // The label file did not follow the records back: said, and Retry of this Undo finishes it (`undo`).
+        guard let labelsOwed else { return finished }
+        publishCorrectionError(labelsOwed)
+        correctionRetry = .undo(state)
+        return false
+    }
+
+    /// Retry of an Undo of a rewrite whose records came back but whose label file was not saved: that save alone.
+    /// Nil when this is not such a Retry: the Undo is still to do, or what it put back has changed since.
+    func labelsOwedAfterUndo(_ state: SessionStoreCorrectionState) -> Bool? {
+        guard state.restructure == .rewrite, !corrections.contains(where: { $0.id == state.id }),
+              let back = state.removedRecords, back.allSatisfy(engine.archive.records.contains) else { return nil }
+        if let why = aiLabelsFollowUndo(of: back) {
+            publishCorrectionError(why)
+            correctionRetry = .undo(state)
+            return false
+        }
+        publishCorrectionError(nil)
+        correctionRetry = nil
+        refresh()
+        return true
     }
 
     /// How a restructure ended. One whose archive write landed with only its journal save refused shows the
@@ -167,7 +194,7 @@ extension SessionStoreCorrectionState {
         case .merge?:
             guard let head = added.first?.id, let tail = removed.first(where: { $0.id != head }) else { return nil }
             return (head, tail)
-        case .removal?, nil:
+        case .removal?, .rewrite?, nil:
             return nil
         }
     }
@@ -177,6 +204,7 @@ extension SessionStoreCorrectionState {
         switch restructure {
         case .split?: return "Session split"
         case .merge?: return "Sessions merged"
+        case .rewrite?: return "Category changed"
         case .removal?, nil: return "Session removed"
         }
     }

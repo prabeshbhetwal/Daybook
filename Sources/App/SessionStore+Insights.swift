@@ -336,7 +336,7 @@ extension SessionStore {
         var result: [WorkType: [Int: TimeInterval]] = [:]
         for day in days {
             guard let bounds = SessionRecord.dayBounds(day.date, calendar: calendar) else { continue }
-            for record in engine.archive.records where record.workType.countsAsFocus {
+            for record in engine.archive.records where record.end > bounds.start && record.start < bounds.end && record.workType.countsAsFocus {
                 let start = max(record.start, bounds.start), end = min(record.end, bounds.end)
                 guard end > start else { continue }
                 HourlyWork.forEachHour(from: start, to: end, calendar: calendar,

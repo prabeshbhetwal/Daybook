@@ -217,9 +217,10 @@ extension SessionStore {
         var written = 0
         for record in recent {
             guard written < Self.activitySnapshotsPerSweep,
-                  activityEvidence.archive.dayFileReads - reads < Self.activitySnapshotsPerSweep else { return }
+                  activityEvidence.archive.dayFileReads - reads < Self.activitySnapshotsPerSweep else { break }
             if writeActivitySnapshot(for: record, at: moment, overrides: (overrides, digest)) { written += 1 }
         }
+        noteEndedRecordsForAssistant()
     }
 
     /// True when a write was tried, which counts against the sweep's limit.

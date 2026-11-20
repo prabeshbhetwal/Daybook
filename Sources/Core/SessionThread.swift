@@ -88,7 +88,7 @@ struct ThreadStats {
         // the log, but offering to "continue" it would start the Break session
         // the picker deliberately no longer offers.
         return summaries(records: sessions.records(on: day).filter {
-            $0.end >= cutoff && $0.workType.countsAsFocus
+            $0.end >= cutoff && !$0.workType.isBreak
         }, running: running)
     }
 
@@ -97,7 +97,7 @@ struct ThreadStats {
     /// in an eligible thread rather than turning the one-hour action window
     /// into a six-hour accounting cap.
     func continuationThreads(running: RunningThread?) -> [ThreadSummary] {
-        summaries(records: sessions.records.filter(\.workType.countsAsFocus), running: running)
+        summaries(records: sessions.records.filter { !$0.workType.isBreak }, running: running)
     }
 
     private func summaries(records: [SessionRecord], running: RunningThread?) -> [ThreadSummary] {

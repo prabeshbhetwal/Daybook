@@ -301,8 +301,7 @@ extension EnvironmentValues {
 final class SettingsModel: ObservableObject {
 
     private let store: PersistenceStore
-    /// Absent outside the running application, so nothing pulses in checks
-    /// that build a model without one.
+    /// Absent outside the running application, so nothing pulses in checks that build a model without one.
     private let haptics: HapticPlayer?
     private let onChange: () -> Void
     /// The moment and the calendar the break rows work dates out in, read on
@@ -322,8 +321,7 @@ final class SettingsModel: ObservableObject {
     /// The archive directory displayed and revealed by Privacy. Fixtures pass
     /// their own temporary directory so this surface cannot reach live data.
     let dataDirectoryURL: URL
-    /// iCloud Drive's folder, where backups go unless the reader chose
-    /// another. Checks pass a scratch folder.
+    /// iCloud Drive's folder, where backups go unless the reader chose another. Checks pass a scratch folder.
     let backupRoot: URL
     /// What Back Up Now did, shown under its button and announced.
     @Published private(set) var backupStatus: String?
@@ -331,8 +329,7 @@ final class SettingsModel: ObservableObject {
     @Published private(set) var iCloudDriveIsOn = false
     /// Whether the last backup has reached iCloud; nil when there is none.
     @Published private(set) var backupUploadState: DataBackup.UploadState?
-    /// Moves an expired automatic backup to the Trash. Checks pass a scratch
-    /// folder, so nothing they make reaches the reader's Trash.
+    /// Moves an expired automatic backup to the Trash. Checks pass a scratch folder, so nothing reaches the Trash.
     private let trashBackup: (URL) throws -> Void
     /// Runs a backup's copy: off the main thread in the app, in place in checks.
     private let backupWork: (@escaping () -> Void) -> Void
@@ -353,6 +350,8 @@ final class SettingsModel: ObservableObject {
     private var clockChanges: AnyCancellable?
     /// The rule and category forms Settings and the category panel draw.
     let openForms = OpenForms()
+    /// The AI category row's switch and label file, handed in by the app (`SettingsModel+AICategories.swift`).
+    var aiCategories: AICategorySource?
 
     init(store: PersistenceStore,
          isTrackingEnabled: Bool,
@@ -396,7 +395,8 @@ final class SettingsModel: ObservableObject {
         self.trashBackup = trashBackup
         self.backupWork = backupWork
         self.installedAppCatalog = installedAppCatalog
-        catalogChanges = installedAppCatalog.objectWillChange
+        catalogChanges = installedAppCatalog.objectWillChange // and the categories and the AI label file's tally
+            .merge(with: WorkTypeCatalog.shared.objectWillChange, NotificationCenter.default.publisher(for: AILabelStore.didSave).map { _ in })
             .sink { [weak self] _ in self?.objectWillChange.send() }
         clockChanges = NotificationCenter.default.publisher(for: .NSSystemTimeZoneDidChange)
             .merge(with: NotificationCenter.default.publisher(for: .NSCalendarDayChanged))
@@ -441,7 +441,7 @@ final class SettingsModel: ObservableObject {
         onResumeWelcome?(chapter)
     }
 
-    private func write(_ body: () -> Void) {
+    func write(_ body: () -> Void) {
         objectWillChange.send()
         body()
         onChange()

@@ -11,6 +11,7 @@ final class CategoryEditorState: ObservableObject, FormDraft {
     @Published var symbolName = WorkTypeSymbols.fallback
     @Published var hue: WorkTypeHue = .blue
     @Published var countsWhileWatching = false
+    @Published var countsTowardFocus = true
     @Published var dailyGoal: TimeInterval = 0
     @Published var remindsBreaks = true
     @Published var typedSymbol = ""
@@ -42,11 +43,12 @@ final class CategoryEditorState: ObservableObject, FormDraft {
     var isOpen: Bool { selectedID != nil }
 
     func edit(_ definition: WorkTypeDefinition) {
-        selectedID = definition.id
+        selectedID = definition.isHidden ? nil : definition.id   // a hidden category keeps the form shut
         name = definition.name
         symbolName = definition.symbolName
         hue = definition.hue
         countsWhileWatching = definition.countsWhileWatching
+        countsTowardFocus = definition.countsTowardFocus
         dailyGoal = definition.dailyGoal ?? 0
         remindsBreaks = definition.remindsBreaks
         if let glyph = WorkTypeSymbols.glyphText(of: definition.symbolName) {
@@ -68,6 +70,7 @@ final class CategoryEditorState: ObservableObject, FormDraft {
         symbolName = WorkTypeSymbols.fallback
         hue = CategoryEditorState.nextHue()
         countsWhileWatching = false
+        countsTowardFocus = true
         dailyGoal = 0
         remindsBreaks = true
         typedSymbol = ""
@@ -125,22 +128,14 @@ final class CategoryEditorState: ObservableObject, FormDraft {
 
     /// The category as it will be kept, or nil with the reason shown.
     func definitionForSaving(existing: [WorkTypeDefinition]) -> WorkTypeDefinition? {
-        guard let id = selectedID else { return nil }
+        guard let id = selectedID, !WorkType(rawValue: id).definition.isHidden else { return nil }
         let cleanName = WorkTypeDefinition.normalisedName(name)
         guard !cleanName.isEmpty else {
             validationMessage = "Give the category a name."
             return nil
         }
-        guard cleanName.count <= WorkTypeDefinition.nameLimit else {
-            validationMessage = "Keep the name to \(WorkTypeDefinition.nameLimit) characters."
-            return nil
-        }
-        let taken = existing.contains { other in
-            other.id != id && !other.isRetired
-                && other.name.caseInsensitiveCompare(cleanName) == .orderedSame
-        }
-        guard !taken else {
-            validationMessage = "Another category is already called “\(cleanName)”."
+        if let problem = WorkTypeDefinition.nameProblem(cleanName, for: id, among: existing) {
+            validationMessage = problem
             return nil
         }
         guard CategoryEditorState.symbolExists(symbolName) else {
@@ -156,7 +151,8 @@ final class CategoryEditorState: ObservableObject, FormDraft {
             countsWhileWatching: base?.countsWhileWatching ?? countsWhileWatching,
             isRetired: existing.first { $0.id == id }?.isRetired ?? false,
             dailyGoal: isRest || dailyGoal <= 0 ? nil : dailyGoal,
-            remindsBreaks: isRest ? true : remindsBreaks)
+            remindsBreaks: isRest ? true : remindsBreaks,
+            countsTowardFocus: countsTowardFocus)
     }
 
     /// A colour no active category is wearing, so a new one is told apart at
@@ -446,41 +442,9 @@ struct CategoryEditorForm: View {
         DispatchQueue.main.async { nameFocused = true }
     }
 
-    /// What the category means for the day: its own goal, and whether break
-    /// reminders run during it.
-    private var behaviourRows: some View {
-        VStack(alignment: .leading, spacing: Tokens.Space.s) {
-            HStack(spacing: Tokens.Space.s) {
-                Text("Daily goal")
-                    .font(Tokens.Typography.body)
-                    .foregroundStyle(StoryStyle.supportingInk)
-                Picker("Daily goal", selection: $editor.dailyGoal) {
-                    Text("None").tag(0.0)
-                    ForEach(WorkTypeDefinition.goalOptions, id: \.self) { seconds in
-                        Text(Tokens.duration(seconds)).tag(seconds)
-                    }
-                }
-                .labelsHidden()
-                .fixedSize()
-                .accessibilityLabel("Daily goal for this category")
-                Text("Its own line under Focus time, beside the day's goal.")
-                    .font(Tokens.Typography.body)
-                    .foregroundStyle(StoryStyle.supportingInk)
-            }
-            Toggle("Remind me to take breaks during this category", isOn: $editor.remindsBreaks)
-                .toggleStyle(.switch)
-                .controlSize(Tokens.Zoom.controlSize(.mini))
-            Text("Off, break reminders wait while a session of this category runs. "
-                 + "Meetings starts off: nobody wants to be told to stand up mid-call.")
-                .font(Tokens.Typography.body)
-                .foregroundStyle(StoryStyle.supportingInk)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
     private func save() {
         let wasNew = isNew
-        guard let definition = editor.definitionForSaving(existing: catalog.allDefinitions) else { return }
+        guard let definition = editor.definitionForSaving(existing: model.namedCategories) else { return }
         guard model.saveCategory(definition) else {
             editor.validationMessage = "You can keep up to \(DailyGoalList.maximum) goals. "
                 + "Remove one to set a goal here."

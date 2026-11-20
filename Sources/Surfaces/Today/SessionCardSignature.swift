@@ -38,6 +38,9 @@ struct SessionCardSignature: Equatable {
     var minimumRecorded: TimeInterval
     /// How the session began, read from its records, the rules as they are now and the away answers.
     var origin: OriginText? = nil
+    /// Whether the AI mark shows beside the category (`SessionStore.rowMarks`): it comes and goes with a
+    /// stretch's category source, which nothing else in the signature carries.
+    var aiMark = false
 
     /// The store-side reads, taken once for the card's stretches.
     static func noteFacts(of recordIDs: [UUID], in store: SessionStore)

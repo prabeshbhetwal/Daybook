@@ -384,7 +384,7 @@ extension SessionStore {
         }
         var threads = Set<UUID>()
         return engine.archive.records
-            .filter { $0.workType.countsAsFocus && $0.end > $0.start
+            .filter { !$0.workType.isBreak && $0.end > $0.start
                 && calendar.isDate($0.start, inSameDayAs: rest.start) }
             .sorted { distance($0) == distance($1) ? $0.start < $1.start : distance($0) < distance($1) }
             .filter { threads.insert($0.threadID).inserted }
@@ -578,9 +578,9 @@ extension SessionStore {
                 publishCorrectionError(engine.awayDecisionError); return false
             }
             if engine.decisionHistoryRevision == pending.after.correctionGeneration {
-                correctionRetry = nil
-                publishCorrectionError(nil)
-                refresh()
+                correctionRetry = nil; publishCorrectionError(nil); refresh()
+                // An Undo of a rewrite may still owe the label file (`labelsOwedAfterUndo`).
+                if case .undo(let state) = retry, let finished = labelsOwedAfterUndo(state) { return finished }
                 return true
             }
         }
@@ -661,9 +661,7 @@ extension SessionStore {
             publishCorrectionError(engine.awayDecisionError); return false
         }
         let before = engine.snapshot()
-        let archiveRecordIDs = Set(engine.archive.records
-            .filter { $0.threadID == threadID }
-            .map(\.id))
+        let archiveRecordIDs = Set(engine.archive.records.filter { $0.threadID == threadID }.map(\.id))
         let activeBefore: SessionStoreCorrectionState.ActiveFields?
         if engine.state != .idle, engine.activeThreadID == threadID {
             activeBefore = .init(name: engine.sessionName, workType: engine.activeWorkType, provenance: engine.activeProvenance.undoable)
@@ -676,7 +674,7 @@ extension SessionStore {
             var changed = record
             switch correction {
             case .rename(let name): changed.rename(to: name)
-            case .workType(let type): changed.recategorise(to: type)
+            case .workType(let type): changed.recategorise(to: type, confirming: claims)
             case .removed: continue   // each has its own path
             }
             if changed != record { removed.append(record); added.append(changed) }
@@ -715,20 +713,22 @@ extension SessionStore {
                                archiveRecordIDs: archiveRecordIDs,
                                madeAt: now(), remembered: filings.isEmpty ? nil : filings)
         engine.stageActiveCorrection(correction, threadID: threadID, claims: claims)
-        guard engine.commitCorrection(before: before, removing: removed, adding: added,
-                                      fields: corrections + [receipt]) else {
+        let done = engine.commitCorrection(before: before, removing: removed, adding: added, fields: corrections + [receipt])
+        tallyChoices(of: correction, added)
+        guard done else {
             publishCorrectionError(engine.awayDecisionError)
             correctionRetry = .correction(threadID: threadID, correction: correction, claims: claims)
             return false
         }
         publishCanUndoCorrection(true)
-        publishCorrectionError(nil)
-        correctionRetry = nil
+        publishCorrectionError(nil); correctionRetry = nil
         refresh()
         return true
     }
 
     private func undo(_ state: SessionStoreCorrectionState) -> Bool {
+        // Retry of an Undo whose records came back without the label file: only the label file is left.
+        if let finished = labelsOwedAfterUndo(state) { return finished }
         guard engine.prepareCorrection(), corrections.contains(where: { $0.id == state.id }) else {
             publishCorrectionError(engine.awayDecisionError ?? "That correction was already undone.")
             return false
@@ -824,7 +824,7 @@ extension SessionStore {
     /// never bypass the continuation guard by silently retaining its thread.
     func canStartNewSession(_ session: DaySession) -> Bool {
         !hasUnresolvedAwayDecision && !session.isRunning
-            && newSessionSource(for: session)?.workType.countsAsFocus == true
+            && newSessionSource(for: session)?.workType.isBreak == false
     }
 
     func startNewSession(from session: DaySession) {
@@ -841,12 +841,12 @@ extension SessionStore {
     private func canonicalRecord(for session: DaySession) -> SessionRecord? {
         let records = engine.archive.records
         if let direct = records.first(where: {
-            $0.id == session.id && $0.threadID == session.threadID && $0.workType.countsAsFocus
+            $0.id == session.id && $0.threadID == session.threadID && !$0.workType.isBreak
         }) {
             return direct
         }
         guard let canonical = ContinuationPolicy.latest(records.filter {
-            $0.threadID == session.threadID && $0.workType.countsAsFocus
+            $0.threadID == session.threadID && !$0.workType.isBreak
         }), session.end == canonical.end, session.workType == canonical.workType,
            ContinuationPolicy.activityKey(name: session.name, workType: session.workType)
                == ContinuationPolicy.activityKey(name: canonical.name, workType: canonical.workType)

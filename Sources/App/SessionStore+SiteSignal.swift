@@ -31,13 +31,14 @@ extension SessionStore {
     /// The app's reader: the worker is one serial utility queue, answers come back on the main queue, and
     /// the settings are the app's own preferences. Everything the worker calls is safe off the main thread.
     /// Until a probe report opens the gate for the running macOS (`SignalGate.passing`), nothing is read.
-    func installSiteSignal(defaults: UserDefaults) {
+    /// `gateOn` stands in for that gate in checks, and `trusted` for Accessibility.
+    func installSiteSignal(defaults: UserDefaults, gateOn: (() -> Bool)? = nil, trusted: (() -> Bool)? = nil) {
         let worker = DispatchQueue(label: "\(FocusConstants.bundleIdentifier).site-signal", qos: .utility)
         let macOSMajor = ProcessInfo.processInfo.operatingSystemVersion.majorVersion
         activityEvidence.siteReader = SiteSignalReader(
             settings: SiteSignalSettings(defaults: defaults), reader: AXSiteAddressReader(),
-            gateOn: { SignalGate.isOn(.siteKind, macOSMajor: macOSMajor) },
-            trusted: { AXIsProcessTrusted() },
+            gateOn: gateOn ?? { SignalGate.isOn(.siteKind, macOSMajor: macOSMajor) },
+            trusted: trusted ?? { AXIsProcessTrusted() },
             bundleID: { NSRunningApplication(processIdentifier: $0)?.bundleIdentifier },
             run: { worker.async(execute: $0) },
             deliver: { DispatchQueue.main.async(execute: $0) },

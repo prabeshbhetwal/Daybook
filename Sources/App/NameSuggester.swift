@@ -263,7 +263,7 @@ struct NameSuggestion: Equatable {
     /// Greedy: the same facts give the same answer. The macOS 27 SDK renames
     /// the argument and deprecates the old name.
     @available(macOS 26, *)
-    private static var options: GenerationOptions {
+    static var options: GenerationOptions {
         #if compiler(>=6.4)
         GenerationOptions(samplingMode: .greedy)
         #else

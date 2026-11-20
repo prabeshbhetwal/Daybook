@@ -22,7 +22,7 @@ extension SessionStore {
             }
         }
         return threads.values.filter {
-            !$0.isRunning && $0.workType.countsAsFocus && $0.worked >= Self.nameSuggestionMinimumWorked
+            !$0.isRunning && !$0.workType.isBreak && $0.worked >= Self.nameSuggestionMinimumWorked
                 && $0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                 && !kept.contains($0.threadID.uuidString)
                 && !$0.recordIDs.contains { began[$0, default: days.yesterday] < days.yesterday }
@@ -180,7 +180,7 @@ extension SessionStore {
         var appNames: [String: String] = [:]
         let entries = engine.archive.records.compactMap { record -> NameHistoryEntry? in
             let name = record.name.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard record.end > from, !name.isEmpty, record.workType.countsAsFocus,
+            guard record.end > from, !name.isEmpty, !record.workType.isBreak,
                   !record.isAuto || rules.contains(SearchWords.fold(name)),
                   SessionNaming.category(named: name) == nil else { return nil }
             let apps = appUse(usage, within: [DateInterval(start: record.start, end: max(record.start, record.end))])

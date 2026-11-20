@@ -55,13 +55,15 @@ extension SessionStore {
         let usage: Int
         let overlay: Int
         let metadata: Int
+        /// The category catalogue, whose edit in Settings changes what counts toward focus with no record written.
+        let catalogue: UInt64
 
         /// True when only app use moved: the live overlay, or a checkpoint
-        /// the usage archive can name the days of. Sessions, corrections
-        /// and midnight change any day, so those still rebuild.
+        /// the usage archive can name the days of. Sessions, corrections,
+        /// categories and midnight change any day, so those still rebuild.
         func sameArchive(as other: EvidenceRevision) -> Bool {
             day == other.day && sessions == other.sessions && usageID == other.usageID
-                && metadata == other.metadata
+                && metadata == other.metadata && catalogue == other.catalogue
         }
     }
     var evidenceRevision: EvidenceRevision {
@@ -69,7 +71,7 @@ extension SessionStore {
                          sessions: engine.archive.revision,
                          usageID: usage.map { ObjectIdentifier($0) },
                          usage: usage?.revision ?? -1, overlay: tracker?.overlayRevision ?? -1,
-                         metadata: metadataArchive.revision)
+                         metadata: metadataArchive.revision, catalogue: WorkTypeCatalog.shared.generation)
     }
     func noteDashboardReadModelRebuild(full: Bool = true) {
         dashboardReadModelGeneration &+= 1

@@ -32,7 +32,7 @@ extension SessionStore {
         case .split?:
             guard let half = state.addedRecords?.first(where: { $0.id == parts.head }) else { return [] }
             return joinSteps(head: half, tail: parts.tail, keepingHead: false)
-        case .removal?, nil:
+        case .removal?, .rewrite?, nil:
             return []
         }
     }

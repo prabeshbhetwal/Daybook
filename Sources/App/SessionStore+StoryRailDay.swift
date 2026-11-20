@@ -29,7 +29,8 @@ extension SessionStore {
             engine.runningSpan.map { $0.end > bounds.start && $0.start < bounds.end } ?? false
         } ?? false
         let minute = isCurrentDay || runningTouchesDay ? Int(now().timeIntervalSinceReferenceDate / 60) : 0
-        if let cached = storyRailDayCache, cached.day == day, cached.revision == evidenceRevision,
+        let revision = evidenceRevision
+        if let cached = storyRailDayCache, cached.day == day, cached.revision == revision,
            cached.minute == minute {
             return cached.reading
         }
@@ -52,7 +53,7 @@ extension SessionStore {
             reading = StoryRailDay(goal: GoalProgress(goal: engine.store.dailyGoal, achieved: 0, typical: nil),
                                    apps: [], rhythm: [], rhythmPeak: nil)
         }
-        storyRailDayCache = (day, evidenceRevision, minute, reading)
+        storyRailDayCache = (day, revision, minute, reading)
         return reading
     }
 
@@ -75,7 +76,7 @@ extension SessionStore {
         let records = engine.archive.records
         let running = storyRunningSpan
         var types = Set(records.filter {
-            $0.workType.countsAsFocus && $0.workSeconds(in: (start: bounds.start, end: bounds.end)) > 0
+            $0.workSeconds(in: (start: bounds.start, end: bounds.end)) > 0 && $0.workType.countsAsFocus
         }.map(\.workType))
         if running != nil, engine.activeWorkType.countsAsFocus { types.insert(engine.activeWorkType) }
         var credit: [String: TimeInterval] = [:]

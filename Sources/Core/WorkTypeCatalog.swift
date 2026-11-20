@@ -48,10 +48,19 @@ struct WorkTypeDefinition: Codable, Hashable, Identifiable {
     /// Deep work wants the fifty-minute nudge; a meeting does not want to be
     /// told to stand up.
     var remindsBreaks: Bool
+    /// Whether time in this category counts toward focus totals, goals and
+    /// streaks. Every category did before this was stored, so a list written
+    /// without the key reads true; Break never does.
+    var countsTowardFocus: Bool
+    /// A label an AI proposed that the person has not kept. Hidden everywhere
+    /// and never stored with the person's categories, so it is deliberately
+    /// not a coding key.
+    var isUnkeptAILabel: Bool
 
     init(id: String, name: String, symbolName: String, hue: WorkTypeHue,
          countsWhileWatching: Bool = false, isRetired: Bool = false,
-         dailyGoal: TimeInterval? = nil, remindsBreaks: Bool = true) {
+         dailyGoal: TimeInterval? = nil, remindsBreaks: Bool = true,
+         countsTowardFocus: Bool = true, isUnkeptAILabel: Bool = false) {
         self.id = id
         self.name = name
         self.symbolName = symbolName
@@ -60,10 +69,12 @@ struct WorkTypeDefinition: Codable, Hashable, Identifiable {
         self.isRetired = isRetired
         self.dailyGoal = dailyGoal
         self.remindsBreaks = remindsBreaks
+        self.countsTowardFocus = countsTowardFocus
+        self.isUnkeptAILabel = isUnkeptAILabel
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, symbolName, hue, countsWhileWatching, isRetired, dailyGoal, remindsBreaks
+        case id, name, symbolName, hue, countsWhileWatching, isRetired, dailyGoal, remindsBreaks, countsTowardFocus
     }
 
     init(from decoder: Decoder) throws {
@@ -77,6 +88,9 @@ struct WorkTypeDefinition: Codable, Hashable, Identifiable {
         isRetired = try container.decodeIfPresent(Bool.self, forKey: .isRetired) ?? false
         dailyGoal = try container.decodeIfPresent(TimeInterval.self, forKey: .dailyGoal)
         remindsBreaks = try container.decodeIfPresent(Bool.self, forKey: .remindsBreaks) ?? true
+        countsTowardFocus = try container.decodeIfPresent(Bool.self, forKey: .countsTowardFocus)
+            ?? (id != WorkType.breakTime.rawValue)
+        isUnkeptAILabel = false
     }
 
     /// The goals a category may be given. Shorter steps than the day's goal,
@@ -93,86 +107,19 @@ struct WorkTypeDefinition: Codable, Hashable, Identifiable {
     }
 
     static let nameLimit = 24
-}
 
-/// The SF Symbols a category may wear. Curated and grouped so the grid and
-/// the browse menu stay legible and every name here exists on macOS 13; a
-/// name typed by hand is checked by the editor against the symbol library
-/// before it is kept.
-enum WorkTypeSymbols {
-    static let fallback = "tag.fill"
-
-    static let groups: [(title: String, symbols: [String])] = [
-        ("Built in", ["brain.head.profile", "person.2.fill", "tray.full.fill", "book.fill",
-                      "cup.and.saucer.fill"]),
-        ("Making", ["hammer.fill", "chevron.left.forwardslash.chevron.right", "paintbrush.pointed.fill",
-                    "pencil.and.outline", "doc.text.fill", "text.book.closed.fill", "camera.fill",
-                    "music.note", "film.fill", "waveform", "wand.and.stars", "sparkles"]),
-        ("Talking", ["phone.fill", "video.fill", "bubble.left.and.bubble.right.fill", "envelope.fill",
-                     "megaphone.fill", "person.3.fill"]),
-        ("Thinking and study", ["lightbulb.fill", "graduationcap.fill", "magnifyingglass", "chart.bar.fill",
-                                "chart.line.uptrend.xyaxis", "function", "globe", "map.fill"]),
-        ("Running things", ["briefcase.fill", "calendar", "checklist", "list.bullet.clipboard.fill",
-                            "banknote.fill", "cart.fill", "folder.fill", "gearshape.fill",
-                            "wrench.and.screwdriver.fill"]),
-        ("Body and rest", ["figure.run", "figure.mind.and.body", "heart.fill", "leaf.fill", "moon.fill",
-                           "fork.knife", "house.fill", "gamecontroller.fill"]),
-        ("Plain marks", ["tag.fill", "star.fill", "flag.fill", "bolt.fill", "flame.fill", "circle.fill",
-                         "square.fill", "diamond.fill", "seal.fill", "target"])
-    ]
-
-    /// Every grouped symbol in one list, for the grid.
-    static let curated: [String] = groups.flatMap(\.symbols)
-
-    /// A readable title for a symbol name: "chart.line.uptrend.xyaxis" reads
-    /// as "Chart line uptrend xyaxis". Good enough for a menu row that also
-    /// shows the symbol itself.
-    static func title(for symbol: String) -> String {
-        let words = symbol.split(separator: ".").map(String.init).filter { $0 != "fill" }
-        guard let first = words.first else { return symbol }
-        return ([first.prefix(1).uppercased() + first.dropFirst()] + words.dropFirst()).joined(separator: " ")
-    }
-
-    // MARK: Letters and numbers
-
-    /// The shape a letter or number sits in. Both exist for a–z and 0–50.
-    enum GlyphStyle: String, CaseIterable, Codable {
-        case circle, square
-
-        var displayName: String { self == .circle ? "Circle" : "Square" }
-        var suffix: String { self == .circle ? ".circle.fill" : ".square.fill" }
-    }
-
-    static let glyphNumberLimit = 50
-
-    /// The characters offered as one-tap glyphs: A–Z, then 0–9.
-    static let glyphChoices: [String] = (UnicodeScalar("A").value...UnicodeScalar("Z").value)
-        .compactMap { UnicodeScalar($0).map { String(Character($0)) } } + (0...9).map(String.init)
-
-    /// The symbol for a typed letter or number, or nil when there is none: a
-    /// single ASCII letter, or a whole number from 0 to 50.
-    static func glyph(for text: String, style: GlyphStyle) -> String? {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !trimmed.isEmpty else { return nil }
-        if trimmed.count == 1, let scalar = trimmed.unicodeScalars.first,
-           scalar.value >= UnicodeScalar("a").value, scalar.value <= UnicodeScalar("z").value {
-            return trimmed + style.suffix
-        }
-        if trimmed.allSatisfy(\.isNumber), trimmed.count <= 2, let number = Int(trimmed),
-           (0...glyphNumberLimit).contains(number) {
-            return String(number) + style.suffix
-        }
-        return nil
-    }
-
-    /// The letter or number a glyph symbol stands for, when it is one.
-    static func glyphText(of symbol: String) -> (text: String, style: GlyphStyle)? {
-        for style in GlyphStyle.allCases where symbol.hasSuffix(style.suffix) {
-            let text = String(symbol.dropLast(style.suffix.count))
-            guard glyph(for: text, style: style) == symbol else { continue }
-            return (text.uppercased(), style)
-        }
-        return nil
+    /// Why `name`, already normalised and not empty, cannot be category `id`'s among `existing`, or nil: the
+    /// one rule the category editor and keeping an AI label share. A retired category's name is free.
+    static func nameProblem(_ name: String, for id: String, among existing: [WorkTypeDefinition]) -> String? {
+        guard name.count <= nameLimit else { return "Keep the name to \(nameLimit) characters." }
+        guard let taken = existing.first(where: {
+            $0.id != id && !$0.isRetired
+                && LabelAudit.visible($0.name).caseInsensitiveCompare(LabelAudit.visible(name)) == .orderedSame
+        }) else { return nil }
+        // A hidden label is in no list the person can see, so the message says where it is.
+        return taken.isUnkeptAILabel
+            ? "An on-device AI category is already called “\(name)”. Keep or remove it from one of its sessions first."
+            : "Another category is already called “\(name)”."
     }
 }
 
@@ -193,6 +140,18 @@ final class WorkTypeCatalog: ObservableObject {
     private let lock = NSLock()
     private var resolved: [String: WorkTypeDefinition]
     private var order: [String]
+    private var applied: UInt64 = 0
+    /// The labels an AI proposed that the person has not kept (C10), carried by every `apply` so an edit to
+    /// the person's own categories cannot drop one; and what was last applied, for `install(aiLabels:)`.
+    private var unkept: [WorkTypeDefinition] = []
+    private var lastApplied: (customisations: [WorkTypeDefinition], goals: [String: TimeInterval]?) = ([], nil)
+
+    /// Counts every `apply`, on whichever thread and at once (`version` waits for the main queue), so what was
+    /// worked out from the categories, such as a total that skips one set not to count, can tell it is stale.
+    var generation: UInt64 {
+        lock.lock(); defer { lock.unlock() }
+        return applied
+    }
 
     static let builtInDefinitions: [WorkTypeDefinition] = [
         WorkTypeDefinition(id: WorkType.deepWork.rawValue, name: "Deep work",
@@ -205,7 +164,7 @@ final class WorkTypeCatalog: ObservableObject {
         WorkTypeDefinition(id: WorkType.learning.rawValue, name: "Learning",
                            symbolName: "book.fill", hue: .pink, countsWhileWatching: true),
         WorkTypeDefinition(id: WorkType.breakTime.rawValue, name: "Break",
-                           symbolName: "cup.and.saucer.fill", hue: .grey)
+                           symbolName: "cup.and.saucer.fill", hue: .grey, countsTowardFocus: false)
     ]
 
     init(customisations: [WorkTypeDefinition] = []) {
@@ -223,7 +182,11 @@ final class WorkTypeCatalog: ObservableObject {
     /// given, it replaces whatever goal the definitions carry, so the list is the
     /// one truth. Nil leaves the definitions' own goals, as before the list was used.
     func apply(customisations: [WorkTypeDefinition], goals: [String: TimeInterval]? = nil) {
-        var merged = WorkTypeCatalog.merge(customisations)
+        lock.lock()
+        lastApplied = (customisations, goals)
+        let hidden = unkept
+        lock.unlock()
+        var merged = WorkTypeCatalog.merge(customisations + hidden)
         if let goals {
             for id in merged.byID.keys where id != WorkType.breakTime.rawValue {
                 merged.byID[id]?.dailyGoal = goals[id]
@@ -232,12 +195,23 @@ final class WorkTypeCatalog: ObservableObject {
         lock.lock()
         resolved = merged.byID
         order = merged.order
+        applied &+= 1
         lock.unlock()
         if Thread.isMainThread {
             version &+= 1
         } else {
             DispatchQueue.main.async { self.version &+= 1 }
         }
+    }
+
+    /// Sets which unkept AI labels the catalogue resolves (hidden: no picker, list or Settings shows one) and
+    /// installs again what was last applied with them. Later `apply` calls keep them until this is called.
+    func install(aiLabels labels: [AILabel]) {
+        lock.lock()
+        unkept = labels.map(\.hiddenDefinition)
+        let last = lastApplied
+        lock.unlock()
+        apply(customisations: last.customisations, goals: last.goals)
     }
 
     /// Every category that exists, active or retired, in catalogue order.
@@ -259,6 +233,13 @@ final class WorkTypeCatalog: ObservableObject {
         // keeps a readable name rather than a bare identifier.
         return WorkTypeDefinition(id: type.rawValue, name: "Other",
                                   symbolName: WorkTypeSymbols.fallback, hue: .grey, isRetired: true)
+    }
+
+    /// Whether a category counts toward focus, read without copying its whole definition: every total asks it
+    /// of every record. One the catalogue never knew counts, as `definition(for:)`'s stand-in does.
+    func countsTowardFocus(_ type: WorkType) -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        return resolved[type.rawValue]?.countsTowardFocus ?? true
     }
 
     /// A fresh identifier for a category the user is making. Prefixed so it
@@ -284,6 +265,7 @@ final class WorkTypeCatalog: ObservableObject {
                 if base.id != WorkType.breakTime.rawValue {
                     definition.dailyGoal = edit.dailyGoal
                     definition.remindsBreaks = edit.remindsBreaks
+                    definition.countsTowardFocus = edit.countsTowardFocus
                     // A built-in can be retired like any other category;
                     // its records keep it, the pickers drop it. Break stays.
                     definition.isRetired = edit.isRetired
@@ -292,6 +274,7 @@ final class WorkTypeCatalog: ObservableObject {
             byID[base.id] = definition
             order.append(base.id)
         }
+        byID[unsortedDefinition.id] = unsortedDefinition   // hidden: resolvable, never listed or edited
         for custom in customisations where byID[custom.id] == nil {
             var definition = custom
             definition.name = WorkTypeDefinition.normalisedName(custom.name)
@@ -299,7 +282,7 @@ final class WorkTypeCatalog: ObservableObject {
             if definition.symbolName.isEmpty { definition.symbolName = WorkTypeSymbols.fallback }
             if definition.hue == .grey { definition.hue = .blue }
             byID[custom.id] = definition
-            order.append(custom.id)
+            if !custom.isUnkeptAILabel { order.append(custom.id) }
         }
         // Break stays last so every list of categories ends with rest.
         if let index = order.firstIndex(of: WorkType.breakTime.rawValue) {

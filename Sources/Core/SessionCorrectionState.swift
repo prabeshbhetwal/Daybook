@@ -39,10 +39,13 @@ struct SessionStoreCorrectionState: Codable, Identifiable, Equatable {
 
     /// What a correction that swapped whole records was, read from how many it took out and wrote in. Nil
     /// for a rename or a category. A build from before splits reads all three as a removal and its Undo of
-    /// one refuses, since the head is still there.
-    enum Restructure: Equatable { case removal, split, merge }
+    /// one refuses, since the head is still there. A rewrite took records out and wrote the same ones back
+    /// changed (an AI-made label merged or removed, an AI pick kept): one Undo for any number of sessions.
+    enum Restructure: Equatable { case removal, split, merge, rewrite }
     var restructure: Restructure? {
         guard correction == .removed else { return nil }
+        if let added = addedRecords, added.count == (removedRecords ?? []).count,
+           Set(added.map(\.id)) == Set((removedRecords ?? []).map(\.id)) { return .rewrite }
         switch (removedRecords?.count ?? 0, addedRecords?.count ?? 0) {
         case (1, 2): return .split
         case (2, 1): return .merge

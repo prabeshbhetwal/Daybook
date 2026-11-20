@@ -343,7 +343,7 @@ struct DayStory: View {
             let noteFacts = SessionCardSignature.noteFacts(of: recordIDs, in: store)
             let canStartNew = store.canStartNewSession(session) && !store.isThreadRunning(session.threadID)
             let canContinueSession = store.canContinue(session)
-            let origin = store.originText(for: session)
+            let (origin, aiMark) = store.rowMarks(for: session)
             let signature = SessionCardSignature(
                 session: session, apps: detail?.apps ?? [], shape: detail?.text,
                 shapeCaption: detail?.caption, activity: detail?.activity, phases: detail?.phases,
@@ -353,7 +353,7 @@ struct DayStory: View {
                 notes: noteFacts.notes, editorsOpen: noteFacts.editorsOpen, metadataError: noteFacts.error,
                 isHistory: isHistory, canRemove: canRemove, removeBlockReason: removeBlockReason,
                 pauseTitle: live.pauseTitle, canControl: live.canControl,
-                minimumRecorded: store.engine.store.minimumRecordedSession, origin: origin)
+                minimumRecorded: store.engine.store.minimumRecordedSession, origin: origin, aiMark: aiMark)
             storyRow(time: session.start,
                      tint: Tokens.Palette.workType(session.workType),
                      dotSize: session.isRunning ? 13.zoomed : 11.zoomed,
@@ -388,7 +388,7 @@ struct DayStory: View {
                                      pauseTitle: live.pauseTitle,
                                      onPause: live.canControl && !isHistory ? { store.togglePause() } : nil,
                                      onEnd: live.canControl && !isHistory ? { store.stop() } : nil,
-                                     minimumRecorded: store.engine.store.minimumRecordedSession, origin: origin)
+                                     minimumRecorded: store.engine.store.minimumRecordedSession, origin: origin, aiMark: aiMark)
                 }).equatable()
             }
         case .rest(let rest):
@@ -537,6 +537,8 @@ struct SessionEntryCard: View {
     /// The shortest stretch the archive keeps, for the Stop button's help.
     var minimumRecorded: TimeInterval = FocusConstants.minimumRecordedSession
     var origin: OriginText?
+    /// Whether the AI mark shows beside the category (`SessionStore.rowMarks`).
+    var aiMark = false
     /// Renaming happens in the card, in place, rather than in a sheet.
     @StateObject private var editing = BoolBox()
     @StateObject private var draft = TextBox()
@@ -577,15 +579,7 @@ struct SessionEntryCard: View {
                             // Room for the pencil beside a long name.
                             .padding(.trailing, isOpen && (onRename != nil || onWorkType != nil) ? 30.zoomed : 0)
                         HStack(spacing: Tokens.Space.s) {
-                            // An unnamed session is titled by its category already.
-                            if !session.name.isEmpty {
-                                Text(session.workType.displayName)
-                                    .font(Tokens.Typography.caption)
-                                    .padding(.horizontal, 7.zoomed)
-                                    .padding(.vertical, 2.zoomed)
-                                    .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 5.zoomed))
-                                    .foregroundStyle(StoryStyle.workTypeInk(session.workType))
-                            }
+                            categoryChip
                             Text(liveStatus ?? Tokens.timeRange(session.start, session.end))
                                 .font(Tokens.Typography.body)
                                 .foregroundStyle(StoryStyle.supportingInk)
@@ -761,7 +755,7 @@ struct SessionEntryCard: View {
     /// button's figures are said here instead.
     private var accessibilityLabel: String {
         var parts = [session.workType.sessionTitle(named: session.name),
-                     session.workType.displayName]
+                     Self.spokenCategory(session.workType, aiMark: aiMark)]
         parts.append(session.isRunning
                      ? "\(liveStatus ?? "running"), started \(Tokens.timeOfDayOnly(session.start))"
                      : Tokens.timeRange(session.start, session.end))

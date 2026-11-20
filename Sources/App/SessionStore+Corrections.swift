@@ -42,47 +42,60 @@ extension SessionStore {
     func fileSession(_ session: DaySession, as workType: WorkType) -> Bool {
         let ids = Set(session.recordIDs)
         let before = session.isRunning ? [] : engine.archive.records.filter { ids.contains($0.id) }
+        return applyFiling(categoryFiling(of: before, as: workType), threadID: session.threadID, claims: true)
+    }
+
+    /// What filing `records` under `workType` teaches: once per kind of stretch, with the category it leaves.
+    func categoryFiling(of records: [SessionRecord], as workType: WorkType) -> CategoryFiling {
         var seen = Set<ActivityFingerprint>(), kinds: [CategoryFiling.Kind] = []
-        for record in before {
+        for record in records {
             guard let fingerprint = metadataArchive.metadata(for: record.id)?.activityShape?.fingerprint,
                   seen.insert(fingerprint).inserted else { continue }
             // Leaving a category the person chose themselves is no veto of it.
             let left = record.effectiveCategorySource == .user ? nil : record.workType.rawValue
             kinds.append((fingerprint: fingerprint, left: left))
         }
-        return applyFiling(CategoryFiling(workType: workType, kinds: kinds, moment: now()),
-                           threadID: session.threadID, claims: true)
+        return CategoryFiling(workType: workType, kinds: kinds, moment: now())
     }
 
     /// The change `filing` stands for, and what it teaches, worked out against what is remembered now. A change
     /// refused before its write keeps the filing on its Retry, which comes back here and teaches it when it lands.
     func applyFiling(_ filing: CategoryFiling, threadID: UUID, claims: Bool) -> Bool {
-        // What an undo still owes the remembered choices is taken back first, so the filings below are worked
-        // out from the choices that stand.
-        settleOwedWork()
-        var worked = categoryCorrections.corrections
-        let filings = learn(filing, into: &worked)
+        let filings = rememberedFilings(filing)
         let correction = SessionCorrection.workType(filing.workType)
         let applied = applyCorrection(threadID: threadID, correction: correction, claims: claims, remembering: filings)
         guard !filings.isEmpty else { return applied }
         // A change that landed with only its journal save refused keeps its receipt, and Retry finishes that
         // save without filing anything: the choice is kept here, once.
         if applied || corrections.contains(where: { $0.remembered == filings }) {
-            // The change refreshed the store, which can finish work an undo owed the remembered choices: the
-            // filing goes onto what stands now, not onto the copy taken before, which would bring them back.
-            var next = categoryCorrections.corrections
-            learn(filing, into: &next)
-            if let why = categoryCorrections.save(next, at: now()) {
-                // The change stands; the person is told it taught nothing, as other stores say a refused write.
-                // A journal save still owed keeps its own error and Retry on screen instead; a cause that lasts
-                // (a newer version's file) is shown by the next change.
-                Diagnostics.log("Category choice not remembered: \(why)")
-                if applied { publishCorrectionError(why) }
-            }
+            keepFiling(filing, shown: applied)
         } else if case .correction(threadID, correction, let held, _)? = correctionRetry {
             correctionRetry = .correction(threadID: threadID, correction: correction, claims: held, filing: filing)
         }
         return applied
+    }
+
+    /// What `filing` adds to the remembered choices, for the change's receipt, so its Undo can take it back.
+    /// What an undo still owes the remembered choices is taken back first, so these are worked out from the
+    /// choices that stand.
+    func rememberedFilings(_ filing: CategoryFiling) -> [RememberedFiling] {
+        settleOwedWork()
+        var worked = categoryCorrections.corrections
+        return learn(filing, into: &worked)
+    }
+
+    /// Teaches `filing` once its change landed. The change refreshed the store, which can finish work an undo owed
+    /// the remembered choices: the filing goes onto what stands now, not onto the copy taken before, which would
+    /// bring them back. A refused save is logged, and shown when `shown`.
+    func keepFiling(_ filing: CategoryFiling, shown: Bool) {
+        var next = categoryCorrections.corrections
+        learn(filing, into: &next)
+        guard let why = categoryCorrections.save(next, at: now()) else { return }
+        // The change stands; the person is told it taught nothing, as other stores say a refused write. A journal
+        // save still owed keeps its own error and Retry on screen instead; a cause that lasts (a newer version's
+        // file) is shown by the next change.
+        Diagnostics.log("Category choice not remembered: \(why)")
+        if shown { publishCorrectionError(why) }
     }
 
     @discardableResult

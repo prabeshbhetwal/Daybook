@@ -40,6 +40,8 @@ struct StoryDayProjectionCacheKey: Hashable {
     let overlayRevision: Int
     let decisionHistoryRevision: Int
     let metadataRevision: Int
+    /// What counts toward focus follows the category catalogue, which changes with no record written.
+    let catalogueGeneration: UInt64
     /// The log only grows, so its length is its revision. A launch adds a
     /// past day's crash or power loss after that day may have been drawn.
     let machineEventCount: Int
@@ -75,6 +77,7 @@ extension SessionStore {
             overlayRevision: -1,
             decisionHistoryRevision: engine.decisionHistoryRevision,
             metadataRevision: revision.metadata,
+            catalogueGeneration: revision.catalogue,
             machineEventCount: machineEventLog?.events.count ?? 0,
             machineEventLogStart: machineEventLog?.events.first?.at)
         let runningTouchesDay = dayBounds.map { bounds in

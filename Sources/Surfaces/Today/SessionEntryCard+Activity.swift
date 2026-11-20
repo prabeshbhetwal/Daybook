@@ -64,4 +64,23 @@ extension SessionEntryCard {
             }
         }
     }
+
+    /// The category beside the times, and the AI mark after it when Apple Intelligence set it (C17). An unnamed
+    /// session is titled by its category already, so only the mark shows.
+    @ViewBuilder var categoryChip: some View {
+        if !session.name.isEmpty {
+            Text(session.workType.displayName)
+                .font(Tokens.Typography.caption)
+                .padding(.horizontal, 7.zoomed)
+                .padding(.vertical, 2.zoomed)
+                .background(Tokens.Palette.workType(session.workType).opacity(0.14), in: RoundedRectangle(cornerRadius: 5.zoomed))
+                .foregroundStyle(StoryStyle.workTypeInk(session.workType))
+        }
+        if aiMark { AIMark() }
+    }
+
+    /// The category as the row's VoiceOver sentence says it, with the mark's words when it shows.
+    static func spokenCategory(_ type: WorkType, aiMark: Bool) -> String {
+        aiMark ? "\(type.displayName), \(AIMark.spoken)" : type.displayName
+    }
 }

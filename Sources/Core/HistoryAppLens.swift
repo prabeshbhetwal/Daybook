@@ -111,7 +111,7 @@ struct HistoryAppLens: Equatable {
 
     static func build(bundleID: String, records: [SessionRecord], usage: SortedUsage,
                       calendar: Calendar, accurateFrom: Date? = nil) -> HistoryAppLens {
-        let focus = records.filter { $0.workType.countsAsFocus && $0.end > $0.start }
+        let focus = records.filter { $0.end > $0.start && $0.workType.countsAsFocus }
             .sorted { left, right in
                 if left.start != right.start { return left.start < right.start }
                 if left.end != right.end { return left.end > right.end }
