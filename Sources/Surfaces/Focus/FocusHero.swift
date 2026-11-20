@@ -397,7 +397,7 @@ struct FocusHero: View {
                 .font(Tokens.Typography.body)
                 .foregroundStyle(StoryStyle.supportingInk)
                 .lineLimit(1)
-                .help(liveSubtitle)
+                .help([liveSubtitle, store.threadSummaryLine].compactMap { $0 }.joined(separator: " · "))
         }
         .layoutPriority(1)
         .transition(Tokens.Motion.transition(
@@ -407,14 +407,17 @@ struct FocusHero: View {
             .transition(Tokens.Motion.transition(.opacity, reduceMotion: reduceMotion))
     }
 
+    private var liveSubtitle: String { Self.liveSubtitle(mode: mode, store: store) }
+
     /// A running clock says "running" without a caption. A stopped one is
-    /// ambiguous, so paused, away and watching name themselves.
-    private var liveSubtitle: String {
+    /// ambiguous, so paused, away and watching name themselves. The day's
+    /// total for the activity is not here: this one-line row cut it short in
+    /// a narrow window, so it sits on the running card in the story, which wraps.
+    static func liveSubtitle(mode: FocusSurfaceMode, store: SessionStore) -> String {
         var parts: [String] = []
-        if isQuiet { parts.append(store.isAway ? "Away" : mode.primaryPrompt) }
+        if mode == .paused || mode == .watching { parts.append(store.isAway ? "Away" : mode.primaryPrompt) }
         if mode == .awaitingDecision { parts.append("Away question below") }
         parts.append(store.workType.displayName)
-        if let summary = store.threadSummaryLine { parts.append(summary) }
         return parts.joined(separator: " · ")
     }
 
@@ -643,7 +646,8 @@ struct FocusHero: View {
                     Text(summary)
                         .font(Tokens.Typography.body)
                         .foregroundStyle(StoryStyle.supportingInk)
-                        .lineLimit(1)
+                        .multilineTextAlignment(compact ? .leading : .center)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 if let detail {
                     Text(detail)

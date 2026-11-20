@@ -49,6 +49,9 @@ struct StoryExpandAllControl: View {
 struct DayStorySessionPresentation: Equatable {
     let clock: String?
     let liveStatus: String?
+    /// The day's total for the running activity across its stretches. Here
+    /// rather than in the one-line toolbar, where a narrow window cut it off.
+    let threadSummary: String?
     let pauseTitle: String
     let canControl: Bool
 
@@ -56,15 +59,17 @@ struct DayStorySessionPresentation: Equatable {
                      isCurrentStoryDay: Bool,
                      store: SessionStore) -> DayStorySessionPresentation {
         let showsLiveState = session.isRunning && isCurrentStoryDay
+        let isActiveThread = session.threadID == store.engine.activeThreadID
         let canControl = session.isRunning && isCurrentStoryDay
             && store.engine.state != .idle
-            && session.threadID == store.engine.activeThreadID
+            && isActiveThread
             && !store.hasUnresolvedAwayDecision
         return DayStorySessionPresentation(
             clock: showsLiveState ? Tokens.clock(session.worked) : nil,
             liveStatus: showsLiveState
                 ? (store.pendingAway != nil ? "awaiting your decision"
                     : store.isPaused ? "paused" : "running now") : nil,
+            threadSummary: showsLiveState && isActiveThread ? store.threadSummaryLine : nil,
             pauseTitle: store.isAway ? "I'm Back" : store.isPaused ? "Resume" : "Pause",
             canControl: canControl)
     }
@@ -343,7 +348,8 @@ struct DayStory: View {
                 session: session, apps: detail?.apps ?? [], shape: detail?.text,
                 shapeCaption: detail?.caption, activity: detail?.activity, phases: detail?.phases,
                 canContinue: canContinueSession, canStartNewSession: canStartNew, isOpen: isOpen,
-                clock: live.clock, liveStatus: live.liveStatus, power: power, recordIDs: recordIDs,
+                clock: live.clock, liveStatus: live.liveStatus, threadSummary: live.threadSummary,
+                power: power, recordIDs: recordIDs,
                 notes: noteFacts.notes, editorsOpen: noteFacts.editorsOpen, metadataError: noteFacts.error,
                 isHistory: isHistory, canRemove: canRemove, removeBlockReason: removeBlockReason,
                 pauseTitle: live.pauseTitle, canControl: live.canControl,
@@ -368,6 +374,7 @@ struct DayStory: View {
                                      isOpen: isOpen,
                                      clock: live.clock,
                                      liveStatus: live.liveStatus,
+                                     threadSummary: live.threadSummary,
                                      powerSummary: power,
                                      noteRecordIDs: recordIDs,
                                      metadataStore: store,
@@ -512,6 +519,7 @@ struct SessionEntryCard: View {
     let isOpen: Bool
     let clock: String?
     var liveStatus: String?
+    var threadSummary: String?
     var powerSummary: PowerContextSummary?
     var noteRecordIDs: [UUID] = []
     var metadataStore: SessionStore?
@@ -582,6 +590,12 @@ struct SessionEntryCard: View {
                                 .font(Tokens.Typography.body)
                                 .foregroundStyle(StoryStyle.supportingInk)
                             stretchesCaption
+                        }
+                        if let threadSummary {
+                            Text(threadSummary)
+                                .font(Tokens.Typography.body)
+                                .foregroundStyle(StoryStyle.supportingInk)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                     .padding(StoryStyle.entryInsets(for: density))
@@ -751,6 +765,7 @@ struct SessionEntryCard: View {
         parts.append(session.isRunning
                      ? "\(liveStatus ?? "running"), started \(Tokens.timeOfDayOnly(session.start))"
                      : Tokens.timeRange(session.start, session.end))
+        if let threadSummary { parts.append(threadSummary) }
         parts.append(Tokens.spent(session.worked))
         if session.stretches > 1 { parts.append("\(session.stretches) stretches") }
         if let powerSummary { parts.append(powerSummary.headline) }
