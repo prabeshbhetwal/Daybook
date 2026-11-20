@@ -14,6 +14,6 @@ extension SelfTest {
             + AIReviewChecks.tests + AIOfferChecks.tests + AIOfferRecheckChecks.tests + AILabelGuardChecks.tests
             + AILateAnswerChecks.tests + AILaunchChecks.tests + AIUseScopeChecks.tests + AILabelUndoChecks.tests
             + NonCountingReviewChecks.tests + AILabelSafetyChecks.tests + AIFinalRoundChecks.tests
-            + SearchedFocusChecks.tests
+            + SearchedFocusChecks.tests + NonCountingNoteChecks.tests
     }
 }
