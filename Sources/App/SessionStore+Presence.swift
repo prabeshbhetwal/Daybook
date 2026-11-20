@@ -44,7 +44,14 @@ extension SessionStore {
                                                     name: pendingWakeActivation.name))
                 _ = applyLongAwayResult()
                 // The engine drops it during a break; the break's end reads the app in front.
-                if !isOnBreak { noteBeatActivation(bundleID: pendingWakeActivation.bundleID, at: now()) }
+                if !isOnBreak {
+                    // A tracker still recording the app from before the pause
+                    // moves to the one that came to the front; the same app is
+                    // a no-op, as after a wake.
+                    tracker?.appActivated(bundleID: pendingWakeActivation.bundleID,
+                                          name: pendingWakeActivation.name)
+                    noteBeatActivation(bundleID: pendingWakeActivation.bundleID, at: now())
+                }
                 self.pendingWakeActivation = nil
             }
             if deferredAutomationPending {
@@ -63,10 +70,20 @@ extension SessionStore {
     func handleApplicationActivation(bundleID: String?, name: String) -> Bool {
         var delivered = false
         withRefreshTransaction {
-            if presenceGate.isAwaitingConfirmation {
+            // A pause with nobody here ends with a person, and an app coming to
+            // the front by itself is not one: it waits, like an activation
+            // after a wake, for the first counted input.
+            let unattended = engine.isPausedWithNobodyHere && presenceGate.isQuietWithoutInput
+            if presenceGate.isAwaitingConfirmation || unattended {
                 tracker?.prepareToResume(bundleID: bundleID, name: name)
                 pendingWakeActivation = (bundleID, name)
+                // Only a sample can deliver it, so the ticker runs while it waits,
+                // with app-use recording off and in a manual pause too.
+                updateTicker()
             } else {
+                // Delivered now, so it replaces any that was waiting: the
+                // first input must not replay an older app over this one.
+                pendingWakeActivation = nil
                 // The same during a break: the app only waits as the one to
                 // record when it ends.
                 if isOnBreak {
@@ -109,13 +126,18 @@ extension SessionStore {
     /// read from powerd at most every five seconds and only once a minute of
     /// quiet has built up — nothing depends on it before then.
     private func observeIdle() {
+        // Counters first: input landing between the two reads then shows as a
+        // low idle time now and a counted input on the next sample, never as
+        // counted input beside a stale idle time.
+        let inputCount = idle.inputCount()
         let raw = idle.idleSeconds()
         let now = Date()
         let displayAwake = readDisplayAwake()
         let observation = presenceGate.observe(rawIdleSeconds: raw,
                                                at: now,
                                                displayAwake: displayAwake,
-                                               screenLocked: screenLocked)
+                                               screenLocked: screenLocked,
+                                               inputCount: inputCount)
         let quiet = applyPresenceObservation(observation)
         sampleWorkTraffic(now: now, quiet: quiet,
                           screenInUse: displayAwake && !screenLocked && !presenceGate.isAwaitingConfirmation)

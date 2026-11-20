@@ -57,7 +57,8 @@ extension ActivityEvidenceStoreChecks {
     static func rig(session: Bool = true, sessionAge: TimeInterval = 0, auto: Bool = false,
                     idle idleSeconds: TimeInterval = 0, awake displayAwake: Bool = true,
                     beatsDirectory: URL? = nil, ticker: Bool = false, tracker withTracker: Bool = false,
-                    metadata: SessionMetadataArchive? = nil, journal: (() -> String?)? = nil) -> Rig? {
+                    metadata: SessionMetadataArchive? = nil, journal: (() -> String?)? = nil,
+                    countsInput: Bool = false) -> Rig? {
         let suite = "fc-selftest-evidence-\(UUID().uuidString)"
         guard let defaults = MemoryDefaults.suite(named: suite) else { return nil }
         let clock = TestClock(Beat.gridStart(for: SelfTest.base))
@@ -79,7 +80,9 @@ extension ActivityEvidenceStoreChecks {
             counters: InputCounters(keys: { reads.value += 1; return keys.value }, clicks: { 0 }, scrolls: { 0 }))
         let store = SessionStore(engine: engine, schedulesTicker: ticker, metadataArchive: metadata,
                                  activityEvidence: evidence,
-                                 now: { clock.value }, idle: IdleMonitor(idleSeconds: { idle.value }),
+                                 now: { clock.value },
+                                 idle: IdleMonitor(idleSeconds: { idle.value },
+                                                   inputCount: countsInput ? { UInt64(keys.value) } : { nil }),
                                  readDisplayAwake: { awake.value }, frontmostApplication: { front.value })
         let usage = AppUsageArchive(directory: SelfTest.scratchDirectory(), now: { clock.value })
         if withTracker {

@@ -87,6 +87,8 @@ extension SessionStore {
         // app-use recording off nothing else keeps it running, and such a
         // pause never resumed for input in the app already in front.
         if engine.state == .paused(reason: .idle) || engine.state == .paused(reason: .watching) { return true }
+        // An app waiting for a person is delivered only by a sample.
+        if pendingWakeActivation != nil { return true }
         return engine.state != .idle && !engine.state.isPaused
     }
 

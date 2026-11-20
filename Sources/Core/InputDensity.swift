@@ -29,8 +29,23 @@ struct InputCounters {
     var scrolls: () -> UInt32 = {
         CGEventSource.counterForEventType(.hidSystemState, eventType: .scrollWheel)
     }
+    /// Right and other buttons, the pointer moving or dragging, and a modifier
+    /// pressed alone (Shift to wake the display): input that is a person but
+    /// not a key, a left click or a scroll.
+    var otherInput: () -> UInt32 = {
+        [CGEventType.rightMouseDown, .otherMouseDown, .mouseMoved, .leftMouseDragged, .rightMouseDragged,
+         .flagsChanged].reduce(0) {
+            $0 &+ CGEventSource.counterForEventType(.hidSystemState, eventType: $1)
+        }
+    }
 
-    static let zero = InputCounters(keys: { 0 }, clicks: { 0 }, scrolls: { 0 })
+    static let zero = InputCounters(keys: { 0 }, clicks: { 0 }, scrolls: { 0 }, otherInput: { 0 })
+
+    /// Every counted input so far. The idle timer can be reset with none of
+    /// these moving (an app declaring activity does it); a person moves them.
+    func total() -> UInt64 {
+        UInt64(keys()) + UInt64(clicks()) + UInt64(scrolls()) + UInt64(otherInput())
+    }
 }
 
 /// Classifies recent input as active, passive or absent over a bounded window.
