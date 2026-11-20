@@ -22,6 +22,7 @@ struct SessionCardSignature: Equatable {
     var isOpen: Bool
     var clock: String?
     var liveStatus: String?
+    var threadSummary: String? = nil
     var power: PowerContextSummary?
     var recordIDs: [UUID]
     /// Read by the card from the store: each stretch's note, whether its
