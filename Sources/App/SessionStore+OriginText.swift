@@ -61,10 +61,16 @@ extension SessionStore {
     }
 
     /// Newest first, and done once every stretch is found: a session is nearly always among the last records,
-    /// and with none to find no record is read.
+    /// and with none to find no record is read. An explicit loop: a lazy filter over the archive looks for its
+    /// matches up front, so it would read every record however few are wanted.
     private func records(of session: DaySession) -> [SessionRecord] {
-        let wanted = originSearch(for: session)
-        return Array(engine.archive.records.reversed().lazy.filter { wanted.contains($0.id) }.prefix(wanted.count))
+        var wanted = originSearch(for: session), found: [SessionRecord] = []
+        for record in engine.archive.records.reversed() {
+            if wanted.isEmpty { break }
+            guard wanted.remove(record.id) != nil else { continue }
+            found.append(record)
+        }
+        return found
     }
 
     private func provenance(of session: DaySession, in stretches: [SessionRecord]) -> SessionProvenance? {
