@@ -24,6 +24,13 @@ struct IdleMonitor {
                                                 eventType: IdleMonitor.anyInput)
     }
 
+    /// The input counters' running total, telling a person from an idle timer
+    /// reset with no input behind it. Nil where it is not read: a monitor built
+    /// around a fake idle time keeps the rule that a low idle time is a person.
+    var inputCount: () -> UInt64? = { nil }
+
     /// Never trims — used where idle awareness is off.
     static let disabled = IdleMonitor(idleSeconds: { 0 })
+    /// The real idle timer and the real input counters.
+    static let system = IdleMonitor(inputCount: { InputCounters().total() })
 }

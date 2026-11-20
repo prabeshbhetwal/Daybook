@@ -51,7 +51,9 @@ struct QuietSampler {
         // Once the watching stops, idle counts from then — not from the last
         // keypress before the film, which would put the film into the absence.
         let effective = since(watchingEndedAt, quiet: quiet, now: now)
-        return (.idleObserved(seconds: effective), effective)
+        // Read only after a minute of quiet, so a few seconds since the
+        // watching ended is not input: the engine takes under five as a return.
+        return (.idleObserved(seconds: max(effective, FocusConstants.awayDebounce)), effective)
     }
 
     /// Quiet measured from `anchor` when that is later than the last input.

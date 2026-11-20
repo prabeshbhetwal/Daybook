@@ -25,7 +25,9 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
     /// idle. Every launch deleted the running session's power readings.
     private(set) lazy var store: SessionStore = {
         restoreEngineOnce()
-        let created = SessionStore(engine: engine, powerMonitor: powerMonitor)
+        // The real input counters too: a store built for a check or a gallery
+        // keeps the plain idle timer, whatever the Mac running it is doing.
+        let created = SessionStore(engine: engine, powerMonitor: powerMonitor, idle: .system)
         // The engine's own preferences, `UserDefaults.standard`: the site signal's consent lives beside them.
         created.installSiteSignal(defaults: .standard)
         return created

@@ -17,6 +17,13 @@ extension SessionEngine {
     /// break they started. The first two end with the user's own next move,
     /// not with the cap; a break has a cap of its own, which counts from its
     /// planned end (`expireBreakIfOutgrown`).
+    /// Paused for a reason that says nobody is at the Mac: an app coming to
+    /// the front then is not a return until a person shows it.
+    var isPausedWithNobodyHere: Bool {
+        guard case .paused(let reason) = state else { return false }
+        return Self.pauseMeansNobodyHere(reason)
+    }
+
     static func pauseMeansNobodyHere(_ reason: PauseReason) -> Bool {
         switch reason {
         case .distractionApp, .watching, .onBreak: return false
@@ -156,7 +163,15 @@ extension SessionEngine {
         guard pauseStartDate == nil else { return }
         if seconds >= store.idlePauseThreshold {
             guard awayInterval == nil else { return }
-            awayInterval = (start: now().addingTimeInterval(-seconds), trigger: .idle)
+            // Never before the return the card asks about: the quiet can be
+            // measured from inside the first absence (from where an agent's
+            // counting stopped), and that absence is already banked. On 20
+            // November 2026 starting there took it off the session twice.
+            // The later of the return and the restore's accounting anchor (a
+            // relaunch banks its offline gap and restamps the decision start),
+            // never later than now after a clock step.
+            let returned = min(max(awayReturnedAt ?? .distantPast, decisionStartDate ?? .distantPast), now())
+            awayInterval = (start: max(now().addingTimeInterval(-seconds), returned), trigger: .idle)
             persist()
         } else if let interval = awayInterval {
             // Confirmed input closes whatever absence the card sat through —
