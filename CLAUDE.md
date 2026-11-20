@@ -18,7 +18,9 @@ as one module.
 | `scripts/release.sh 1.2.0 [--dry-run]` | Publish a release installed copies update to (Sparkle; key in the Keychain), with `Daybook.dmg` for new installs |
 
 The installed app updates only from GitHub Releases: ship to `main`, then
-release the next version with `scripts/release.sh`, only when asked, since
+release the next version with `scripts/release.sh` (hand-written notes:
+`RELEASE_NOTES_FILE=docs/release-notes/<version>.md`, Markdown with headings,
+bullets, numbered items and **bold**), only when asked, since
 the repository is public. The app checks the feed on its schedule (weekly by
 default, set in Settings › About & Updates) and from Check for Updates. Do
 not put a local build in `/Applications`: the copy there is always a
