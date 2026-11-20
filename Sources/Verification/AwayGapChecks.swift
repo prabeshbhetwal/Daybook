@@ -16,7 +16,79 @@ enum AwayGapChecks: CheckSuite {
         ("Seconds since an agent stopped are not input", samplerLowReadingIsNotInput),
         ("An app delivered later replaces one still waiting for a person", deliveredActivationReplacesQueued),
         ("A declared away is not ended by an app coming to the front by itself", declaredAwayWaitsForPerson),
+        ("After a wake, input counted one sample after its idle drop still confirms the person",
+         wakeCountOneSampleLate),
+        ("An app waiting for a person keeps the ticker running in a manual pause", queuedActivationKeepsTicker),
+        ("The app delivered at the first input moves app-use recording to it", queuedActivationMovesTracker),
     ]
+
+    private static func wakeCountOneSampleLate() -> [String] {
+        var problems: [String] = []
+        let clock = TestClock(SelfTest.base)
+        var gate = PresenceGate()
+        func observe(_ raw: TimeInterval, _ count: UInt64) -> PresenceObservation {
+            gate.observe(rawIdleSeconds: raw, at: clock.value, displayAwake: true, screenLocked: false,
+                         inputCount: count)
+        }
+        _ = observe(0, 100)
+        clock.advance(600)
+        _ = observe(600, 100)
+        gate.noteMachineWake()
+        clock.advance(1)
+        _ = observe(30.1, 100)
+        clock.advance(1)
+        _ = observe(0.1, 100)                                   // the key lands between the two reads
+        clock.advance(1)
+        if case .active = observe(1.1, 101) {} else {
+            problems.append("the count on the next sample confirms the drop it explains")
+        }
+        expect(!gate.isAwaitingConfirmation, "and the wake stops waiting", &problems)
+        return problems
+    }
+
+    /// App-use recording off: a manual pause stops the ticker, and an app then waits for a person.
+    private static func queuedActivationKeepsTicker() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            guard let r = ActivityEvidenceStoreChecks.rig(session: true, ticker: true, countsInput: true) else {
+                return ["could not create isolated preferences"]
+            }
+            defer { r.close() }
+            r.activate("com.microsoft.VSCode")
+            r.run(30) { _ in r.keys.value &+= 3; r.idle.value = 0 }
+            r.run(10) { t in r.idle.value = TimeInterval(1 + t) }
+            r.engine.transition(on: .manualPause)
+            r.store.refresh()
+            expect(!r.store.hasScheduledTicker, "a manual pause with nothing recording stops the ticker", &problems)
+            r.activate("com.apple.dt.Xcode")
+            expect(r.store.hasScheduledTicker, "an app waiting for a person starts it again", &problems)
+            r.run(1) { _ in r.keys.value &+= 1; r.idle.value = 0.2 }
+            expect(r.engine.currentAppBundleID == "com.apple.dt.Xcode",
+                   "and the first key delivers it, got \(String(describing: r.engine.currentAppBundleID))", &problems)
+            return problems
+        }
+    }
+
+    private static func queuedActivationMovesTracker() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            guard let r = ActivityEvidenceStoreChecks.rig(session: true, tracker: true, countsInput: true) else {
+                return ["could not create isolated preferences"]
+            }
+            defer { r.close() }
+            r.activate("com.microsoft.VSCode")
+            r.run(30) { _ in r.keys.value &+= 3; r.idle.value = 0 }
+            r.engine.transition(on: .manualPause)
+            r.store.refresh()
+            r.run(10) { t in r.idle.value = TimeInterval(1 + t) }
+            r.activate("com.apple.dt.Xcode")
+            r.run(1) { _ in r.keys.value &+= 1; r.idle.value = 0.2 }
+            expect(r.store.tracker?.currentBundleID == "com.apple.dt.Xcode",
+                   "app-use recording follows the app delivered, got \(String(describing: r.store.tracker?.currentBundleID))",
+                   &problems)
+            return problems
+        }
+    }
 
     /// Claude comes to the front with nobody there and waits; the cap ends the session; Xcode is
     /// then delivered. The first key must not replay Claude over it.

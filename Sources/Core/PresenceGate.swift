@@ -20,6 +20,9 @@ struct PresenceGate {
     private var lastConfirmedActive: Date?
     private var suppressingWakeReset = false
     private var lastPostWakeIdle: TimeInterval?
+    /// A drop after a wake with no counted input yet: input landing between the
+    /// two reads is counted on the next sample, and that confirms it.
+    private var wakeDropAwaitingCount = false
     private var lastInputCount: UInt64?
     private var lastRawIdle: TimeInterval = 0
     /// Quiet carried across idle resets nobody made; nil once input is counted.
@@ -40,12 +43,14 @@ struct PresenceGate {
     mutating func noteMachineWake() {
         suppressingWakeReset = true
         lastPostWakeIdle = nil
+        wakeDropAwaitingCount = false
     }
 
     mutating func confirm(at moment: Date) {
         lastConfirmedActive = moment
         suppressingWakeReset = false
         lastPostWakeIdle = nil
+        wakeDropAwaitingCount = false
         carriedQuiet = nil
         // A confirmed return starts the quiet afresh; the idle reading from
         // before it must not be carried again by the next uncounted reset.
@@ -93,7 +98,10 @@ struct PresenceGate {
             }
             // A second drop is a person only with input behind it: a display
             // wake or an app declaring activity resets the timer with none.
-            guard idle < previous, inputMoved else {
+            // The count may arrive one sample after the drop it explains.
+            let dropped = idle < previous
+            if dropped, !inputMoved { wakeDropAwaitingCount = true }
+            guard inputMoved, dropped || wakeDropAwaitingCount else {
                 lastPostWakeIdle = idle
                 return .quiet(seconds: quietSeconds(raw: quiet, at: moment))
             }

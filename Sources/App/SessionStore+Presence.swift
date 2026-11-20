@@ -44,7 +44,14 @@ extension SessionStore {
                                                     name: pendingWakeActivation.name))
                 _ = applyLongAwayResult()
                 // The engine drops it during a break; the break's end reads the app in front.
-                if !isOnBreak { noteBeatActivation(bundleID: pendingWakeActivation.bundleID, at: now()) }
+                if !isOnBreak {
+                    // A tracker still recording the app from before the pause
+                    // moves to the one that came to the front; the same app is
+                    // a no-op, as after a wake.
+                    tracker?.appActivated(bundleID: pendingWakeActivation.bundleID,
+                                          name: pendingWakeActivation.name)
+                    noteBeatActivation(bundleID: pendingWakeActivation.bundleID, at: now())
+                }
                 self.pendingWakeActivation = nil
             }
             if deferredAutomationPending {
@@ -70,6 +77,9 @@ extension SessionStore {
             if presenceGate.isAwaitingConfirmation || unattended {
                 tracker?.prepareToResume(bundleID: bundleID, name: name)
                 pendingWakeActivation = (bundleID, name)
+                // Only a sample can deliver it, so the ticker runs while it waits,
+                // with app-use recording off and in a manual pause too.
+                updateTicker()
             } else {
                 // Delivered now, so it replaces any that was waiting: the
                 // first input must not replay an older app over this one.
