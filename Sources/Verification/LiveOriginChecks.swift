@@ -35,17 +35,17 @@ enum LiveOriginChecks: CheckSuite {
             }
             let held = store.engine.archive.records.count
             expect(held >= archived.count, "the archive kept \(held) of \(archived.count) records", &problems)
-            SessionStore.originRecordsExamined = 0
             let text = store.originText(for: running)
             expect(text?.lines.map(\.text) == ["Started by you"], "the running session read \(String(describing: text?.lines.map(\.text)))", &problems)
-            expect(SessionStore.originRecordsExamined == 0,
-                   "the running session's origin looked at \(SessionStore.originRecordsExamined) of \(held) archived records", &problems)
+            // Nothing to search for, so the search ends before the first of the archived records.
+            let search = store.originSearch(for: running)
+            expect(search.isEmpty, "the running session's origin searched \(held) archived records for \(search.count) stretches", &problems)
             // An ended session is still found, among the newest records.
             guard let newest = store.engine.archive.records.last else { return problems + ["the archive is empty"] }
-            SessionStore.originRecordsExamined = 0
-            let ended = store.originText(for: SplitStoreChecks.row(newest))
-            expect(ended?.lines.map(\.text) == ["Started by you"] && SessionStore.originRecordsExamined == 1,
-                   "an ended session read \(String(describing: ended?.lines.map(\.text))) after looking at \(SessionStore.originRecordsExamined) records, not 1", &problems)
+            let row = SplitStoreChecks.row(newest)
+            let ended = store.originText(for: row)
+            expect(ended?.lines.map(\.text) == ["Started by you"] && store.originSearch(for: row) == [newest.id],
+                   "an ended session read \(String(describing: ended?.lines.map(\.text))), searching for \(store.originSearch(for: row))", &problems)
             return problems
         }
     }
