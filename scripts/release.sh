@@ -137,21 +137,25 @@ SUBJECTS="${STAGE}/subjects.txt"
 git log --no-merges --pretty='%s' "${RANGE[@]}" -- Sources Assets \
     ':(exclude)Sources/Verification' ':(exclude)Sources/SelfTest.swift' \
   | grep -v '^Version [0-9]' > "${SUBJECTS}" || true
-# RELEASE_NOTES_FILE (one line per note) replaces the commit subjects, for a
-# release whose subjects repeat each other or describe internal fix rounds.
-if [ -n "${RELEASE_NOTES_FILE:-}" ]; then
-  [ -s "${RELEASE_NOTES_FILE}" ] || fail "RELEASE_NOTES_FILE is empty or missing"
-  cp "${RELEASE_NOTES_FILE}" "${SUBJECTS}"
-fi
-[ -s "${SUBJECTS}" ] || echo "Improvements and fixes" > "${SUBJECTS}"
 NOTES="${STAGE}/notes.md"
-{
-  echo "## What's new in ${VERSION}"
-  echo
-  sed 's/^/- /' "${SUBJECTS}"
-} > "${NOTES}"
-NOTES_HTML="$(sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' \
-                  -e 's/^/<li>/' -e 's/$/<\/li>/' "${SUBJECTS}" | tr -d '\n')"
+if [ -n "${RELEASE_NOTES_FILE:-}" ]; then
+  # RELEASE_NOTES_FILE is hand-written Markdown (headings, bullets, numbered
+  # items, **bold**) that replaces the commit subjects, for a release whose
+  # subjects repeat each other or describe internal fix rounds. It is the
+  # GitHub release body as written and becomes HTML in the update window.
+  [ -s "${RELEASE_NOTES_FILE}" ] || fail "RELEASE_NOTES_FILE is empty or missing"
+  cp "${RELEASE_NOTES_FILE}" "${NOTES}"
+  NOTES_HTML="$(python3 "${ROOT}/scripts/notes-to-html.py" "${NOTES}")"
+else
+  [ -s "${SUBJECTS}" ] || echo "Improvements and fixes" > "${SUBJECTS}"
+  {
+    echo "## What's new in ${VERSION}"
+    echo
+    sed 's/^/- /' "${SUBJECTS}"
+  } > "${NOTES}"
+  NOTES_HTML="<ul>$(sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' \
+                  -e 's/^/<li>/' -e 's/$/<\/li>/' "${SUBJECTS}" | tr -d '\n')</ul>"
+fi
 
 cat > "${STAGE}/appcast.xml" <<XML
 <?xml version="1.0" encoding="utf-8"?>
@@ -167,7 +171,7 @@ cat > "${STAGE}/appcast.xml" <<XML
       <sparkle:version>${NEW_BUILD}</sparkle:version>
       <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-      <description><![CDATA[<ul>${NOTES_HTML}</ul>]]></description>
+      <description><![CDATA[${NOTES_HTML}]]></description>
       <enclosure url="https://github.com/${REPO}/releases/download/v${VERSION}/${ZIP_NAME}"
                  ${SIGNATURE}
                  type="application/octet-stream"/>

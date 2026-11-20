@@ -247,6 +247,7 @@ extension SelfTest {
             + CorrectionsNoticeChecks.tests
             + GoalCardAgreementChecks.tests
             + DiagnosticsLogChecks.tests
+            + ToolbarTitleFitChecks.tests
             + AwayGapChecks.tests
     }
 
