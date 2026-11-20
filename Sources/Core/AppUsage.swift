@@ -639,7 +639,7 @@ final class AppUsageArchive {
                 Diagnostics.log("app usage journal ends in a torn line that could not be removed; kept read-only")
                 return
             }
-            Diagnostics.log("app usage journal ended in a torn line; cut it off")
+            Diagnostics.log("app usage journal ended in a torn line; cut it off", level: .info)
         } else if !journal.endLastLine() {
             isReadOnly = true
             Diagnostics.log("app usage journal's last line has no end and could not be given one; kept read-only")
@@ -679,7 +679,7 @@ final class AppUsageArchive {
                 cache = merged
                 revision += 1
                 noteChange(from: missing.map(\.start).min())
-                Diagnostics.log("recovered \(missing.count) app usage records from \(name)")
+                Diagnostics.log("recovered \(missing.count) app usage records from \(name)", level: .info)
             }
             let restored = directory.appendingPathComponent(
                 name.replacingOccurrences(of: "app-usage-corrupt-", with: "app-usage-recovered-"))
