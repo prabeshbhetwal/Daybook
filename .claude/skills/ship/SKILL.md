@@ -74,8 +74,11 @@ GitHub would allow it.
 4. Wait for Codex's review of the latest commit. The `check` can pass first
    (it runs on every push), and branch protection does not wait for Codex,
    so auto-merge stays off until the review is in. Answer each finding with
-   a fix pushed to the branch, or a reply saying why not; a pushed fix gets
-   a new review, so wait again.
+   a fix pushed to the branch, or a reply saying why not. Codex reviews only
+   when a PR opens, a draft is marked ready, or someone comments
+   `@codex review`; a push (a fix or a merge of main) does not start one. So
+   after every push, comment `@codex review` (`gh pr comment <n> --body
+   "@codex review"`), then wait. It reacts 👀 while it runs.
 5. Once Codex has reviewed the latest commit with nothing unresolved (it
    reacts 👍 or its findings are answered), turn on auto-merge:
    `gh pr merge <n> --auto --merge --delete-branch`. A merge commit keeps
