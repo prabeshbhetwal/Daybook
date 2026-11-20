@@ -1155,7 +1155,7 @@ final class SettingsModel: ObservableObject {
         at directory: URL,
         fileManager: FileManager = .default,
         open: (URL) -> Bool = { NSWorkspace.shared.open($0) },
-        log: (String) -> Void = Diagnostics.log
+        log: (String) -> Void = { Diagnostics.log($0) }
     ) -> Bool {
         do {
             try fileManager.createDirectory(at: directory,

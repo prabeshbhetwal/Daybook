@@ -325,14 +325,14 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
             haptics.play(.notice)
         case .pause(let because):
             engine.transition(on: .manualPause)
-            Diagnostics.log("auto-paused: \(because)")
+            Diagnostics.log("auto-paused: \(because)", level: .info)
         case .resume:
             engine.transition(on: .manualResume)
         case .end(let at, let because):
             // A refused save leaves the session running: neither kept nor
             // over yet, so the learner and the detector hear nothing.
             guard store.stopAutomatically(endingAt: at) else {
-                Diagnostics.log("auto-end refused: \(because)")
+                Diagnostics.log("auto-end refused: \(because)", level: .info)
                 return
             }
             // Ending naturally is the user having let it stand.
@@ -342,7 +342,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
             detector.reset()
             // `stop()` fires `onStateChanged`, which already refreshes; a second
             // pass re-runs the month-long rollup for nothing.
-            Diagnostics.log("auto-ended: \(because)")
+            Diagnostics.log("auto-ended: \(because)", level: .info)
         }
     }
 

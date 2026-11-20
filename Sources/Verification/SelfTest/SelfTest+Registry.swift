@@ -246,6 +246,7 @@ extension SelfTest {
             + RestructureSidecarChecks.laterTests
             + CorrectionsNoticeChecks.tests
             + GoalCardAgreementChecks.tests
+            + DiagnosticsLogChecks.tests
             + AwayGapChecks.tests
     }
 
