@@ -21,14 +21,11 @@ extension SessionStore {
     }
 
     /// The activity limits that count today, with the day's use of each, from
-    /// the same app totals as `appLimits`, so the card and the record agree.
-    func activityLimits(ranked apps: [AppRank]) -> [(id: UUID, purpose: AppPurpose,
-                                                     limit: TimeInterval, used: TimeInterval)] {
-        let limits = DailyGoalList.activityLimits(goalItems)
-        guard !limits.isEmpty else { return [] }
-        let use = DailyGoalList.purposeUse(apps: apps.map { ($0.bundleID, $0.total) },
-                                           overrides: engine.store.purposeOverrides)
-        return limits.map { ($0.id, $0.purpose, $0.limit, use[$0.purpose.rawValue] ?? 0) }
+    /// the same app totals as `appLimits` and judged as the closed day will be.
+    func activityLimits(ranked apps: [AppRank]) -> [(id: UUID, purpose: AppPurpose, limit: TimeInterval,
+                                                     used: TimeInterval, unjudged: Bool)] {
+        DailyGoalList.activityLimitStatus(goalItems, apps: apps.map { ($0.bundleID, $0.total) },
+                                          overrides: engine.store.purposeOverrides)
     }
 
     /// Keeps today's goals in the day's snapshot (as they stood at the day's last

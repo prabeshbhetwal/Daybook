@@ -469,7 +469,9 @@ struct StoryRail: View {
             ForEach(activityLimits, id: \.id) { limit in
                 limitRow((limit.purpose.rawValue, limit.purpose.displayName, limit.limit, limit.used),
                          symbol: limit.purpose.symbolName,
-                         help: "Counts every app Daybook files under \(limit.purpose.displayName) today, in a session or not. Browsers count only with a purpose you set.")
+                         // Browser time with no purpose could break it: the day will not count it as kept.
+                         unread: limit.unjudged,
+                         help:"Counts every app Daybook files under \(limit.purpose.displayName) today, in a session or not. Browsers count only with a purpose you set.")
             }
             ForEach(siteLimits, id: \.id) { limit in siteLimitRow(limit) }
         }
@@ -485,9 +487,10 @@ struct StoryRail: View {
     /// and what is left. Past the limit it reads "15m over" in the attention
     /// ink, with no alarm: a limit is information, not a verdict.
     private func limitRow(_ item: (bundleID: String, name: String, limit: TimeInterval, used: TimeInterval),
-                          symbol: String? = nil, help: String? = nil)
+                          symbol: String? = nil, unread: Bool = false, help: String? = nil)
         -> some View {
         let status = DailyGoalList.limitStatus(used: item.used, limit: item.limit)
+        let detail = unread ? "Can't tell: browser time" : status.detail
         let share = min(1, item.used / max(1, item.limit))
         return VStack(alignment: .leading, spacing: Tokens.Space.xs) {
             HStack(spacing: Tokens.Space.xs) {
@@ -518,7 +521,7 @@ struct StoryRail: View {
                         }
                 }
                 .frame(height: 3.zoomed)
-                Text(status.detail)
+                Text(detail)
                     .font(Tokens.Typography.caption)
                     .foregroundStyle(status.isOver ? StoryStyle.attentionInk : StoryStyle.supportingInk)
                     .frame(maxWidth: .infinity, alignment: .trailing)
@@ -531,7 +534,7 @@ struct StoryRail: View {
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(DurationText.spoken(in: "\(item.name): \(status.figure), \(status.detail)"))
+        .accessibilityLabel(DurationText.spoken(in: "\(item.name): \(status.figure), \(detail)"))
         .help(help ?? "Counts all the time \(item.name) was in front today, in a session or not")
     }
 

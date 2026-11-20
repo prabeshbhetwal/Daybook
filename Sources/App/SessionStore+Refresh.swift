@@ -240,9 +240,12 @@ extension SessionStore {
     /// recalculated once on each local minute boundary; the inexpensive live
     /// figures continue to move every second.
     func updateTimeDrivenFigures() {
-        defer { recordGoalResultsIfNewDay() }
+        // Goals change only on an edit (which refreshes) or at midnight: once a minute is enough.
+        // One reading of the clock, so the gate and the minute cache never disagree.
+        let moment = now()
+        let newMinute = Calendar.current.dateInterval(of: .minute, for: moment)?.start != cachedTypicalMinute
+        defer { if newMinute { recordGoalResultsIfNewDay() } }
         withRefreshTransaction {
-            let moment = now()
             let frame = liveFrame(at: moment)
             let minute = Calendar.current.dateInterval(of: .minute, for: moment)?.start
             let minuteChanged = minute != cachedTypicalMinute
