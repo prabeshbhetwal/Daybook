@@ -73,7 +73,11 @@ extension SessionStore {
             var next = categoryCorrections.corrections
             learn(filing, into: &next)
             if let why = categoryCorrections.save(next, at: now()) {
+                // The change stands; the person is told it taught nothing, as other stores say a refused write.
+                // A journal save still owed keeps its own error and Retry on screen instead; a cause that lasts
+                // (a newer version's file) is shown by the next change.
                 Diagnostics.log("Category choice not remembered: \(why)")
+                if applied { publishCorrectionError(why) }
             }
         } else if case .correction(threadID, correction, let held, _)? = correctionRetry {
             correctionRetry = .correction(threadID: threadID, correction: correction, claims: held, filing: filing)
