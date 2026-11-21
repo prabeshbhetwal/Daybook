@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 
 /// Leisure blocks (plan Phase B Task 7): with automatic mode on and no session running, a finished run of
 /// watching or listening outside every session is written once to `leisure.json`, and shown on the day's
@@ -48,8 +48,11 @@ extension SessionStore {
         }
     }
 
-    /// The name of the app that held `block`, from the day's app use.
+    /// The name of the app that held `block`. A player that held the screen behind another app was never in front
+    /// in the block, so its name comes from any app use on record, then from the installed app itself.
     func appName(of block: LeisureBlock) -> String? {
-        appRanks(within: [block.interval]).first { $0.bundleID == block.bundleID }?.appName
+        usage?.latestName(for: block.bundleID)
+            ?? NSWorkspace.shared.urlForApplication(withBundleIdentifier: block.bundleID)
+                .flatMap { InstalledAppCatalog.application(at: $0)?.name }
     }
 }

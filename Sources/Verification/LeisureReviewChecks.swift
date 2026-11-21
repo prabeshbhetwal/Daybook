@@ -6,6 +6,7 @@ enum LeisureReviewChecks: CheckSuite {
     static let tests: [(String, () -> [String])] = [
         ("A leisure block across midnight shows its part on each day, however short that part is", acrossMidnight),
         ("A block held by a player while another app is in front names the player", heldNamesHolder),
+        ("The timeline names a player that held a block but was never in front during it", rowNamesHiddenPlayer),
     ]
 
     private static func acrossMidnight() -> [String] {
@@ -42,5 +43,25 @@ enum LeisureReviewChecks: CheckSuite {
         expect(found.count == 1 && found.first?.bundleID == player,
                "a block held by \(player) with chat in front is \(found)", &problems)
         return problems
+    }
+
+    private static func rowNamesHiddenPlayer() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            guard let r = ActivityEvidenceStoreChecks.rig(session: false, auto: true) else {
+                return ["could not create isolated preferences"]
+            }
+            defer { r.close() }
+            let player = LeisureBlockChecks.player, now = r.clock.value
+            let start = now.addingTimeInterval(-1_800), earlier = now.addingTimeInterval(-7_200)
+            r.store.usage = SelfTest.makeUsageArchive(r.clock, sessions: [
+                AppUsageSession(bundleID: player, appName: "TV", start: earlier, end: earlier.addingTimeInterval(600)),
+                AppUsageSession(bundleID: "com.apple.mail", appName: "Mail", start: start, end: now),
+            ], accurateFrom: earlier)
+            let block = LeisureBlock(id: UUID(), start: start, end: now, bundleID: player, activity: .media)
+            let name = r.store.appName(of: block)
+            expect(name == "TV", "a block held by \(player) with Mail in front is named \(name ?? "nil")", &problems)
+            return problems
+        }
     }
 }
