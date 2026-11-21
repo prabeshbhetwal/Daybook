@@ -34,8 +34,9 @@ extension SessionStore {
     }
 
     /// What cutting `record` at `moment` would make of its tail, and why: the part of the evidence after the
-    /// cut decides whether Daybook may pick the tail's category (ruling B8) and from what.
-    func tailProposal(for record: SessionRecord, at moment: Date) -> SplitOffer {
+    /// cut decides whether Daybook may pick the tail's category (ruling B8) and from what. `ownCut`: for an
+    /// automatic session's own cut, which files a tail that was not focused work as Unsorted.
+    func tailProposal(for record: SessionRecord, at moment: Date, ownCut: Bool = false) -> SplitOffer {
         let shape = endedShape(of: record, within: DateInterval(start: moment, end: record.end))
         let topApp = shape?.fingerprint?.topApps.first.flatMap { $0.isEmpty ? nil : $0 }
         let remembered = shape?.fingerprint.flatMap { categoryCorrections.suggestion(for: $0, now: now()) }
@@ -45,7 +46,7 @@ extension SessionStore {
         if case .activity(let found)? = shape?.label { purpose = found }
         return SplitOffer(recordID: record.id, at: moment,
                           choice: .decide(label: shape?.label, remembered: remembered, suggested: suggested,
-                                          head: record.workType),
+                                          head: record.workType, ownCut: ownCut),
                           purpose: purpose, topApp: topApp)
     }
 }

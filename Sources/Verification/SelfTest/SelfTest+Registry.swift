@@ -248,7 +248,7 @@ extension SelfTest {
             + GoalCardAgreementChecks.tests
             + DiagnosticsLogChecks.tests
             + ToolbarTitleFitChecks.tests
-            + AwayGapChecks.tests + aiCategoryTests
+            + AwayGapChecks.tests + aiCategoryTests + followUpTests
     }
 
     /// SelfTest's own checks 1 to 107.

@@ -246,8 +246,7 @@ struct DayStory: View {
         switch item {
         case .moment(let moment):
                 switch moment {
-                case .entry(let entry):
-                    row(entry, isFirst: isFirst, isLast: isLast)
+                case .entry(let entry): row(entry, isFirst: isFirst, isLast: isLast)
                 case .unrecorded(let span, let reason):
                     storyRow(time: span.start, tint: .secondary, dotSize: 5.zoomed, pin: reason.pin, // ink: quiet, a dot on the story's rule
                              isFirst: isFirst, isLast: isLast) {
@@ -258,9 +257,10 @@ struct DayStory: View {
                     }
                 case .machine(let event, let resumed):
                     storyRow(time: event.at, tint: .secondary, dotSize: 5.zoomed, pin: event.kind.pin, // ink: quiet, a dot on the story's rule
-                             isFirst: isFirst, isLast: isLast) {
-                        StoryMachinePin(event: event, resumed: resumed)
-                    }
+                             isFirst: isFirst, isLast: isLast) { StoryMachinePin(event: event, resumed: resumed) }
+                case .leisure(let block):
+                    storyRow(time: block.start, tint: Tokens.Palette.appUse, dotSize: 5.zoomed, isFirst: isFirst,
+                             isLast: isLast) { LeisureBlockRow(block: block, appName: store.appName(of: block)) }
                 case .appUse(let span, let seconds):
                     storyRow(time: span.start, tint: Tokens.Palette.appUse, dotSize: 7.zoomed,
                              isFirst: isFirst, isLast: isLast) {

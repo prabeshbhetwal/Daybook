@@ -46,6 +46,8 @@ final class ActivityEvidence {
     /// When that first sweep ran: a record that ended before it is never asked about, whatever id a split, a
     /// merge or an Undo has since given it (C4).
     var assistantSince: Date?
+    /// `leisure.json`, read on first use (`SessionStore.leisureStore`).
+    var leisure: LeisureStore?
 
     init(archive: BeatArchive = BeatArchive(), counters: InputCounters = InputCounters()) {
         self.archive = archive

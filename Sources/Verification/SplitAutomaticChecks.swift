@@ -8,7 +8,7 @@ enum SplitAutomaticChecks: CheckSuite {
          splitsItself),
         ("A remembered correction files the tail under the person's category, as a correction",
          correctionFilesTheTail),
-        ("An automatic session whose tail is not focused work stays whole, and one the person made theirs gets the offer instead",
+        ("An automatic session the person made theirs gets the offer instead of splitting itself",
          staysWholeOrOffers),
         ("Only a session that ends after launch is judged, and a manual, a rule's or a one-piece session is never split by itself",
          onlyNewAutomaticSessions),
@@ -106,20 +106,7 @@ enum SplitAutomaticChecks: CheckSuite {
     private static func staysWholeOrOffers() -> [String] {
         MainActor.assumeIsolated {
             var problems: [String] = []
-            guard let r = rig() else { return ["could not create isolated preferences"] }
-            defer { r.close() }
-            let record = ended(r, then: chat)
-            let before = r.engine.archive.revision
-            r.store.writeActivitySnapshots()
-            expect(r.engine.archive.records == [record] && r.engine.archive.revision == before && r.store.corrections.isEmpty,
-                   "a session with a chat for a tail was split by Daybook's choice", &problems)
-            expect(r.store.splitOffer(for: SplitStoreChecks.row(record)) == nil,
-                   "an automatic session of Daybook's own was offered a cut", &problems)
-            if let shape = r.store.endedShape(of: record) {
-                expect(shape.splitCandidates.count == 1 && shape.label == .activity(.coding),
-                       "the detour is not in the evidence: \(shape.splitCandidates) \(shape.label)", &problems)
-            } else { problems.append("no evidence for the session") }
-
+            // A tail that was not focused work is Unsorted now: `UnsortedTailChecks`.
             guard let q = rig() else { return problems + ["could not create isolated preferences"] }
             defer { q.close() }
             let original = ended(q, then: design)
