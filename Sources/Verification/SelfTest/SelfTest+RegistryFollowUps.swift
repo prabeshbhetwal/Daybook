@@ -6,5 +6,6 @@ extension SelfTest {
     static var followUpTests: [(String, () -> [String])] {
         UnsortedStartChecks.tests
             + UnsortedTailChecks.tests
+            + LeisureBlockChecks.tests
     }
 }

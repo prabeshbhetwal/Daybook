@@ -49,12 +49,15 @@ enum StoryMoment: Identifiable, Equatable {
     /// A shut down, restart, quit or crash that left no hole of its own:
     /// Daybook was back within the minute a hole needs. `resumed` is when.
     case machine(MachineEvent, resumed: Date?)
+    /// Watching or listening outside a session (`LeisureBlock`): never focus and never a break.
+    case leisure(LeisureBlock)
 
     var start: Date {
         switch self {
         case .entry(let entry): return entry.start
         case .appUse(let span, _), .unrecorded(let span, _): return span.start
         case .machine(let event, _): return event.at
+        case .leisure(let block): return block.start
         }
     }
 
@@ -63,6 +66,7 @@ enum StoryMoment: Identifiable, Equatable {
         case .entry(let entry): return entry.end
         case .appUse(let span, _), .unrecorded(let span, _): return span.end
         case .machine(let event, _): return event.end
+        case .leisure(let block): return block.end
         }
     }
 
@@ -74,15 +78,17 @@ enum StoryMoment: Identifiable, Equatable {
         case .appUse(let span, _): return "app-\(span.start.timeIntervalSince1970)"
         case .unrecorded(let span, _): return "gap-\(span.start.timeIntervalSince1970)"
         case .machine(let event, _): return "machine-\(event.kind.rawValue)-\(event.at.timeIntervalSince1970)"
+        case .leisure(let block): return "leisure-" + block.id.uuidString
         }
     }
 }
 
 enum StoryChronology {
-    /// `eventLogStart` is when the machine event log began, nil without one.
+    /// `eventLogStart` is when the machine event log began, nil without one. `leisure`: the day's blocks, already
+    /// clear of every session; app use inside one is told by the block, not again as loose app use.
     static func build(records: [SessionRecord], running: RunningThread?,
                       usage: [AppUsageSession], machineEvents: [MachineEvent] = [],
-                      eventLogStart: Date? = nil, day: Date, now: Date,
+                      eventLogStart: Date? = nil, leisure: [LeisureBlock] = [], day: Date, now: Date,
                       calendar: Calendar = .current) -> [StoryMoment] {
         guard let bounds = calendar.dateInterval(of: .day, for: day) else { return [] }
         var entries = records.filter { $0.end > bounds.start && $0.start < bounds.end }
@@ -99,13 +105,13 @@ enum StoryChronology {
             case .session(let session): return DateInterval(start: session.start, end: session.end)
             case .rest(let rest): return DateInterval(start: rest.start, end: rest.end)
             }
-        })
+        } + leisure.map(\.interval))
         let recorded = usage.compactMap { session -> DateInterval? in
             let start = max(session.start, bounds.start)
             let end = min(session.end, bounds.end)
             return end > start ? DateInterval(start: start, end: end) : nil
         }
-        var result = entries.map(StoryMoment.entry)
+        var result = entries.map(StoryMoment.entry) + leisure.map(StoryMoment.leisure)
         // Represent app use not already explained by a session or named rest.
         let evidence = recorded.flatMap { subtract($0, occupied: occupied) }
         let loose = mergeLoose(evidence, occupied: occupied)

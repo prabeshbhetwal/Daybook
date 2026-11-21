@@ -38,6 +38,7 @@ extension SessionStore {
                                           usage: effectiveUsageSnapshot?.sessions(touching: day) ?? [],
                                           machineEvents: machineEvents(on: day),
                                           eventLogStart: machineEventLog?.events.first?.at,
+                                          leisure: bounds.map(leisureBlocks(on:)) ?? [],
                                           day: day, now: now()).reversed())
             .filter { moment in
                 if case .entry(.session(let session)) = moment, session.isRunning {

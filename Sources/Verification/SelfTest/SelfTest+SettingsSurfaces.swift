@@ -193,8 +193,8 @@ extension SelfTest {
                && disclosure.storageDetail.contains("90 days")
                && disclosure.storageDetail.contains("Backups include the sessions and this file"),
                "privacy copy names what a session records of its origin and the corrections file", &problems)
-        expect(!disclosure.storageDetail.lowercased().contains("leisure"),
-               "privacy copy mentions only what is built", &problems)
+        expect(disclosure.storageDetail.contains("leisure.json") && disclosure.storageDetail.contains("Unsorted"),
+               "privacy copy names the leisure file and Unsorted", &problems)
         return problems
     }
 

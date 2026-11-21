@@ -202,6 +202,7 @@ extension SessionStore {
     func writeActivitySnapshots() {
         guard activityEvidence.enabled else { return }
         splitFinishedAutomaticSessions()
+        recordLeisure()
         let moment = now()
         let keepFrom = periodCalendar.date(byAdding: .day, value: -ActivityConstants.defaultBeatRetentionDays,
                                            to: moment) ?? .distantPast
