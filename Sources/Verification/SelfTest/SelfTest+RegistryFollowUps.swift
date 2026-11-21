@@ -5,5 +5,6 @@ extension SelfTest {
     /// order. A check's position is its number, so a new suite goes at the end of this list.
     static var followUpTests: [(String, () -> [String])] {
         UnsortedStartChecks.tests
+            + UnsortedTailChecks.tests
     }
 }

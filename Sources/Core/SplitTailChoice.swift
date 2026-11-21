@@ -1,7 +1,8 @@
 import Foundation
 
 /// What the tail of a split begins as (plan rulings B5, B8, B9, B11). Daybook never files time that is not
-/// clearly focused work under a category that counts as focus: such a tail is the person's to file.
+/// clearly focused work under a category that counts as focus: such a tail is the person's to file, or
+/// Unsorted when an automatic session cuts itself.
 enum SplitTailChoice: Equatable {
     /// Daybook's pick, for a tail whose dominant purpose is focused: a category the person remembered for
     /// this kind of work (`correction`), else the one built in for its top app (`builtIn`).
@@ -10,9 +11,16 @@ enum SplitTailChoice: Equatable {
     case ask(WorkType)
 
     /// `remembered` and `suggested` count only while they are categories a person can still start.
+    /// `ownCut`: an automatic session cutting itself, where a tail the evidence says was not focused work takes
+    /// the category the person remembered for it, else Unsorted (spec section 6), which never counts as focus.
+    /// The person's offer still asks.
     static func decide(label: ActivityLabel?, remembered: WorkType?, suggested: WorkType?,
-                       head: WorkType) -> SplitTailChoice {
-        guard case .activity(let purpose)? = label, purpose.isFocused else { return .ask(head) }
+                       head: WorkType, ownCut: Bool = false) -> SplitTailChoice {
+        guard case .activity(let purpose)? = label, purpose.isFocused else {
+            guard ownCut, label != nil else { return .ask(head) }
+            if let remembered, WorkType.startable.contains(remembered) { return .chosen(remembered, .correction) }
+            return .chosen(.unsorted, .builtIn)
+        }
         if let remembered, WorkType.startable.contains(remembered) { return .chosen(remembered, .correction) }
         if let suggested, WorkType.startable.contains(suggested) { return .chosen(suggested, .builtIn) }
         return .ask(head)

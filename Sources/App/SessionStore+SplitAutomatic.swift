@@ -1,9 +1,10 @@
 import Foundation
 
 /// An automatic session that has just ended and held two pieces of work splits itself (spec section 4),
-/// as one correction with Undo and Merge Back, and only when Daybook may choose what the tail is: its
-/// dominant purpose is focused work (ruling B8). Otherwise the session stays whole and the strip and the
-/// report show the detour. A session the person has renamed or filed is theirs and gets the offer.
+/// as one correction with Undo and Merge Back. A tail of focused work takes the category Daybook picks for
+/// it (ruling B8); a tail that was not focused work is Unsorted, which never counts as focus (spec section
+/// 6). Focused work Daybook cannot place, or a tail with no evidence, stays whole. A session the person has
+/// renamed or filed is theirs and gets the offer.
 extension SessionStore {
     /// Each record is judged once, when it first appears: the first pass of a launch only notes what is
     /// already there, so nothing recorded before is ever split behind the person's back.
@@ -22,8 +23,10 @@ extension SessionStore {
             if evidence.recording, record.end > moment.addingTimeInterval(-ActivityConstants.beatLength) { continue }
             evidence.splitSeen?.insert(record.id)
             guard record.splitsItself, let at = splitMoment(in: record) else { continue }
-            let proposal = tailProposal(for: record, at: at)
-            guard case .chosen = proposal.choice else { continue }
+            let proposal = tailProposal(for: record, at: at, ownCut: true)
+            guard case .chosen(let type, _) = proposal.choice else { continue }
+            // Unsorted after a head that does not count either changes no figure: two rows for nothing.
+            if type == .unsorted, !record.workType.countsAsFocus { continue }
             // Nobody asked for this write: the person's own error and Retry stay as they were, and a refusal
             // is not put in front of them, but turns the cut into an offer (`splitOffer`).
             let error = correctionError, retry = correctionRetry

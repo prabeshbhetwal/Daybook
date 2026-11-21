@@ -2,8 +2,8 @@ import Foundation
 
 /// Cutting an ended session in two and joining the halves again. The records change through the engine,
 /// as one journalled correction each; the sidecar work they owe (the link, the shape, the power readings) is
-/// journalled with them and done right after (`OwedWork`), and the surfaces are told. Nothing here moves a
-/// total: the halves add up to the record.
+/// journalled with them and done right after (`OwedWork`), and the surfaces are told. The halves add up to
+/// the record, so only a tail filed under a category that does not count, such as Unsorted, moves a total.
 extension SessionStore {
     /// Cuts the ended record `recordID` at `moment`; the tail begins as `choice` says. One correction,
     /// reversed by Undo. False, with the reason published, when the moment is not inside the session's work
