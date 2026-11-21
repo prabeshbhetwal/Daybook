@@ -204,10 +204,6 @@ struct AutoSessionDetector {
         autoStartedAt = nil
     }
 
-    /// `.coding`/`.design`/`.writingAI` are all forms of making something, so
-    /// they collapse to the same work type; everything else maps to its
-    /// closest analogue, with deep work as the fallback for purposes that
-    /// don't otherwise imply a session kind.
     /// What an automatic session is called, from what the user is doing. In a
     /// browser or an AI client the tool says nothing, so the act does:
     /// "Browsing". Elsewhere the purpose names it; a purpose with nothing to
@@ -224,12 +220,9 @@ struct AutoSessionDetector {
         }
     }
 
+    /// Focused work starts as Deep work. Anything else names no category of the person's (spec section 6):
+    /// it starts as Unsorted, which never counts as focus, unless they filed this app themselves lately.
     private static func workType(for purpose: AppPurpose) -> WorkType {
-        switch purpose {
-        case .coding, .design, .writingAI: return .deepWork
-        case .communication: return .meetings
-        case .research: return .learning
-        case .media, .utility: return .deepWork
-        }
+        purpose.isFocused ? .deepWork : .unsorted
     }
 }
