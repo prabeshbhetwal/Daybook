@@ -8,8 +8,9 @@ enum SettingsHelpText {
     static var groups: [String: [HelpEntry]] {
         [
             "Menu bar, Dock and login": menuBar, "Ask Daybook": ask, "Keyboard": keyboard,
-            "Confirmations": confirmations, "Interface": interface,
-            "Goal": goal, "Categories": categories, "Automatic sessions": automatic,
+            "Haptics": haptics, "Confirmations": confirmations, "Interface": interface, "Story": story,
+            "Goal": goal, "Starting and ending": startingAndEnding, "Categories": categories,
+            "Automatic categories": automaticCategories, "Automatic sessions": automatic,
             "Activity rules": activityRules, "Rules": rules, "New rule": ruleForm, "Edit rule": ruleForm,
             "Stepping away": steppingAway, "Apps working for you": appsWorking,
             "Reminders": reminders, "Weekday plan": weekdayPlan, "Overrides": overrides,
@@ -95,7 +96,10 @@ enum SettingsHelpText {
         HelpEntry("Zoom", """
             Makes everything in Daybook bigger or smaller, from 80% to 160%. If you set 120%, text and \
             controls are a fifth larger. The arrow beside it, or ⌘0, goes back to 100%.
-            """),
+            """)
+    ]
+
+    static let story: [HelpEntry] = [
         HelpEntry("Show Story timestamps", """
             Shows the time of each entry down the left of the Story, the page that tells your day in \
             order. Off hides those times.
@@ -107,6 +111,25 @@ enum SettingsHelpText {
         HelpEntry("Fold quiet stretches after", """
             Gaps, and app use outside your sessions, fold into one line you can open. If you set 3 rows, \
             three or more such rows in a row become one line. Never shows every row.
+            """),
+        HelpEntry("Apps shown in a card", """
+            How many apps the Top apps card lists in the Story and History. If you set 4, you see your top \
+            4 apps.
+            """),
+        HelpEntry("Recent app visits", """
+            When you click an app in the Top apps card, this many of its latest visits are listed. If you \
+            set 5, you see 5, and a Show All button lists the rest.
+            """)
+    ]
+
+    static let haptics: [HelpEntry] = [
+        HelpEntry("Haptic feedback", """
+            Your trackpad, or a Logitech MX Master 4 mouse, gives a small tap at moments such as a session \
+            starting or stopping, a break being due or your goal being reached.
+            """),
+        HelpEntry("Try haptic feedback", """
+            Try plays one tap now, so you know what to feel for. It works while Haptic feedback is on, and \
+            says so if the mouse could not be reached.
             """)
     ]
 
@@ -134,17 +157,24 @@ enum SettingsHelpText {
             Daybook compares your focus so far today with what you usually had by this time of day. If you \
             set last 14 days, your usual comes from the past 14 days.
             """),
-        HelpEntry("Suggest activities from", """
-            Names you gave sessions recently are offered when you start the next one. If you set last 30 \
-            days, a name you last used 6 weeks ago is not offered.
-            """),
         HelpEntry("Streak counts a day after", """
             Your streak is how many days in a row reach this much focus. If you set 25 minutes, a day with \
             only 20 minutes ends the run.
             """),
+        HelpEntry("Celebrate milestones", """
+            Short notes cheer you on at good moments, such as reaching your daily goal, a new streak \
+            record or being ahead of your usual pace. Off, they no longer appear.
+            """)
+    ]
+
+    static let startingAndEnding: [HelpEntry] = [
         HelpEntry("New sessions start as", """
             The category already chosen for your next session when Daybook opens. A category is the kind \
             of work a session is filed under, such as Deep work. You can pick another before you start.
+            """),
+        HelpEntry("Suggest activities from", """
+            Names you gave sessions recently are offered when you start the next one. If you set last 30 \
+            days, a name you last used 6 weeks ago is not offered.
             """),
         HelpEntry("Keep sessions longer than", """
             A session shorter than this is not saved. If you set 1 minute, a session you stop after 40 \
@@ -201,18 +231,6 @@ enum SettingsHelpText {
         HelpEntry("Stop a paused automatic session after", """
             A session Daybook started by itself ends once it has been paused this long. If you set 10 \
             minutes, a 15-minute video ends it. Never keeps it paused until you come back.
-            """),
-        HelpEntry("Celebrate milestones", """
-            Short notes cheer you on at good moments, such as reaching your daily goal, a new streak \
-            record or being ahead of your usual pace. Off, they no longer appear.
-            """),
-        HelpEntry("Haptic feedback", """
-            Your trackpad, or a Logitech MX Master 4 mouse, gives a small tap at moments such as a session \
-            starting or stopping, a break being due or your goal being reached.
-            """),
-        HelpEntry("Try haptic feedback", """
-            Try plays one tap now, so you know what to feel for. It works while Haptic feedback is on, and \
-            says so if the mouse could not be reached.
             """)
     ]
 

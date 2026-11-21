@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Settings → Privacy and About: where the data lives, its backups, updates
-/// and diagnostics.
+/// Settings → Privacy & Data and About & Updates: what is kept and where, its
+/// backups, then updates and diagnostics.
 extension SettingsGroups {
     var data: some View {
         VStack(alignment: .leading, spacing: layout.panelSpacing) {
@@ -17,24 +17,11 @@ extension SettingsGroups {
                 }
                 .font(Tokens.Typography.body)
                 .foregroundStyle(StoryStyle.supportingInk)
-                rowDivider
-                readOnlyRow("App use measured precisely since",
-                            value: model.diagnostics.usageAccuracyEpoch.map(
-                                SettingsDiagnostics.accuracyEpochLabel)
-                                ?? "Not established",
-                            detail: "Earlier records may include time away.")
                 // Without a usable on-device model there is nothing to switch.
                 if ModelGate.modelAvailable {
                     rowDivider
                     toggleRow("Use on-device AI", detail: "For notes and suggestions. Nothing leaves this Mac.",
                               isOn: $model.useAppleIntelligence)
-                }
-                aiCategoryRows
-                // Only an upgrade from the oldest format leaves this copy;
-                // without one the row said nothing worth reading.
-                if let backup = model.diagnostics.legacyBackupURL {
-                    rowDivider
-                    readOnlyRow("Backup of older app use", value: backup.path, valueLayout: .statusBlock)
                 }
             }
             SiteSignalSection(groups: self, onDeviceAI: ModelGate.modelAvailable && model.useAppleIntelligence)
@@ -182,6 +169,18 @@ extension SettingsGroups {
             readOnlyRow("Recovery", value: model.diagnostics.recoverySummary,
                         detail: "Unreadable files are set aside, never overwritten.",
                         valueLayout: .statusBlock)
+            rowDivider
+            readOnlyRow("App use measured precisely since",
+                        value: model.diagnostics.usageAccuracyEpoch.map(
+                            SettingsDiagnostics.accuracyEpochLabel)
+                            ?? "Not established",
+                        detail: "Earlier records may include time away.")
+            // Only an upgrade from the oldest format leaves this copy;
+            // without one the row said nothing worth reading.
+            if let backup = model.diagnostics.legacyBackupURL {
+                rowDivider
+                readOnlyRow("Backup of older app use", value: backup.path, valueLayout: .statusBlock)
+            }
         }
     }
 }

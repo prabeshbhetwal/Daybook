@@ -136,25 +136,15 @@ extension SettingsHelpText {
             """)
     ]
 
-    // MARK: - Recording
+    // MARK: - Privacy & Data
 
     static let appUse: [HelpEntry] = [
         HelpEntry("Record app use", """
             On this Mac, Daybook notes the app you use, for how long, and key, click and scroll counts, never \
             what you type. Counts last 90 days, outside Daybook's backups. A hidden notes file keeps each \
             session's summary. Off, nothing new is noted.
-            """),
-        HelpEntry("Apps shown in a card", """
-            How many apps the Top apps card lists in the Story and History. If you set 4, you see your top \
-            4 apps.
-            """),
-        HelpEntry("Recent app visits", """
-            When you click an app in the Top apps card, this many of its latest visits are listed. If you \
-            set 5, you see 5, and a Show All button lists the rest.
             """)
     ]
-
-    // MARK: - Privacy
 
     /// The on-device AI row is drawn only on a Mac that can run the model.
     static var privacy: [HelpEntry] {
@@ -163,13 +153,11 @@ extension SettingsHelpText {
                 Where your history is kept: Local only, or backed up to iCloud while automatic backups go to \
                 iCloud Drive. Each session notes how it began and where its category came from. A remembered \
                 category choice lapses after 90 days unused.
-                """),
-            HelpEntry("App use measured precisely since", """
-                From this date, recorded app use leaves out time you were away. Records from before it may \
-                count some time away as app use.
                 """)
-        ] + (ModelGate.modelAvailable ? [onDeviceAI] : []) + [aiAssign]
+        ] + (ModelGate.modelAvailable ? [onDeviceAI] : [])
     }
+
+    static let automaticCategories = [aiAssign]
 
     static let aiAssign = HelpEntry("Let AI assign categories to automatic sessions", """
         It sees minutes per activity, depth, up to two app names, the site kind if the site signal is on and \

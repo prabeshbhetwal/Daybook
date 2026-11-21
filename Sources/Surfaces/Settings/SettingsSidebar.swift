@@ -1,14 +1,16 @@
 import SwiftUI
 
-/// The twelve logical sections keep control ownership precise; eight pages make
+/// The twelve logical sections keep control ownership precise; seven pages make
 /// the native sheet small enough to read without a second, unreachable pane.
+/// A setting lives on the page named for what it changes: how a session runs is
+/// Sessions, what Daybook keeps and reads is Privacy & Data, and every way
+/// Daybook looks, sounds or sits on the Mac is General.
 enum SettingsPage: String, CaseIterable, Identifiable {
     case general
     case sessions
     case activities
     case away
     case breaks
-    case recording
     case privacy
     case about
 
@@ -21,8 +23,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .activities: return "Activities"
         case .away: return "Away"
         case .breaks: return "Breaks"
-        case .recording: return "Recording"
-        case .privacy: return "Privacy"
+        case .privacy: return "Privacy & Data"
         case .about: return "About & Updates"
         }
     }
@@ -34,7 +35,6 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .activities: return "app.badge.checkmark"
         case .away: return "moon.zzz"
         case .breaks: return "cup.and.saucer"
-        case .recording: return "rectangle.stack.badge.play"
         case .privacy: return "lock.shield"
         case .about: return "arrow.down.circle"
         }
@@ -49,7 +49,6 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .activities: return .purple
         case .away: return .indigo
         case .breaks: return .pink
-        case .recording: return .orange
         case .privacy: return .green
         case .about: return .teal
         }
@@ -59,7 +58,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
     /// darker hues; on grey, orange and green it fell to 2 to 2.9:1, so those
     /// take a near-black glyph.
     var glyphColour: Color {
-        [.grey, .orange, .green, .teal, .pink].contains(hue) ? Color(white: 0.06) : .white
+        [.grey, .green, .teal, .pink].contains(hue) ? Color(white: 0.06) : .white
     }
 
     /// The page `delta` rows away in `pages`, or nil past either end: a
@@ -76,8 +75,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .activities: return [.activities]
         case .away: return [.away]
         case .breaks: return [.breaks]
-        case .recording: return [.tracking]
-        case .privacy: return [.data]
+        case .privacy: return [.tracking, .data]
         case .about: return [.updates, .advanced]
         }
     }
@@ -89,8 +87,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .activities: self = .activities
         case .away: self = .away
         case .breaks: self = .breaks
-        case .tracking: self = .recording
-        case .data: self = .privacy
+        case .tracking, .data: self = .privacy
         case .updates, .advanced: self = .about
         }
     }
@@ -116,11 +113,11 @@ extension SettingsSection {
         case .categories: return "Categories"
         case .away: return "Away"
         case .breaks: return "Breaks"
-        case .automatic: return "Automatic and rewards"
+        case .automatic: return "Automatic sessions"
         case .activities: return "Activity rules"
         case .tracking: return "Recording"
         case .appearance: return "Appearance"
-        case .data: return "Privacy"
+        case .data: return "Privacy and data"
         case .updates: return "Updates"
         case .advanced: return "Advanced"
         }
@@ -151,12 +148,14 @@ extension SettingsSection {
                                "Show the session time in the menu bar", "Dock icon", "Keyboard",
                                "Start or end a session from any app", "Confirmations",
                                "Ask before changing how a break counts", "Ask before removing a session",
-                               "Ask Daybook", "Show Ask in the toolbar", "Open Ask", "Open Ask in"]
-        case .focus: return ["Daily goal", "Daily goals", "Add Goal", "App limit", "Usual pace compares with", "Suggest activities from",
-                             "Streak counts a day after", "New sessions start as",
-                             "Keep sessions longer than", "Offer to continue for"]
+                               "Ask Daybook", "Show Ask in the toolbar", "Open Ask", "Open Ask in",
+                               "Haptic feedback", "Try haptic feedback"]
+        case .focus: return ["Daily goal", "Daily goals", "Add Goal", "App limit", "Usual pace compares with",
+                             "Streak counts a day after", "Celebrate milestones", "New sessions start as",
+                             "Suggest activities from", "Keep sessions longer than", "Offer to continue for"]
         case .categories: return ["Categories", "New Category", "Category name", "Icon", "Colour", "Retire", "Restore",
-                                  "Remind me to take breaks during this category", "Counts while watching", "Reset to Default"]
+                                  "Remind me to take breaks during this category", "Counts while watching", "Reset to Default",
+                                  "Let AI assign categories to automatic sessions"]
         case .away:
             return ["Pause after no input for", "Ask me after", "Stop session after",
                     "Full-screen prompt after", "While an app works for you",
@@ -171,42 +170,43 @@ extension SettingsSection {
                     "Working hours", "Eyes", "Long-stretch guard", "Guard comes after",
                     "Play a sound when a break is over", "Show break countdown in the menu bar"]
         case .automatic:
-            return ["Guess sessions from the app in front", "Stop a paused automatic session after",
-                    "Celebrate milestones", "Haptic feedback", "Try haptic feedback"]
+            return ["Guess sessions from the app in front", "Stop a paused automatic session after"]
         case .activities:
             return ["Use my activity rules", "Activity rules", "New Rule", "Activity name",
                     "Start after", "Use this rule", "Running now", "All apps", "Add App…", "Delete Rule"]
-        case .tracking: return ["Apps shown in a card", "Recent app visits", "Record app use"]
+        case .tracking: return ["Record app use"]
         case .appearance:
             return ["Appearance", "Interface density", "Zoom", "Show Story timestamps",
-                    "Expand entry details by default", "Fold quiet stretches after"]
+                    "Expand entry details by default", "Fold quiet stretches after",
+                    "Apps shown in a card", "Recent app visits"]
         case .data:
             // The upgrade copy's row may be absent, so it is not listed; on-device AI only where it shows.
-            return ["Privacy", "Storage", "App use measured precisely since", "Backups", "Back up automatically",
+            return ["Privacy", "Storage", "Backups", "Back up automatically",
                     "Back up to", "Keep automatic backups", "Last backup", "Next backup", "Back Up Now",
                     "Show Backups", "Reveal Data Folder", "Site signal", "Read the kind of site in the front browser tab",
-                    "Remember sites", "Let AI assign categories to automatic sessions"] + (ModelGate.modelAvailable ? ["Use on-device AI"] : [])
+                    "Remember sites"] + (ModelGate.modelAvailable ? ["Use on-device AI"] : [])
         case .updates: return ["Check for updates automatically", "How often", "When an update is found",
                                "Check for Updates"]
-        case .advanced: return ["Version", "Build", "Recovery"]
+        case .advanced: return ["Version", "Build", "Recovery", "App use measured precisely since"]
         }
     }
 
     var mutableControlKeys: [SettingsControlKey] {
         switch self {
         case .general: return [.openAtLogin, .menuBarIcon, .menuBarTime, .dockIcon, .confirmations, .askButton,
-                              .askPlacement]
-        case .focus: return [.dailyGoal, .paceWindow, .suggestionWindow, .streakMinimum, .defaultCategory,
+                              .askPlacement, .haptics]
+        case .focus: return [.dailyGoal, .paceWindow, .suggestionWindow, .streakMinimum, .rewards, .defaultCategory,
                              .minimumSession, .continueWindow]
         case .categories: return [.categories]
         case .away: return [.idlePause, .breakThreshold, .longAwayCap, .fullPromptAfter, .agentQuiet,
                             .appsAtWork, .agentAppInFront, .keepAwake]
         case .breaks: return [.reminders, .breakRhythm, .breakWeekdays, .breakOverrides, .workingHours, .breakEyes,
                               .breakGuard, .breakOverSound, .menuBarShowsBreakCountdown]
-        case .automatic: return [.automaticSessions, .automaticGap, .rewards, .haptics]
+        case .automatic: return [.automaticSessions, .automaticGap]
         case .activities: return [.activityRuleAutomation, .activityRules]
-        case .tracking: return [.railApps, .sessionsPerApp, .usageRecording]
-        case .appearance: return [.appearance, .density, .zoom, .timelineLabels, .entryDetails, .quietFold]
+        case .tracking: return [.usageRecording]
+        case .appearance: return [.appearance, .density, .zoom, .timelineLabels, .entryDetails, .quietFold, .railApps,
+                                   .sessionsPerApp]
         case .updates: return [.updateChecks, .updateFrequency, .updateInstall]
         case .data: return [.appleIntelligence, .backupSchedule, .backupDestination, .backupRetention]
         case .advanced: return []

@@ -140,7 +140,7 @@ struct SettingsDiagnostics {
         var notes: [String] = []
         // Session history first: when it is missing, it is what the reader
         // notices, and the only explanation is here.
-        let reveal = "Reveal Data Folder in Settings, Privacy finds it."
+        let reveal = "Reveal Data Folder in Settings, Privacy & Data finds it."
         if sessions?.isReadOnly == true {
             notes.append("Session history is read-only because it couldn't be read or set aside. "
                 + "It was left as it is. " + reveal)
@@ -325,7 +325,7 @@ final class SettingsModel: ObservableObject {
     let backupRoot: URL
     /// What Back Up Now did, shown under its button and announced.
     @Published private(set) var backupStatus: String?
-    /// Read when the Privacy page shows and after each backup, not watched.
+    /// Read when the Privacy & Data page shows and after each backup, not watched.
     @Published private(set) var iCloudDriveIsOn = false
     /// Whether the last backup has reached iCloud; nil when there is none.
     @Published private(set) var backupUploadState: DataBackup.UploadState?

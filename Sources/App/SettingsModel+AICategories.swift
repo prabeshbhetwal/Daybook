@@ -41,7 +41,7 @@ extension SettingsModel {
     var aiAssignDisabledReason: String? {
         guard let source = aiCategories else { return AICategorySource.noModelReason }
         guard source.modelAvailable() else { return source.unavailableReason() }
-        return useAppleIntelligence ? nil : "Turn on Use on-device AI to let it assign categories."
+        return useAppleIntelligence ? nil : "Turn on Use on-device AI in Settings › Privacy & Data to let it assign categories."
     }
 
     /// "AI matched 17 of your last 20 choices", or nil where there is no label file.

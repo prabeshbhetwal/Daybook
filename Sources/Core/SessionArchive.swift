@@ -308,7 +308,7 @@ final class SessionArchive {
     private func write(_ candidate: [SessionRecord]) -> WriteResult {
         guard !isReadOnly else {
             return .failure("Session history couldn't be read or set aside, so it isn't being changed. "
-                            + "Reveal Data Folder in Settings, Privacy shows where it is.")
+                            + "Reveal Data Folder in Settings, Privacy & Data shows where it is.")
         }
         if let detail = writeOverride?(candidate) { return .failure(detail) }
         do {

@@ -173,7 +173,7 @@ struct ProjectedDayStoryColumn: View {
                 // were in. Said here, once, rather than left to be inferred
                 // from every card reading "no app recording".
                 IntegrityNotice("Record app use is off, so today's sessions have no app use. "
-                                + "Turn it on in Settings › Recording.")
+                                + "Turn it on in Settings › Privacy & Data.")
             }
             if context == .main {
                 StoryHeadline(eyebrow: Tokens.longDate(projection.date),

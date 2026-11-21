@@ -245,14 +245,16 @@ Daybook keeps these measures apart and names each one on screen:
 
 ### Settings that explain themselves
 
-![Daybook's Settings on the General page: the eight pages in the sidebar, and the Menu bar, Dock and login panel with its circled i at the top right](docs/screenshots/settings.png)
+![Daybook's Settings on the General page: the pages in the sidebar, and the Menu bar, Dock and login panel with its circled i at the top right](docs/screenshots/settings.png)
 
 - Every Settings panel has a small circled "i" in its corner. Click it, or
   press Space or Return on it, and a card names each control in that panel and
   says what it changes, in plain words, with an example.
-- Settings has eight pages (General, Sessions, Activities, Away, Breaks,
-  Recording, Privacy, and About & Updates) and a search that finds any
-  control.
+- Settings has seven pages (General, Sessions, Activities, Away, Breaks,
+  Privacy & Data, and About & Updates) and a search that finds any control.
+  Each setting sits on the page named for what it changes: how Daybook looks
+  and sounds is General, how a session starts, ends and counts is Sessions,
+  and what Daybook records, reads, keeps and backs up is Privacy & Data.
 
 ![The explanation card for the Stepping away panel, saying in plain words what each of its four controls does, with an example for each](docs/screenshots/settings-help.png)
 
@@ -349,7 +351,7 @@ The details:
 - **No special access unless you turn on the site signal.** Daybook asks for no
   Accessibility, Automation, Screen Recording or Input Monitoring permission;
   it tells when you are away from system counters, not from what you type. The
-  one exception is the site signal in Settings › Privacy, off by default. If
+  one exception is the site signal in Settings › Privacy & Data, off by default. If
   you turn it on, Daybook asks for Accessibility to read the address of the
   front tab in the browsers you choose, keeps only what kind of site it is
   (video, documentation, social and so on) and discards the address
