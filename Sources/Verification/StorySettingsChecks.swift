@@ -17,19 +17,26 @@ enum StorySettingsChecks {
             (.activities, [.activities]),
             (.away, [.away]),
             (.breaks, [.breaks]),
-            (.recording, [.tracking]),
-            (.privacy, [.data]),
+            (.privacy, [.tracking, .data]),
             (.about, [.updates, .advanced])
         ]
         if SettingsPage.allCases.map(\.title) != ["General", "Sessions", "Activities", "Away", "Breaks",
-                                                  "Recording", "Privacy", "About & Updates"] {
-            failures.append("Settings did not expose the eight page groups in their required order")
+                                                  "Privacy & Data", "About & Updates"] {
+            failures.append("Settings did not expose the seven page groups in their required order")
         }
         for (page, sections) in expectedPages where page.sections != sections {
             failures.append("\(page.title) no longer contains its intended logical settings sections")
         }
-        if SettingsPage.matching("recent app visits") != [.recording] {
-            failures.append("Searching the actual recent app visits control did not retain Recording context")
+        // Each setting is found on the page named for what it changes, not for where it once sat.
+        let homes: [(String, SettingsPage)] = [
+            ("recent app visits", .general), ("apps shown in a card", .general), ("haptic feedback", .general),
+            ("celebrate milestones", .sessions), ("suggest activities from", .sessions),
+            ("let ai assign categories", .sessions), ("stop a paused automatic session", .sessions),
+            ("record app use", .privacy), ("back up automatically", .privacy), ("reveal data folder", .privacy),
+            ("remember sites", .privacy), ("app use measured precisely since", .about)
+        ]
+        for (query, page) in homes where SettingsPage.matching(query) != [page] {
+            failures.append("Searching \"\(query)\" did not land only on \(page.title)")
         }
         if SettingsPage.matching("Story timestamps") != [.general] {
             failures.append("Searching Story timestamps did not retain General context")

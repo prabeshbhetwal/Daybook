@@ -88,8 +88,8 @@ extension SelfTest {
     static func testSettingsGroupsContainOnlyBackedControls() -> [String] {
         var problems: [String] = []
         let expectedTitles = [
-            "General", "Sessions", "Categories", "Away", "Breaks", "Automatic and rewards",
-            "Activity rules", "Recording", "Appearance", "Privacy", "Updates", "Advanced"
+            "General", "Sessions", "Categories", "Away", "Breaks", "Automatic sessions",
+            "Activity rules", "Recording", "Appearance", "Privacy and data", "Updates", "Advanced"
         ]
         expect(SettingsSection.allCases.map(\.title) == expectedTitles,
                "all twelve Settings groups retain their approved order and titles", &problems)
@@ -98,8 +98,8 @@ extension SelfTest {
         }, "every Settings group exposes a symbol and searchable control labels", &problems)
         expect(SettingsSection.matching("goal").map(\.title) == ["Sessions"],
                "searching goal returns Sessions", &problems)
-        expect(SettingsSection.matching("privacy").map(\.title) == ["Privacy"],
-               "searching privacy returns Privacy", &problems)
+        expect(SettingsSection.matching("privacy").map(\.title) == ["Privacy and data"],
+               "searching privacy returns Privacy and data", &problems)
 
         let expectedControls: Set<SettingsControlKey> = [
             .dailyGoal, .categories, .breakThreshold, .longAwayCap, .fullPromptAfter,

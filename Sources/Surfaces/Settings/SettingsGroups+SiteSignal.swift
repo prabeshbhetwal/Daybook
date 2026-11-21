@@ -15,7 +15,7 @@ extension EnvironmentValues {
     }
 }
 
-/// Settings › Privacy › Site signal: the opt-in switch and its state, the apps
+/// Settings › Privacy & Data › Site signal: the opt-in switch and its state, the apps
 /// it reads, Remember sites with its list, and what Daybook can see on this Mac.
 struct SiteSignalSection: View {
     let groups: SettingsGroups

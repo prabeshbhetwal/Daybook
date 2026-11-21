@@ -96,7 +96,7 @@ enum CopyPolishChecks: CheckSuite {
         }
         let tour = FirstRunScript.chapters.flatMap(\.cards)
             .map { [$0.body, $0.note ?? ""].joined(separator: " ") }.joined(separator: " ")
-        for path in ["Settings › Away", "Settings › Activities", "Settings › Sessions", "Settings › Privacy",
+        for path in ["Settings › Away", "Settings › Activities", "Settings › Sessions", "Settings › Privacy & Data",
                      "Settings › General"] {
             expect(tour.contains(path), "the tour should name “\(path)”", &problems)
         }

@@ -126,9 +126,9 @@ enum SettingsAccessibilityChecks {
             failures.append("down from General did not open Sessions")
         }
         // A search that hides pages moves between the pages still listed.
-        let filtered: [SettingsPage] = [.general, .recording, .privacy]
-        if SettingsPage.recording.neighbour(in: filtered, by: -1) != .general
-            || SettingsPage.recording.neighbour(in: filtered, by: 1) != .privacy {
+        let filtered: [SettingsPage] = [.general, .breaks, .privacy]
+        if SettingsPage.breaks.neighbour(in: filtered, by: -1) != .general
+            || SettingsPage.breaks.neighbour(in: filtered, by: 1) != .privacy {
             failures.append("arrows moved to a page the search had hidden")
         }
         if SettingsPage.sessions.neighbour(in: filtered, by: 1) != nil {
@@ -161,7 +161,7 @@ enum SettingsAccessibilityChecks {
         let expectations: [(String, SettingsPage)] = [
             ("Guess sessions", .sessions),
             ("paused automatic session", .sessions),
-            ("measured precisely", .privacy),
+            ("measured precisely", .about),
             ("backup", .privacy)
         ]
         for (query, page) in expectations where SettingsPage.matching(query) != [page] {

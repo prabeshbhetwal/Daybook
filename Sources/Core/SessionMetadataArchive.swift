@@ -130,7 +130,7 @@ final class SessionMetadataArchive {
         for observation in moving {
             if let existing = destination.power.first(where: { $0.id == observation.id }),
                existing != observation {
-                return .failed("Session notes and power readings conflict, so they were left unchanged. Settings › Privacy shows where the file is.")
+                return .failed("Session notes and power readings conflict, so they were left unchanged. Settings › Privacy & Data shows where the file is.")
             }
             if !destination.power.contains(where: { $0.id == observation.id }) {
                 destination.power.append(observation)
@@ -163,10 +163,10 @@ final class SessionMetadataArchive {
             try replayJournal()
         } catch ValidationError.duplicateRecordID {
             cache = [:]
-            loadFailure = "Session notes and power readings contain duplicate records and are read-only. Settings › Privacy shows where the file is."
+            loadFailure = "Session notes and power readings contain duplicate records and are read-only. Settings › Privacy & Data shows where the file is."
         } catch ValidationError.conflictingObservationID {
             cache = [:]
-            loadFailure = "Session notes and power readings conflict, so they are read-only. Settings › Privacy shows where the file is."
+            loadFailure = "Session notes and power readings conflict, so they are read-only. Settings › Privacy & Data shows where the file is."
         } catch {
             loadFailure = "Session notes and power readings couldn't be read. The original file was kept. Reopen Daybook to try again."
         }

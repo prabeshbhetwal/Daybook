@@ -122,7 +122,7 @@ enum WrongClockAndRecordChecks: CheckSuite {
             SettingsDiagnostics.live(usage: AppUsageArchive(directory: directory, now: { base }),
                                      sessions: archive, dataDirectory: directory).recoverySummary
         }
-        let reveal = "Reveal Data Folder in Settings, Privacy finds it."
+        let reveal = "Reveal Data Folder in Settings, Privacy & Data finds it."
 
         // An earlier build's copy: it kept nothing, whatever the copy holds.
         let older = "sessions-corrupt-\(stamp(-60)).json"

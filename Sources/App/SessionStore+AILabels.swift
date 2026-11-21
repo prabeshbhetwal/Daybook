@@ -189,7 +189,7 @@ extension SessionStore {
         let running = engine.state != .idle && changed.contains { $0.id == engine.activeRecordID }
         let why: String? = hasUnresolvedAwayDecision ? "Answer the away question first."
             : engine.archive.isReadOnly ? "Session history couldn't be read or set aside, so it isn't being changed. "
-                + "Reveal Data Folder in Settings, Privacy shows where it is."
+                + "Reveal Data Folder in Settings, Privacy & Data shows where it is."
             : running ? "Those sessions changed since. Reopen the day and try again."
             : engine.prepareCorrection() ? nil : engine.awayDecisionError
         guard let why else { return true }
