@@ -11,7 +11,7 @@ struct SplitTail: Equatable {
 
 /// One ended record cut in two, and two cut records joined again (spec section 4). Pure: the work is
 /// divided by counted time exactly as a day's share of a record is (`workSeconds(in:)`), so the halves
-/// always add up to the record and no total, goal or streak can move.
+/// always add up to the record: a total, goal or streak moves only when the tail's category does not count.
 extension SessionRecord {
     /// Whether `moment` is a place a cut may land: work, strictly inside the record and clear of every paused
     /// span, edges included, since a cut at a pause would leave one half starting or ending on time that

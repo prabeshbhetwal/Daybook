@@ -133,6 +133,8 @@ extension SessionEngine {
         activeAutomaticAction = nil
         store.sessionName = intent.trimmingCharacters(in: .whitespacesAndNewlines)
         transition(on: .launch)
+        // The launch offers only startable categories; Unsorted is how automatic mode files what it cannot place.
+        if isAuto, workType == .unsorted { activeWorkType = .unsorted }
         // After the launch transition, whose fresh session resets it to manual.
         // A learned category is still the app's guess (B5): `.builtIn`.
         activeProvenance = isAuto ? .automatic(nameByApp: nameByApp) : .manual

@@ -11,7 +11,11 @@ extension SessionEngine {
         // History's Continue, the legacy work-app start. A retired category is
         // offered nowhere new, so none of them may begin one. A stretch that
         // carries on after a break keeps the category it was running under.
-        if state == .idle { activeWorkType = activeWorkType.startableOrFallback }
+        // Unsorted is only how automatic mode files what it cannot place: a fresh session, Reset or Start
+        // Fresh, is the person's and begins under a category they can start.
+        if state == .idle || (!carryingOn && activeWorkType == .unsorted) {
+            activeWorkType = activeWorkType.startableOrFallback
+        }
         // A session begun by activation is the user's, not the app's guess.
         activeIsAuto = false
         activeAutomaticAction = nil

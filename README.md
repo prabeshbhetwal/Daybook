@@ -300,7 +300,15 @@ The details:
   backups carry it.
   Splitting a session in two, or merging the halves back, never changes the
   time you worked: the halves add up to the original. A half you file under
-  another category takes its time to that category.
+  another category takes its time to that category. A session Daybook starts
+  itself, or the second half of one it splits, that it cannot place under one
+  of your categories is filed as Unsorted, which never counts toward your
+  goals.
+- **Leisure is kept apart.** With automatic sessions on, watching or listening
+  for 10 minutes or more outside a session is kept in `leisure.json` beside
+  your sessions: the app and the start and end times, nothing else. It shows
+  on the day's timeline and never counts as focus or as a break. Backups
+  include the file.
 - **A small file remembers how you file things.** When you file a finished
   session under a different category, Daybook keeps `corrections.json` beside
   your sessions. It holds only a pattern fingerprint of that kind of session
@@ -459,7 +467,7 @@ Xcode project: one build script compiles every file under `Sources/` with
 
 ## How it is verified
 
-- **1938 headless checks** run from the app binary itself (`--selftest`). They
+- **1951 headless checks** run from the app binary itself (`--selftest`). They
   use an injected clock, isolated preferences and temporary archives, so they
   cover session state transitions, cross-midnight clipping, wake and presence
   handling, persistence failures, accuracy epochs, corrections and Undo,

@@ -29,6 +29,9 @@ enum ActivityConstants {
     /// How long a remembered category choice steers suggestions after it was last made, in days. Like the
     /// retention above it is no rule, so it stays out of `signature`.
     static let correctionExpiryDays = 90
+    /// How long watching or listening outside a session runs before it is kept as a leisure block. It reads no
+    /// session, so it stays out of `signature`.
+    static let leisureMinRun: TimeInterval = 600
     /// A label the person or a rule chose is held against the evidence (the report's contradiction line)
     /// when what it stands for holds strictly under the low share of the credited time and one other purpose
     /// strictly over the high one. They change what is said about a session, not how it is read, so they

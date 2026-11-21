@@ -191,5 +191,15 @@ Prompt (C23):
 
 ## Follow-ups (not in this phase)
 
-- C1 items: Unsorted for non-focused automatic sessions; B8 split tail as Unsorted; Phase B Tasks 7 and 8.
+- C1 items: Unsorted for non-focused automatic sessions; B8 split tail as Unsorted; Phase B Tasks 7 and 8. All but Task 8 built on 21 November 2026 under the rulings below; Task 8 waits (F5).
+
+### Follow-up rulings (21 November 2026)
+
+| # | Ruling | Reason |
+|---|---|---|
+| F1 | An automatic start whose dominant purpose is not focused work (communication, research, media, utility) is Unsorted unless the person filed that app lately (`learnedWorkType`). Communication no longer starts as Meetings, nor research as Learning. | Spec section 6: the deterministic fallback applies only to focused purposes; below it is Unsorted. |
+| F2 | A session the person begins afresh (Start, Reset, Start Fresh, a resume after the long-away cap) is never Unsorted: it takes the fallback category. A stretch that carries on (pause, break, away answer that keeps the thread, relaunch) keeps Unsorted. Claiming or renaming a running Unsorted session keeps the category the person sees. | Unsorted is how automatic mode files what it cannot place; it is not startable. Claiming changes ownership, not the category on screen. |
+| F3 | An automatic session's own cut files a tail whose evidence is not focused work (a non-focused activity, mixed or unsorted label) under the person's remembered category for that kind of stretch, else Unsorted, source `builtIn`. A focused tail Daybook cannot place, or one with no evidence, still stays whole. A head that does not count toward focus is not cut into an Unsorted tail. The person's "Split here?" offer is unchanged. | Replaces B8's "stays whole": the non-focus tail no longer counts as focus under the head's category. Precedence: a remembered correction beats Unsorted. A cut that moves no figure would only add a row. |
+| F4 | Leisure blocks (Phase B Task 7): a run of media credited hands off (held, passive, or the quiet first minute before holders are read) outside every session, with gaps under one beat bridged, written once to `leisure.json` when no media has closed in the last minute and it is at least `leisureMinRun` long. Found on the heartbeat while idle with automatic mode on, over at most the last six hours. A block a later session covers is trimmed to its longest uncovered stretch when shown, or hidden under `leisureMinRun`; the file is never rewritten. Shown as its own timeline row; read by no total. | B14, Review Focus 4; the quiet first minute is the same watching, and dropping it would cut every run short by a minute. |
+| F5 | Phase B Task 8 (splitting a running automatic session when its window closes) is not built in this round; ended sessions still split themselves when they end (B11, F3). | Its Undo and Merge Back must put back the running session's start, record and thread. The correction journal restores records only, and a receipt kind that restores live state is the change B26 warns makes older builds set `correction-history.json` aside. It needs its own design and review (B12 already marks it droppable). |
 - A catch-up question for records that ended while gated (C4).
