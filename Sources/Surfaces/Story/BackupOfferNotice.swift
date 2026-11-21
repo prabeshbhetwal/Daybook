@@ -3,7 +3,7 @@ import SwiftUI
 /// Shown once to every install: backups start off, so nothing uploads the
 /// reader's history without an explicit choice. One click
 /// turns on a daily backup to iCloud Drive; Not now leaves them off, and
-/// either answer ends the offer. Settings › Privacy has the full choice.
+/// either answer ends the offer. Settings › Privacy & Data has the full choice.
 struct BackupOfferNotice: View {
     @ObservedObject var settings: SettingsModel
 
@@ -21,11 +21,11 @@ struct BackupOfferNotice: View {
                 HStack(spacing: Tokens.Space.s) {
                     Button("Back Up Every Day") { settings.answerBackupOffer(backUpDaily: true) }
                         .buttonStyle(StoryActionStyle(tint: StoryStyle.action))
-                        .accessibilityHint("Backs up to iCloud Drive every day. Settings › Privacy changes where and how often.")
+                        .accessibilityHint("Backs up to iCloud Drive every day. Settings › Privacy & Data changes where and how often.")
                     Button("Not Now") { settings.answerBackupOffer(backUpDaily: false) }
                         .buttonStyle(StoryLinkStyle(tint: StoryStyle.supportingInk))
                         .padding(.leading, Tokens.Space.s)
-                        .accessibilityHint("Leaves backups off. Settings › Privacy can turn them on later.")
+                        .accessibilityHint("Leaves backups off. Settings › Privacy & Data can turn them on later.")
                 }
             }
             .noteCard()

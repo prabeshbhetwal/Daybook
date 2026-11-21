@@ -115,7 +115,7 @@ struct StoryAppDetail: View {
                     .font(Tokens.Typography.body).foregroundStyle(StoryStyle.supportingInk)
             }
             Text(shown < entries.count
-                 ? "The list shows the newest \(shown) visits, set by Recent app visits in Settings › Recording. "
+                 ? "The list shows the newest \(shown) visits, set by Recent app visits in Settings › General. "
                     + "The total counts every visit."
                  : "The total counts every visit.")
                 .font(Tokens.Typography.body).foregroundStyle(StoryStyle.supportingInk)

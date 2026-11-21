@@ -417,7 +417,7 @@ enum FirstRunScript {
                      + "copy it to your own iCloud Drive or to a folder you choose. "
                      + "Otherwise only the update check asks GitHub for anything, and "
                      + "dictation may send audio to Apple when this Mac can't recognise "
-                     + "your language itself. Settings › Privacy sets the backups, shows "
+                     + "your language itself. Settings › Privacy & Data sets the backups, shows "
                      + "you the folder and lets you turn recording off entirely.",
                  anchor: .settings)
         ]),
