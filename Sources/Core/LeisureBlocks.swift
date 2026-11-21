@@ -45,11 +45,24 @@ enum LeisureFinder {
             guard let first = run.first?.start, let end = run.last?.end, case let start = max(first, after),
                   end.timeIntervalSince(start) >= ActivityConstants.leisureMinRun,
                   now.timeIntervalSince(end) >= 2 * bridge else { return nil }
+            // A held second is the holder's: the app in front (Mail under a film) only had the focus.
+            let holder = mostNamed(beats.filter { $0.end > first && ActivityCredit.opening($0) < end }
+                .flatMap { $0.watchedApps ?? [] })
             var seconds: [String: TimeInterval] = [:]
-            for slice in run { seconds[slice.app, default: 0] += slice.end.timeIntervalSince(slice.start) }
-            let app = seconds.max { $0.value == $1.value ? $0.key > $1.key : $0.value < $1.value }?.key ?? ""
-            return LeisureBlock(id: UUID(), start: start, end: end, bundleID: app, activity: .media)
+            for slice in run {
+                seconds[slice.state == .held ? holder ?? slice.app : slice.app, default: 0] += slice.end.timeIntervalSince(slice.start)
+            }
+            return LeisureBlock(id: UUID(), start: start, end: end, bundleID: mostNamed(seconds) ?? "", activity: .media)
         }
+    }
+
+    /// The key with the largest count, the first in sorted order on a tie.
+    private static func mostNamed(_ counts: [String: TimeInterval]) -> String? {
+        counts.max { $0.value == $1.value ? $0.key > $1.key : $0.value < $1.value }?.key
+    }
+
+    private static func mostNamed(_ names: [String]) -> String? {
+        mostNamed(names.reduce(into: [String: TimeInterval]()) { $0[$1, default: 0] += 1 })
     }
 
     /// What the timeline shows of `blocks` beside `sessions`: each trimmed to its longest stretch outside every

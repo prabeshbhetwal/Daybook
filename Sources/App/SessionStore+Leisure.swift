@@ -33,17 +33,19 @@ extension SessionStore {
         if let why = kept.add(found) { Diagnostics.log("Leisure: \(why)") }
     }
 
-    /// The blocks to draw on `day`, cut to the day and clear of every session there.
+    /// The blocks to draw on `day`: each cleared of sessions and held to the ten-minute minimum whole, then cut
+    /// to the day, so a run across midnight shows its part on each side however short.
     func leisureBlocks(on day: DateInterval) -> [LeisureBlock] {
-        let blocks = leisureStore.blocks.filter { $0.end > day.start && $0.start < day.end }.map {
-            LeisureBlock(id: $0.id, start: max($0.start, day.start), end: min($0.end, day.end), bundleID: $0.bundleID,
-                         activity: $0.activity)
-        }
-        guard !blocks.isEmpty else { return [] }
-        var sessions = engine.archive.records.filter { $0.end > day.start && $0.start < day.end }
+        let blocks = leisureStore.blocks.filter { $0.end > day.start && $0.start < day.end }
+        guard let from = blocks.map(\.start).min(), let to = blocks.map(\.end).max() else { return [] }
+        var sessions = engine.archive.records.filter { $0.end > from && $0.start < to }
             .map { DateInterval(start: $0.start, end: $0.end) }
         if engine.state != .idle { sessions.append(DateInterval(start: engine.sessionStartDate, end: max(engine.sessionStartDate, now()))) }
-        return LeisureFinder.visible(blocks, beside: sessions)
+        return LeisureFinder.visible(blocks, beside: sessions).compactMap { block in
+            let start = max(block.start, day.start), end = min(block.end, day.end)
+            return start < end ? LeisureBlock(id: block.id, start: start, end: end, bundleID: block.bundleID,
+                                              activity: block.activity) : nil
+        }
     }
 
     /// The name of the app that held `block`, from the day's app use.

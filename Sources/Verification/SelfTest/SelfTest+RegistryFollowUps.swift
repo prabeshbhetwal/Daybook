@@ -7,5 +7,6 @@ extension SelfTest {
         UnsortedStartChecks.tests
             + UnsortedTailChecks.tests
             + LeisureBlockChecks.tests
+            + LeisureReviewChecks.tests
     }
 }

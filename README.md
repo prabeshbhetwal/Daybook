@@ -467,7 +467,7 @@ Xcode project: one build script compiles every file under `Sources/` with
 
 ## How it is verified
 
-- **1949 headless checks** run from the app binary itself (`--selftest`). They
+- **1951 headless checks** run from the app binary itself (`--selftest`). They
   use an injected clock, isolated preferences and temporary archives, so they
   cover session state transitions, cross-midnight clipping, wake and presence
   handling, persistence failures, accuracy epochs, corrections and Undo,
