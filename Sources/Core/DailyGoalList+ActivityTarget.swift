@@ -21,9 +21,23 @@ extension DailyGoalList {
     /// The day's focus by purpose: the credited seconds of each focus session
     /// row that day, summed, each capped at the ring so an activity row never
     /// reads more than the day's focus (the two are worked out separately).
-    static func focusByPurpose(rows: [[String: TimeInterval]], ring: TimeInterval) -> [String: TimeInterval] {
+    /// Where rows overlap, a later row counts only the share of its span no
+    /// earlier row covers, so the same minutes are not counted twice; its
+    /// credit is taken as spread evenly over its span.
+    static func focusByPurpose(rows: [(span: DateInterval, credited: [String: TimeInterval])],
+                               ring: TimeInterval) -> [String: TimeInterval] {
         var total: [String: TimeInterval] = [:]
-        for row in rows { total.merge(row, uniquingKeysWith: +) }
+        var covered: [DateInterval] = []   // earlier rows' spans, merged, in order
+        for row in rows.sorted(by: { $0.span.start < $1.span.start }) {
+            let overlap = covered.reduce(0.0) { $0 + ($1.intersection(with: row.span)?.duration ?? 0) }
+            let fresh = row.span.duration > 0 ? max(0, 1 - overlap / row.span.duration) : 1
+            total.merge(row.credited.mapValues { $0 * fresh }, uniquingKeysWith: +)
+            if let last = covered.last, last.end >= row.span.start {
+                covered[covered.count - 1] = DateInterval(start: last.start, end: max(last.end, row.span.end))
+            } else {
+                covered.append(row.span)
+            }
+        }
         return total.mapValues { min($0, max(0, ring)) }
     }
 }

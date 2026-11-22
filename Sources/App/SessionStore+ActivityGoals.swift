@@ -24,9 +24,10 @@ extension SessionStore {
         let entries = SessionDigest.entries(records: engine.archive.records,
                                             running: runningTouchesDay ? runningThread() : nil,
                                             now: now(), day: day, calendar: calendar)
-        let rows = entries.compactMap { entry -> [String: TimeInterval]? in
-            guard case .session(let session) = entry, session.workType.countsAsFocus else { return nil }
-            return sessionActivity(for: session)?.credited
+        let rows = entries.compactMap { entry -> (span: DateInterval, credited: [String: TimeInterval])? in
+            guard case .session(let session) = entry, session.workType.countsAsFocus,
+                  let credited = sessionActivity(for: session)?.credited else { return nil }
+            return (DateInterval(start: session.start, end: max(session.start, session.end)), credited)
         }
         // The ring's figure worked out afresh: today's published goal moves only on a tick, and a
         // stale one would cap the rows for the whole minute this is held.

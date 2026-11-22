@@ -79,15 +79,40 @@ enum ActivityGoalTargetChecks: CheckSuite {
         }
         let short = GoalDayResults.judge([coding], credit: [:], appUse: [:], focusByPurpose: ["coding": 29 * 60])
         if short.first?.met != false { problems.append("29 minutes met a 30-minute activity goal") }
+        // A label from a newer version is kept but never judged, so it cannot spoil a perfect day.
+        let future = DailyGoalItem(target: .activity("gaming-focus"), kind: .target, seconds: 30 * 60)
+        let judged = GoalDayResults.judge([coding, future], credit: [:], appUse: [:],
+                                          focusByPurpose: ["coding": 40 * 60])
+        if judged.map(\.goalID) != [coding.id] { problems.append("an unknown activity label was judged: \(judged)") }
+        if !GoalDayResults.isPerfect(judged) { problems.append("an unknown label stopped a perfect day") }
         return problems
     }
 
     private static func focusByPurposeCapped() -> [String] {
         var problems: [String] = []
-        let summed = DailyGoalList.focusByPurpose(rows: [["coding": 600, "design": 60], ["coding": 900]], ring: 3_600)
+        let t0 = SelfTest.anchoredNow()
+        func span(_ from: TimeInterval, _ to: TimeInterval) -> DateInterval {
+            DateInterval(start: t0.addingTimeInterval(from), end: t0.addingTimeInterval(to))
+        }
+        let summed = DailyGoalList.focusByPurpose(
+            rows: [(span(0, 3_600), ["coding": 600, "design": 60]), (span(3_600, 7_200), ["coding": 900])], ring: 3_600)
         if summed != ["coding": 1_500, "design": 60] { problems.append("two rows summed to \(summed)") }
-        let capped = DailyGoalList.focusByPurpose(rows: [["coding": 4_000]], ring: 3_600)
+        let capped = DailyGoalList.focusByPurpose(rows: [(span(0, 3_600), ["coding": 4_000])], ring: 3_600)
         if capped["coding"] != 3_600 { problems.append("a count above the ring was not capped: \(capped)") }
+        // Two sessions over the same half hour, then an hour of design: the ring (90 min) does not hide
+        // that only 30 distinct minutes were coding.
+        let overlapped = DailyGoalList.focusByPurpose(
+            rows: [(span(0, 1_800), ["coding": 1_800]), (span(0, 1_800), ["coding": 1_800]),
+                   (span(1_800, 5_400), ["design": 3_600])], ring: 5_400)
+        if abs((overlapped["coding"] ?? 0) - 1_800) > 0.01 {
+            problems.append("overlapping sessions counted \(overlapped["coding"] ?? 0)s of coding, not 1800s")
+        }
+        // A half overlap counts the new half only.
+        let partly = DailyGoalList.focusByPurpose(
+            rows: [(span(0, 1_800), ["coding": 1_800]), (span(900, 2_700), ["coding": 1_800])], ring: 3_600)
+        if abs((partly["coding"] ?? 0) - 2_700) > 0.01 {
+            problems.append("a half overlap counted \(partly["coding"] ?? 0)s, not 2700s")
+        }
         return problems
     }
 

@@ -69,6 +69,14 @@ extension SettingsGroups {
             !items.contains { $0.target == .activity(purpose.rawValue) }
         }
         let full = items.count >= DailyGoalList.maximum
+        // Built in typed pieces: one long `+` chain of mixed `.option` literals times out the compiler.
+        var menu: [RowMenuItem<AddChoice>] = [.option(.none, full ? "Full" : "Choose")]
+        if !full {
+            menu += free.map { RowMenuItem<AddChoice>.option(.category($0.rawValue), "\($0.displayName) goal") }
+            menu += freeTargets.map { RowMenuItem<AddChoice>.option(.activityTarget($0.rawValue), "\($0.displayName) in any session") }
+            menu += freeActivities.map { RowMenuItem<AddChoice>.option(.activityLimit($0.rawValue), "\($0.displayName) limit") }
+            menu.append(.option(.appLimit, "App limit"))
+        }
         return preferenceRow("Add Goal", detail: full ? "You can keep up to \(DailyGoalList.maximum) goals."
                              : "Limits on a kind of site, such as video, are not available yet.") {
             RowMenu("Add Goal",
@@ -84,12 +92,7 @@ extension SettingsGroups {
                         case .appLimit: choosingGoalApp = true
                         }
                     }),
-                    items: full ? [.option(.none, "Full")]
-                        : [.option(.none, "Choose")]
-                        + free.map { .option(.category($0.rawValue), "\($0.displayName) goal") }
-                        + freeTargets.map { .option(.activityTarget($0.rawValue), "\($0.displayName) in any session") }
-                        + freeActivities.map { .option(.activityLimit($0.rawValue), "\($0.displayName) limit") }
-                        + [.option(.appLimit, "App limit")])
+                    items: menu)
         }
         .popover(isPresented: $choosingGoalApp, arrowEdge: .bottom) { goalAppChooser(items) }
     }

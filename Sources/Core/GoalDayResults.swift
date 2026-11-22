@@ -38,7 +38,9 @@ enum GoalDayResults {
                 return DailyGoalResult(goalID: item.id, target: item.target, kind: item.kind,
                                        amount: item.seconds, counted: counted,
                                        met: minutes(counted) <= minutes(item.seconds))
-            case .activity(let raw) where item.kind == .target:
+            // Only a purpose this version knows as focused: a label kept from a newer version has no
+            // count here, so it is left unjudged rather than recorded as missed.
+            case .activity(let raw) where item.kind == .target && AppPurpose(rawValue: raw)?.isFocused == true:
                 let counted = focusByPurpose[raw] ?? 0
                 return DailyGoalResult(goalID: item.id, target: item.target, kind: item.kind,
                                        amount: item.seconds, counted: counted,
