@@ -12,10 +12,13 @@ enum GoalDayResults {
     ///   - appUse: all recorded foreground time, by bundle id.
     ///   - purposeUse: the same time by purpose raw value (`DailyGoalList.purposeUse`).
     ///   - unreadUse: time in apps whose purpose is unknown (`DailyGoalList.unreadUse`).
+    ///   - focusByPurpose: focus with app use recorded, by purpose raw value, in any focus session
+    ///     (`DailyGoalList.focusByPurpose`): what an activity target counts.
     static func judge(_ items: [DailyGoalItem], credit: [String: TimeInterval],
                       appUse: [String: TimeInterval],
                       purposeUse: [String: TimeInterval] = [:],
-                      unreadUse: TimeInterval = 0) -> [DailyGoalResult] {
+                      unreadUse: TimeInterval = 0,
+                      focusByPurpose: [String: TimeInterval] = [:]) -> [DailyGoalResult] {
         let minutes = { (DurationText.wholeSeconds($0) ?? 0) / 60 }
         return DailyGoalList.usable(items).compactMap { item in
             // A paused goal is recorded as paused, so the day is known to have skipped it. So is one on a category
@@ -35,6 +38,13 @@ enum GoalDayResults {
                 return DailyGoalResult(goalID: item.id, target: item.target, kind: item.kind,
                                        amount: item.seconds, counted: counted,
                                        met: minutes(counted) <= minutes(item.seconds))
+            // Only a purpose this version knows as focused: a label kept from a newer version has no
+            // count here, so it is left unjudged rather than recorded as missed.
+            case .activity(let raw) where item.kind == .target && AppPurpose(rawValue: raw)?.isFocused == true:
+                let counted = focusByPurpose[raw] ?? 0
+                return DailyGoalResult(goalID: item.id, target: item.target, kind: item.kind,
+                                       amount: item.seconds, counted: counted,
+                                       met: minutes(counted) >= minutes(item.seconds))
             case .activity(let raw) where item.kind == .limit:
                 // Kept only if it holds even were every unread minute this activity,
                 // broken once it is over; otherwise recorded as unjudged.
@@ -62,9 +72,11 @@ enum GoalDayResults {
     static func close(goals: [DailyGoalItem], credit: [String: TimeInterval],
                       appUse: [String: TimeInterval],
                       purposeUse: [String: TimeInterval] = [:],
-                      unreadUse: TimeInterval = 0) -> [DailyGoalResult]? {
+                      unreadUse: TimeInterval = 0,
+                      focusByPurpose: [String: TimeInterval] = [:]) -> [DailyGoalResult]? {
         guard appUse.values.contains(where: { $0 > 0 }) || credit.values.contains(where: { $0 > 0 }) else { return nil }
-        let results = judge(goals, credit: credit, appUse: appUse, purposeUse: purposeUse, unreadUse: unreadUse)
+        let results = judge(goals, credit: credit, appUse: appUse, purposeUse: purposeUse, unreadUse: unreadUse,
+                            focusByPurpose: focusByPurpose)
         return results.isEmpty ? nil : results
     }
 

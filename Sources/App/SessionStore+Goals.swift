@@ -69,9 +69,11 @@ extension SessionStore {
             let appUse = Dictionary(reading.apps.map { ($0.bundleID, $0.total) }, uniquingKeysWith: +)
             let dayApps = reading.apps.map { ($0.bundleID, $0.total) }
             let overrides = engine.store.purposeOverrides
+            let byPurpose = DailyGoalList.activityTargets(goals).isEmpty ? [:] : focusByPurpose(on: day)
             if let results = GoalDayResults.close(goals: goals, credit: reading.creditByCategory, appUse: appUse,
                                                   purposeUse: DailyGoalList.purposeUse(apps: dayApps, overrides: overrides),
-                                                  unreadUse: DailyGoalList.unreadUse(apps: dayApps, overrides: overrides)) {
+                                                  unreadUse: DailyGoalList.unreadUse(apps: dayApps, overrides: overrides),
+                                                  focusByPurpose: byPurpose) {
                 recorded[dayKey] = results
                 changed = true
             }
