@@ -8,5 +8,6 @@ extension SelfTest {
             + UnsortedTailChecks.tests
             + LeisureBlockChecks.tests
             + LeisureReviewChecks.tests
+            + ActivityGoalTargetChecks.tests
     }
 }

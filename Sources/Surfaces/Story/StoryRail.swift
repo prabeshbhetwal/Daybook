@@ -375,7 +375,8 @@ struct StoryRail: View {
                              accessibilityTitle: "Share of goal")
                 }
             }
-            if !categoryGoals.isEmpty || !appLimits.isEmpty || !activityLimits.isEmpty || !siteLimits.isEmpty {
+            if !categoryGoals.isEmpty || !activityTargets.isEmpty || !appLimits.isEmpty || !activityLimits.isEmpty
+                || !siteLimits.isEmpty {
                 categoryGoalRows
             }
             // The Yesterday notice says it when it is offered; without one (no focus
@@ -429,42 +430,13 @@ struct StoryRail: View {
         VStack(alignment: .leading, spacing: Tokens.Space.s) {
             Divider()
             ForEach(categoryGoals, id: \.type) { item in
-                let share = min(1, item.achieved / item.goal)
-                VStack(alignment: .leading, spacing: Tokens.Space.xs) {
-                    HStack(spacing: Tokens.Space.xs) {
-                        Image(systemName: item.type.symbolName)
-                            .font(Tokens.Typography.caption)
-                            .symbolRenderingMode(.hierarchical)
-                            .foregroundStyle(Tokens.Palette.workType(item.type))
-                            .frame(width: 14.zoomed)
-                        Text(item.type.displayName)
-                            .font(Tokens.Typography.body)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                        Spacer(minLength: Tokens.Space.s)
-                        Text(durations: share >= 1 ? "\(Tokens.duration(item.goal)) ✓"
-                             : "\(Tokens.duration(item.achieved)) of \(Tokens.duration(item.goal))")
-                            .font(Tokens.Typography.body.monospacedDigit())
-                            .fixedSize()
-                            .foregroundStyle(share >= 1 ? AnyShapeStyle(StoryStyle.successInk)
-                                                        : AnyShapeStyle(StoryStyle.supportingInk))
-                    }
-                    GeometryReader { geometry in
-                        Capsule().fill(StoryStyle.line)
-                            .overlay(alignment: .leading) {
-                                Capsule().fill(Tokens.Palette.workType(item.type))
-                                    .frame(width: geometry.size.width * share)
-                            }
-                    }
-                    .frame(height: 3.zoomed)
-                }
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel(DurationText.spoken(in: "\(item.type.displayName): \(Tokens.duration(item.achieved)) of a \(Tokens.duration(item.goal)) goal"))
                 // A session named "Coding" under Deep work is not here: the
-                // goal counts the category, and says so.
-                .help("Counts sessions filed under \(item.type.displayName)")
-                .accessibilityHint("Counts sessions filed under \(item.type.displayName)")
+                // goal counts the category, and says so. An activity goal counts it.
+                goalTargetRow(symbol: item.type.symbolName, tint: Tokens.Palette.workType(item.type),
+                              name: item.type.displayName, goal: item.goal, achieved: item.achieved,
+                              help: "Counts sessions filed under \(item.type.displayName)")
             }
+            ForEach(activityTargets, id: \.id) { item in activityTargetRow(item) }
             ForEach(appLimits, id: \.bundleID) { limit in limitRow(limit) }
             ForEach(activityLimits, id: \.id) { limit in
                 limitRow((limit.purpose.rawValue, limit.purpose.displayName, limit.limit, limit.used),

@@ -11,6 +11,7 @@ private enum GoalChoice: Hashable {
 private enum AddChoice: Hashable {
     case none
     case category(String)
+    case activityTarget(String)
     case activityLimit(String)
     case appLimit
 }
@@ -31,7 +32,13 @@ extension SettingsGroups {
     }
 
     private func goalRow(_ item: DailyGoalItem) -> some View {
-        let kind = item.kind == .limit ? "App limit" : "Category goal"
+        let kind: String
+        switch (item.target, item.kind) {
+        case (.activity, .target): kind = "Activity goal, in any session"
+        case (.activity, _): kind = "Activity limit"
+        case (_, .limit): kind = "App limit"
+        default: kind = "Category goal"
+        }
         return preferenceRow(goalName(item), detail: item.isPaused ? "\(kind), paused" : kind) {
             RowMenu("Amount for \(goalName(item))",
                     selection: Binding(get: { GoalChoice.amount(item.seconds) },
@@ -58,6 +65,9 @@ extension SettingsGroups {
         let freeActivities = DailyGoalList.limitablePurposes.filter { purpose in
             !items.contains { $0.target == .activity(purpose.rawValue) }
         }
+        let freeTargets = DailyGoalList.targetablePurposes.filter { purpose in
+            !items.contains { $0.target == .activity(purpose.rawValue) }
+        }
         let full = items.count >= DailyGoalList.maximum
         return preferenceRow("Add Goal", detail: full ? "You can keep up to \(DailyGoalList.maximum) goals."
                              : "Limits on a kind of site, such as video, are not available yet.") {
@@ -67,6 +77,8 @@ extension SettingsGroups {
                         case .none: break
                         case .category(let id):
                             model.addGoal(DailyGoalItem(target: .category(id), kind: .target, seconds: 2 * 3_600))
+                        case .activityTarget(let raw):
+                            model.addGoal(DailyGoalItem(target: .activity(raw), kind: .target, seconds: 2 * 3_600))
                         case .activityLimit(let raw):
                             model.addGoal(DailyGoalItem(target: .activity(raw), kind: .limit, seconds: 2 * 3_600))
                         case .appLimit: choosingGoalApp = true
@@ -75,6 +87,7 @@ extension SettingsGroups {
                     items: full ? [.option(.none, "Full")]
                         : [.option(.none, "Choose")]
                         + free.map { .option(.category($0.rawValue), "\($0.displayName) goal") }
+                        + freeTargets.map { .option(.activityTarget($0.rawValue), "\($0.displayName) in any session") }
                         + freeActivities.map { .option(.activityLimit($0.rawValue), "\($0.displayName) limit") }
                         + [.option(.appLimit, "App limit")])
         }
