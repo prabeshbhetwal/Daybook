@@ -43,12 +43,14 @@ struct QuietSampler {
         // nobody back. A negative idle would have read the same way.
         if let end = watchingEndedAt, end > now { watchingEndedAt = nil }
         if let seen = lastAgentSeen, seen > now { lastAgentSeen = nil }
+        let film = film && !idlePaused
+        // Only a film taken as presence spares the stretch: one that starts
+        // during an idle pause is nobody's, and must not keep the cap away.
         if film { filmSeen = true }
         if pastCap, !filmSeen {
             self = QuietSampler()
             return (.idleObserved(seconds: quiet), quiet)
         }
-        let film = film && !idlePaused
         let agentSeen = idlePaused ? nil : agentSeen
         if let agentSeen { lastAgentSeen = agentSeen }
         if film || agentSeen != nil {

@@ -44,15 +44,16 @@ enum WalkAwayChecks: CheckSuite {
     private static func walkAwayIsAnAbsence() -> [String] {
         MainActor.assumeIsolated {
             var problems: [String] = []
-            // (label, minutes away, last agent ping in seconds after leaving).
-            // 88 minutes passes the cap; 20 minutes is asked about.
-            let cases: [(String, Int, TimeInterval?)] = [
-                ("AI app in front, keep-awake on, 88m", 88, nil),
-                ("AI app in front, keep-awake on, 20m", 20, nil),
-                ("agent pinging until the cap, 88m", 88, 3_590),
-                ("agent stopping at 40m, 88m", 88, 2_400),
+            // (label, minutes away, last agent ping and autoplay start, in
+            // seconds after leaving). 88 minutes passes the cap; 20 is asked about.
+            let cases: [(String, Int, TimeInterval?, TimeInterval?)] = [
+                ("AI app in front, keep-awake on, 88m", 88, nil, nil),
+                ("AI app in front, keep-awake on, 20m", 20, nil, nil),
+                ("agent pinging until the cap, 88m", 88, 3_590, nil),
+                ("agent stopping at 40m, 88m", 88, 2_400, nil),
+                ("agent stopping at 40m, then autoplay during the pause, 88m", 88, 2_400, 3_590),
             ]
-            for (label, minutes, lastPing) in cases {
+            for (label, minutes, lastPing, autoplayFrom) in cases {
                 guard let r = ActivityEvidenceStoreChecks.rig(sessionAge: 900, countsInput: true) else {
                     return ["could not create isolated preferences"]
                 }
@@ -64,7 +65,11 @@ enum WalkAwayChecks: CheckSuite {
                 r.persistence.breakThreshold = 300
                 r.persistence.longAwayCap = 3_600
                 r.persistence.noticesAppsAtWork = false
-                r.store.readWatching = { .init(watching: false, keptAwake: true, watchedApps: []) }
+                let autoplay = BreakStoreChecks.Box(false)
+                r.store.readWatching = {
+                    .init(watching: autoplay.value, keptAwake: true,
+                          watchedApps: autoplay.value ? ["com.example.player"] : [])
+                }
                 r.activate("com.anthropic.claudefordesktop")
 
                 let left = r.clock.value
@@ -73,6 +78,7 @@ enum WalkAwayChecks: CheckSuite {
                     r.idle.value = seconds
                     r.clock.value = left.addingTimeInterval(seconds)
                     if let lastPing, seconds <= lastPing { r.store.lastAgentPing = r.clock.value }
+                    autoplay.value = autoplayFrom.map { seconds >= $0 } ?? false
                     r.store.runTick()
                     if let record = r.engine.archive.records.first {
                         // Once the session has ended at the cap, its record is what counts.
