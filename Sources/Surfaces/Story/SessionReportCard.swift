@@ -5,15 +5,20 @@ import SwiftUI
 /// nothing in it changes while the card is open, though the store publishes
 /// every second. A running session's is rebuilt as it grows.
 final class SessionReportCache: ObservableObject {
-    private var built: (report: SessionReport, list: ReportActivityList)?
+    private var built: (report: SessionReport, list: ReportActivityList, categories: String)?
 
+    /// Kept until the session changes or an app's category does: a category edited from the
+    /// report itself redraws its phases and lines at once.
     func build(for session: DaySession, store: SessionStore) -> (report: SessionReport, list: ReportActivityList) {
-        if !session.isRunning, let built, built.report.session == session { return built }
+        let categories = SessionActivityShape.digest(store.purposeOverrides)
+        if !session.isRunning, let built, built.report.session == session, built.categories == categories {
+            return (built.report, built.list)
+        }
         let report = SessionReport.make(for: session, store: store)
         let list = ReportActivityList.make(
             listed: report.listedIntervals, power: report.power(for:),
             gapTitle: { report.gapReasons[$0.id]?.title ?? "Not recorded" })
-        built = (report, list)
+        built = (report, list, categories)
         return (report, list)
     }
 
