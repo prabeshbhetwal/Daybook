@@ -46,10 +46,11 @@ struct SessionActivityShape: Codable, Equatable {
     var overridesDigest: String? = nil
 
     /// A digest of the purpose overrides that holds across launches (FNV-1a over the sorted pairs):
-    /// Swift's `Hasher` is seeded afresh each launch, so it cannot be stored.
+    /// Swift's `Hasher` is seeded afresh each launch, so it cannot be stored. Only choices in effect count:
+    /// a cleared choice's empty mark changes no category, so undoing a choice restores the digest.
     static func digest(_ overrides: [String: String]) -> String {
         var hash: UInt64 = 0xcbf2_9ce4_8422_2325
-        for byte in overrides.sorted(by: { $0.key < $1.key }).map({ "\($0.key)=\($0.value)\n" }).joined().utf8 {
+        for byte in overrides.filter({ !$0.value.isEmpty }).sorted(by: { $0.key < $1.key }).map({ "\($0.key)=\($0.value)\n" }).joined().utf8 {
             hash = (hash ^ UInt64(byte)) &* 0x100_0000_01b3
         }
         return String(hash, radix: 16)

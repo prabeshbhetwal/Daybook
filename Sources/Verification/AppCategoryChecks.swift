@@ -85,6 +85,11 @@ enum AppCategoryChecks: CheckSuite {
             rig.f.store.setAppPurpose(.design, for: "com.apple.Terminal")
             let after = rig.f.store.sessionActivity(for: rig.session())?.credited ?? [:]
             expect((after["research"] ?? 0) > 1_700, "the Safari session kept its research, got \(after)", &problems)
+            // A choice for Safari itself, then Undo: the kept summary is valid again.
+            rig.f.store.setAppPurpose(.coding, for: "com.apple.Safari")
+            rig.f.store.setAppPurpose(nil, for: "com.apple.Safari")
+            let undone = rig.f.store.sessionActivity(for: rig.session())?.credited ?? [:]
+            expect((undone["research"] ?? 0) > 1_700, "Undo restored Safari's research, got \(undone)", &problems)
         }
     }
 
