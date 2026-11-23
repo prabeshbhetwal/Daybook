@@ -167,9 +167,14 @@ extension SessionStore {
             ? AgentPresence.lastSeen(now: now, quiet: quiet, lastActivity: lastActivity,
                                      policy: engine.store.agentQuietPolicy, cap: engine.store.longAwayCap)
             : nil
+        let pastCap = quiet >= engine.store.longAwayCap
+        // Past the cap nobody was here since the last input: an idle pause this
+        // sampler saw begin at an agent's last step moves back there.
+        if pastCap, quietSampler.idleAnchoredToAgent {
+            engine.backdateAgentIdlePause(toLastInput: now.addingTimeInterval(-quiet))
+        }
         let reading = quietSampler.read(now: now, quiet: quiet, film: holders.watching, agentSeen: agentSeen,
-                                        idlePaused: engine.state == .paused(reason: .idle),
-                                        pastCap: quiet >= engine.store.longAwayCap)
+                                        idlePaused: engine.state == .paused(reason: .idle), pastCap: pastCap)
         tracker?.observeIdle(seconds: reading.trackerSeconds)
         engine.transition(on: reading.event)
         if case .watchingObserved(_, let byAgent) = reading.event {

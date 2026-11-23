@@ -18,6 +18,10 @@ struct QuietSampler {
     /// then, so the cap runs from there, not from the last input before it.
     private var filmSeen = false
 
+    /// Idle in this quiet stretch counts from an agent's last step, with no
+    /// film since: what the long-away cap may move back to the last input.
+    var idleAnchoredToAgent: Bool { lastAgentSeen != nil && !filmSeen }
+
     /// Recent input: nothing to tell apart, and any watching is over.
     mutating func noteInput() { self = QuietSampler() }
 
