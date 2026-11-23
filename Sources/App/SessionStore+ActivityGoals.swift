@@ -51,7 +51,10 @@ extension SessionStore {
             .map { DateInterval(start: $0.start, end: max($0.start, $0.end)) }
         // A stretch with no record yet is the running one: it counts as the session now running is filed.
         let recorded = records.map { DateInterval(start: $0.start, end: max($0.start, $0.end)) }
-        let unrecorded = session.spans.filter { span in !recorded.contains { $0.intersects(span) } }
+        // Real overlap, not a shared endpoint: a reset starts the next stretch the instant the last one ends.
+        let unrecorded = session.spans.filter { span in
+            !recorded.contains { ($0.intersection(with: span)?.duration ?? 0) > 0 }
+        }
         let runningCounts = session.isRunning ? engine.activeWorkType.countsAsFocus : session.workType.countsAsFocus
         return counted + (runningCounts ? unrecorded : [])
     }
