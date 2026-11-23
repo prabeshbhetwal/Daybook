@@ -112,6 +112,9 @@ enum CategoryAssistantRig {
             let calls = Calls(), mode = Mode()
             let assistant = CategoryAssistant(store: f.store, labels: AILabelStore(directory: f.engine.archive.dataDirectoryURL),
                                               assigns: { mode.assigns })
+            // The real Mac's state, read by default, skipped the question on a hot or battery-saving machine.
+            assistant.lowPower = { false }
+            assistant.thermalSerious = { false }
             assistant.responder = { question in
                 calls.questions.append(question)
                 return try await reply(calls.questions.count, question)
