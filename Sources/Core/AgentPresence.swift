@@ -20,11 +20,9 @@ enum AgentQuietPolicy: String, CaseIterable {
 
 /// Whether an AI agent is working for the person at the session. Evidence,
 /// surest first: the agent's own hooks posting `pingName`; a coding or AI app
-/// busy talking to its model (`WorkTraffic`); and, when the user allows them,
-/// an agent's window in front or a keep-awake app holding the screen on.
-///
-/// A screen kept on is not, by itself, evidence: keep-awake apps hold it on
-/// over lunch too. It counts only when the user says so.
+/// busy using the network or processor (`WorkTraffic`). An agent's window in
+/// front, or a keep-awake app holding the screen on, is not evidence: both
+/// stay exactly so when the person walks away.
 enum AgentPresence {
     /// The Darwin notification an agent hook posts: `notifyutil -p <name>`.
     static let pingName = "com.prabesh.daybook.agent-activity"
@@ -72,13 +70,9 @@ enum AgentPresence {
     ///   - lastActivity: the latest hook ping or busy network reading. One from
     ///     before the last key or click says nothing about the quiet since; kept,
     ///     it held an idle pause off for up to `window` with no agent at work.
-    ///   - keptAwake: a keep-awake app holds the screen on.
-    static func lastSeen(now: Date, quiet: TimeInterval, lastActivity: Date?, frontmostBundleID: String?,
-                         keptAwake: Bool, policy: AgentQuietPolicy, countsAppInFront: Bool,
-                         countsKeepAwake: Bool, cap: TimeInterval) -> Date? {
+    static func lastSeen(now: Date, quiet: TimeInterval, lastActivity: Date?,
+                         policy: AgentQuietPolicy, cap: TimeInterval) -> Date? {
         guard policy != .ignore, quiet < cap else { return nil }
-        if countsKeepAwake, keptAwake { return now }
-        if countsAppInFront, let frontmostBundleID, isWorkApp(frontmostBundleID) { return now }
         guard let lastActivity, lastActivity <= now,
               now.timeIntervalSince(lastActivity) < min(window, quiet) else { return nil }
         return lastActivity

@@ -16,16 +16,6 @@ extension SettingsGroups {
                       isOn: $model.noticesAppsAtWork)
                 .disabled(model.agentQuietPolicy == .ignore)
             rowDivider
-            toggleRow("Count a coding app in front as you being here",
-                      detail: "Leave off if you often walk away with it open.",
-                      isOn: $model.countsAgentAppInFront)
-                .disabled(model.agentQuietPolicy == .ignore)
-            rowDivider
-            toggleRow("Count a keep-awake app as you being here",
-                      detail: "Amphetamine, Caffeine and similar. A lunch with one on counts too.",
-                      isOn: $model.countsKeepAwake)
-                .disabled(model.agentQuietPolicy == .ignore)
-            rowDivider
             preferenceRow("Let your agent tell Daybook when it works",
                           detail: "Claude Code, Codex, Gemini CLI or Cursor. Paste the message into the agent.") {
                 IconButton(systemImage: copiedAgentSetup ? "checkmark" : "doc.on.doc",

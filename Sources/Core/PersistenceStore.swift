@@ -71,6 +71,8 @@ final class PersistenceStore {
         static let categoryChoices = "fc.categoryChoices"
         static let idlePauseThreshold = "fc.idlePauseThreshold"
         static let agentQuietPolicy = "fc.agentQuietPolicy"
+        /// Retired: an agent window in front or a keep-awake app is no longer
+        /// presence. Kept so a reset still clears an old value.
         static let countsAgentAppInFront = "fc.countsAgentAppInFront"
         static let noticesAppsAtWork = "fc.noticesAppsAtWork"
         static let countsKeepAwake = "fc.countsKeepAwake"
@@ -611,26 +613,12 @@ final class PersistenceStore {
         set { defaults.set(newValue.rawValue, forKey: Key.agentQuietPolicy) }
     }
 
-    /// Whether an agent's window in front counts as the user being there.
-    /// Off by default: it cannot tell watching from having walked away.
-    var countsAgentAppInFront: Bool {
-        get { defaults.bool(forKey: Key.countsAgentAppInFront) }
-        set { defaults.set(newValue, forKey: Key.countsAgentAppInFront) }
-    }
-
     /// Whether an app used in the session that keeps sending data or keeps
     /// the processor busy counts as work going on (`WorkTraffic`). On by
     /// default: it is the one way that needs no setup and works with any app.
     var noticesAppsAtWork: Bool {
         get { defaults.object(forKey: Key.noticesAppsAtWork) as? Bool ?? true }
         set { defaults.set(newValue, forKey: Key.noticesAppsAtWork) }
-    }
-
-    /// Whether a keep-awake app holding the screen on counts as the user
-    /// being there. Off by default: it holds the screen on over lunch too.
-    var countsKeepAwake: Bool {
-        get { defaults.bool(forKey: Key.countsKeepAwake) }
-        set { defaults.set(newValue, forKey: Key.countsKeepAwake) }
     }
 
     /// A day joins the streak once its focus reaches this.
