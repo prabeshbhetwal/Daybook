@@ -108,9 +108,14 @@ extension SessionStore {
     private func keptSummaryIsStale(_ kept: [SessionActivityShape], apps: RecordedActivity) -> Bool {
         let overrides = engine.store.purposeOverrides
         let digest = SessionActivityShape.digest(overrides), none = SessionActivityShape.digest([:])
-        guard kept.contains(where: { ($0.overridesDigest ?? none) != digest }) else { return false }
-        let chosen = Set(overrides.keys.map { $0.lowercased() })
-        return apps.intervals.contains { $0.bundleID.map { chosen.contains($0.lowercased()) } ?? false }
+        let stale = kept.filter { ($0.overridesDigest ?? none) != digest }
+        guard let savedBy = stale.map(\.bounds.end).min() else { return false }
+        // Only an app whose category changed after the summary was made: one already chosen then is in it.
+        let changes = engine.store.purposeOverrideChanges
+        let changed = Set(overrides.keys.map { $0.lowercased() }).filter {
+            (changes[$0].map { Date(timeIntervalSinceReferenceDate: $0) } ?? .distantFuture) > savedBy
+        }
+        return apps.intervals.contains { $0.bundleID.map { changed.contains($0.lowercased()) } ?? false }
     }
 
     /// Nil when the beats leave part of the counted time unrecorded (app use switched on partway): the row

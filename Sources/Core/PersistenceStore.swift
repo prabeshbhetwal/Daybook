@@ -9,6 +9,7 @@ final class PersistenceStore {
         static let state = "fc.state"
         static let overrides = "fc.overrides"
         static let purposeOverrides = "fc.purposeOverrides"
+        static let purposeOverrideChanges = "fc.purposeOverrideChanges"
         static let dailyGoal = "fc.dailyGoal"
         static let autoSessions = "fc.autoSessions"
         static let rewardsEnabled = "fc.rewardsEnabled"
@@ -492,6 +493,25 @@ final class PersistenceStore {
     var purposeOverrides: [String: String] {
         get { storedDictionary(Key.purposeOverrides) }
         set { defaults.set(newValue, forKey: Key.purposeOverrides) }
+    }
+
+    /// When each app's category choice last changed (lowercased bundle id to seconds since 2001), so a
+    /// summary kept from before the change is known to be stale and one kept after it is not.
+    var purposeOverrideChanges: [String: Double] {
+        get { storedDictionary(Key.purposeOverrideChanges) }
+        set { defaults.set(newValue, forKey: Key.purposeOverrideChanges) }
+    }
+
+    /// Saves the category choices, noting when each app whose category changed did so.
+    func savePurposeOverrides(_ next: [String: String], at moment: Date) {
+        let previous = purposeOverrides
+        var changes = purposeOverrideChanges
+        for app in Set((Array(previous.keys) + Array(next.keys)).map { $0.lowercased() })
+        where PurposeMap.override(for: app, in: previous) != PurposeMap.override(for: app, in: next) {
+            changes[app] = moment.timeIntervalSinceReferenceDate
+        }
+        purposeOverrides = next
+        purposeOverrideChanges = changes
     }
 
     var overrides: [String: String] {
@@ -1022,7 +1042,7 @@ final class PersistenceStore {
     func removeAll() {
         let keys = [Key.state, Key.overrides, Key.threshold, Key.name,
                     Key.menuSessions, Key.menuApps, Key.trackingDisabled,
-                    Key.purposeOverrides, Key.dailyGoal, Key.autoSessions,
+                    Key.purposeOverrides, Key.purposeOverrideChanges, Key.dailyGoal, Key.autoSessions,
                     Key.rewardsEnabled, Key.hapticsEnabled, Key.rewardLog, Key.learning,
                     Key.useAppleIntelligence, Key.yesterdayNoteDismissedDay,
                     Key.logGrouping,

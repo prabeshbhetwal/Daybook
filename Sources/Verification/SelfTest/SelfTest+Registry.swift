@@ -252,6 +252,7 @@ extension SelfTest {
             + RenameSaveChecks.tests
             + WalkAwayChecks.tests
             + AppCategoryChecks.tests
+            + ReleaseReviewChecks.tests
             + LeisureEvidenceChecks.tests
     }
 
