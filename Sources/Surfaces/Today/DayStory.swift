@@ -1007,19 +1007,20 @@ struct SessionEntryCard: View {
                     }
                 }
                 .accessibilityLabel("Name this work")
-            Button("Save Name", action: commitRename)
+            // Always usable: a category pick applies at once, so with the name
+            // unchanged Save simply closes the editor.
+            Button("Save", action: commitRename)
                 .buttonStyle(StoryActionStyle(tint: StoryStyle.action))
-                .disabled(draft.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                          || draft.text.trimmingCharacters(in: .whitespacesAndNewlines) == session.name)
         }
         .onExitCommand(perform: finishRenaming)
     }
 
     private func commitRename() {
-        let trimmed = draft.text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        // A saved name keeps the editor open: the category may be next.
-        if onRename?(trimmed) == true { draft.text = trimmed }
+        guard case .rename(let name) = RenameSaveAction.resolve(draft: draft.text, current: session.name) else {
+            finishRenaming(); return
+        }
+        // A rejected name keeps the editor open so it can be corrected.
+        if onRename?(name) == true { draft.text = name; finishRenaming() }
     }
 
     private func finishRenaming() {

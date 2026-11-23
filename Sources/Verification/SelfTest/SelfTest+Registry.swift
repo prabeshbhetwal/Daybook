@@ -249,6 +249,7 @@ extension SelfTest {
             + DiagnosticsLogChecks.tests
             + ToolbarTitleFitChecks.tests
             + AwayGapChecks.tests + aiCategoryTests + followUpTests
+            + RenameSaveChecks.tests
             + AppCategoryChecks.tests
     }
 
