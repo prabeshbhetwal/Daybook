@@ -45,6 +45,21 @@ enum AppCategoryChecks: CheckSuite {
             let after = rig.f.store.sessionActivity(for: rig.session())?.credited ?? [:]
             expect((after["design"] ?? 0) > 1_700 && (after["coding"] ?? 0) < 1,
                    "Terminal's half hour moved to design, got \(after)", &problems)
+        } + untouchedSummaryKeepsCredit()
+    }
+
+    /// A browser-only session keeps its kept research credit when an app it never used changes category:
+    /// rebuilt from app use alone, a browser would earn nothing.
+    private static func untouchedSummaryKeepsCredit() -> [String] {
+        var spec = CategoryAssistantRig.Spec()
+        spec.credited = [.research: 1_800]
+        let start = SelfTest.base
+        let usage = [AppUsageSession(bundleID: "com.apple.Safari", appName: "Safari", start: start,
+                                     end: start.addingTimeInterval(1_800), endReason: .appSwitch)]
+        return CategoryAssistantRig.withRig([spec], usage: usage) { rig, problems in
+            rig.f.store.setAppPurpose(.design, for: "com.apple.Terminal")
+            let after = rig.f.store.sessionActivity(for: rig.session())?.credited ?? [:]
+            expect((after["research"] ?? 0) > 1_700, "the Safari session kept its research, got \(after)", &problems)
         }
     }
 

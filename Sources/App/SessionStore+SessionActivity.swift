@@ -88,19 +88,30 @@ extension SessionStore {
             }
         }
         let kept = session.recordIDs.compactMap { metadataArchive.metadata(for: $0)?.activityShape }
-        // A summary kept under other app categories is stale once its beats are gone: app use stands in.
-        // One saved before the digest was kept counts as made with none.
-        let digest = SessionActivityShape.digest(engine.store.purposeOverrides), none = SessionActivityShape.digest([:])
-        let current = kept.allSatisfy { ($0.overridesDigest ?? none) == digest }
-        if !partlyRecorded, current, !kept.isEmpty, kept.count == session.recordIDs.count, let joined = SessionActivityShape.joined(kept) {
-            return joined.clipped(to: bounds)
-        }
         let recorded = apps ?? RecordedActivity(segments: timelineSegments(of: session, on: session.start),
                                                 spans: session.spans)
+        if !partlyRecorded, !kept.isEmpty, kept.count == session.recordIDs.count,
+           !keptSummaryIsStale(kept, apps: recorded), let joined = SessionActivityShape.joined(kept) {
+            return joined.clipped(to: bounds)
+        }
         // Its trusted pauses are not counted: app use goes on through a manual pause. With none of its records
         // found, its spans count whole.
         return ActivityDerivation.appsOnly(recorded, bounds: bounds, purposeOverrides: engine.store.purposeOverrides,
                                            counted: records.isEmpty ? nil : CountedTime.spans(records: records, beats: []))
+    }
+
+    /// A summary kept under other app categories, once its beats are gone, is stale only when the
+    /// session used an app the person has chosen a category for: app use then stands in. Other sessions
+    /// keep their summary, so a change to Terminal does not cost a Safari-only day its research credit.
+    /// One saved before the digest was kept counts as made with none.
+    /// shortcut: an override removed for an app the session used keeps the old summary; storing each
+    /// summary's per-app purposes would close it.
+    private func keptSummaryIsStale(_ kept: [SessionActivityShape], apps: RecordedActivity) -> Bool {
+        let overrides = engine.store.purposeOverrides
+        let digest = SessionActivityShape.digest(overrides), none = SessionActivityShape.digest([:])
+        guard kept.contains(where: { ($0.overridesDigest ?? none) != digest }) else { return false }
+        let chosen = Set(overrides.keys.map { $0.lowercased() })
+        return apps.intervals.contains { $0.bundleID.map { chosen.contains($0.lowercased()) } ?? false }
     }
 
     /// Nil when the beats leave part of the counted time unrecorded (app use switched on partway): the row
