@@ -131,7 +131,7 @@ extension SessionStore {
         // counted input beside a stale idle time.
         let inputCount = idle.inputCount()
         let raw = idle.idleSeconds()
-        let now = Date()
+        let now = now()
         let displayAwake = readDisplayAwake()
         let observation = presenceGate.observe(rawIdleSeconds: raw,
                                                at: now,
@@ -159,18 +159,17 @@ extension SessionStore {
         }
         // An agent at work is watched too, but only on a screen someone could
         // be looking at: never locked, asleep, or woken without a person.
+        // An agent's window in front, or a keep-awake app, is not evidence:
+        // both stay exactly so when the person walks away, and counting them
+        // held an hour of absence as work until the long-away cap.
         let lastActivity = [lastAgentPing, workTraffic.lastBusy, workLoad.lastBusy].compactMap { $0 }.max()
         let agentSeen = displayAwake && !screenLocked && !presenceGate.isAwaitingConfirmation
             ? AgentPresence.lastSeen(now: now, quiet: quiet, lastActivity: lastActivity,
-                                     frontmostBundleID: engine.currentAppBundleID,
-                                     keptAwake: holders.keptAwake,
-                                     policy: engine.store.agentQuietPolicy,
-                                     countsAppInFront: engine.store.countsAgentAppInFront,
-                                     countsKeepAwake: engine.store.countsKeepAwake,
-                                     cap: engine.store.longAwayCap)
+                                     policy: engine.store.agentQuietPolicy, cap: engine.store.longAwayCap)
             : nil
         let reading = quietSampler.read(now: now, quiet: quiet, film: holders.watching, agentSeen: agentSeen,
-                                        idlePaused: engine.state == .paused(reason: .idle))
+                                        idlePaused: engine.state == .paused(reason: .idle),
+                                        pastCap: quiet >= engine.store.longAwayCap)
         tracker?.observeIdle(seconds: reading.trackerSeconds)
         engine.transition(on: reading.event)
         if case .watchingObserved(_, let byAgent) = reading.event {
@@ -210,7 +209,7 @@ extension SessionStore {
                     }
                 }
             }
-            let at = Date()
+            let at = self.now()
             if let sent = reading.sent { self.workTraffic.observe(totals: sent, app: counting(sending: true), at: at) }
             self.workLoad.observe(totals: reading.cpu, app: counting(sending: false), at: at)
         }

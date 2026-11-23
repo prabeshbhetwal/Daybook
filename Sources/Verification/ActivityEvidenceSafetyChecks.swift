@@ -8,12 +8,12 @@ extension ActivityEvidenceStoreChecks {
 
     /// The first beat of 31 ticks with the Mac held at one idle time and one reading of what holds the
     /// screen, its display awake or asleep.
-    private static func firstBeat(idle: TimeInterval, awake: Bool, holders: WatchDetector.Reading)
+    private static func firstBeat(idle: TimeInterval, awake: Bool, holders: WatchDetector.Reading, ping: Bool)
         -> (beat: Beat?, problems: [String]) {
         MainActor.assumeIsolated { () -> (beat: Beat?, problems: [String]) in
             guard let r = rig(idle: idle, awake: awake) else { return (nil, ["could not create isolated preferences"]) }
             defer { r.close() }
-            r.persistence.countsKeepAwake = true
+            if ping { r.store.lastAgentPing = r.clock.value }
             r.store.readWatching = { holders }
             r.run(31)
             return (r.beats.first, [])
@@ -25,17 +25,18 @@ extension ActivityEvidenceStoreChecks {
         let none = WatchDetector.Reading()
         let keptAwake = WatchDetector.Reading(watching: false, keptAwake: true, watchedApps: [])
         // A person at the keys, or an agent at work, is only seen on a display that is awake.
-        let cases: [(String, Bool, TimeInterval, WatchDetector.Reading, BeatPresence, [String]?)] = [
-            ("typing", true, 0, none, .input, nil),
-            ("typing on a sleeping display", false, 0, none, .quiet, nil),
-            ("half a minute of quiet", true, 30, none, .quiet, nil),
-            ("a film", true, 100, player, .watched, ["com.example.player"]),
-            ("an agent at work", true, 100, keptAwake, .agent, []),
-            ("an agent at work on a sleeping display", false, 100, keptAwake, .quiet, []),
-            ("quiet with nothing on screen", true, 100, none, .quiet, []),
+        let cases: [(String, Bool, TimeInterval, WatchDetector.Reading, Bool, BeatPresence, [String]?)] = [
+            ("typing", true, 0, none, false, .input, nil),
+            ("typing on a sleeping display", false, 0, none, false, .quiet, nil),
+            ("half a minute of quiet", true, 30, none, false, .quiet, nil),
+            ("a film", true, 100, player, false, .watched, ["com.example.player"]),
+            ("an agent at work", true, 100, keptAwake, true, .agent, []),
+            ("an agent at work on a sleeping display", false, 100, keptAwake, true, .quiet, []),
+            ("keep-awake alone", true, 100, keptAwake, false, .quiet, []),
+            ("quiet with nothing on screen", true, 100, none, false, .quiet, []),
         ]
-        for (label, awake, idle, holders, presence, watched) in cases {
-            let got = firstBeat(idle: idle, awake: awake, holders: holders)
+        for (label, awake, idle, holders, ping, presence, watched) in cases {
+            let got = firstBeat(idle: idle, awake: awake, holders: holders, ping: ping)
             problems += got.problems
             expect(got.beat?.presence == presence, "\(label) is written as \(presence), got \(String(describing: got.beat?.presence))", &problems)
             expect(got.beat?.watchedApps == watched, "\(label) writes holders \(String(describing: watched)), got \(String(describing: got.beat?.watchedApps))", &problems)
