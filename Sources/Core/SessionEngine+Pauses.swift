@@ -167,6 +167,16 @@ extension SessionEngine {
         state = .running
     }
 
+    /// Moves an idle pause that began at an agent's last step back to the last
+    /// input, once the long-away cap shows nobody was here. Only the store's
+    /// live sampler knows where a pause began: a pause restored at launch, or
+    /// one that began when a film ended, keeps its saved start, or a relaunch
+    /// after a long film took the film's credited time back.
+    func backdateAgentIdlePause(toLastInput lastInput: Date) {
+        guard state == .paused(reason: .idle), let began = pauseStartDate, lastInput < began else { return }
+        enterPause(reason: .idle, at: lastInput)
+    }
+
     /// Ends an idle pause because input has returned.
     ///
     /// An idle pause is the app's own observation, not the user's act, so its

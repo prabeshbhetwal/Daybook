@@ -147,12 +147,6 @@ extension SessionEngine {
             // wake folds in first, so the cap and the question measure from
             // where it truly began.
             let unattended = max(seconds, awayInterval.map { self.interval(from: $0.start) } ?? 0)
-            // Past the cap nobody was here since the last input: an idle pause
-            // counted from an agent's last step before it moves back there.
-            let lastInput = now().addingTimeInterval(-seconds)
-            if reason == .idle, seconds >= store.longAwayCap, let began = pauseStartDate, lastInput < began {
-                enterPause(reason: .idle, at: lastInput)
-            }
             if seconds < FocusConstants.awayDebounce, let interval = awayInterval {
                 if let began = pauseStartDate, interval.start < began {
                     pauseStartDate = interval.start
