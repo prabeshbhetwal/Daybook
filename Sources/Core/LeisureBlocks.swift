@@ -18,6 +18,8 @@ struct LeisureBlock: Codable, Equatable, Identifiable {
 enum LeisureFinder {
     /// A glance away shorter than one beat does not end what was being watched.
     private static let bridge = ActivityConstants.beatLength
+    /// Quiet counts only as the minute before the sampler reads who holds the screen (Phase C ruling F4).
+    private static let leadIn: TimeInterval = 60
 
     /// Finished runs of media watched or listened to hands off in `beats`, outside every one of `sessions`, at least
     /// `leisureMinRun` long, kept from `after` when it began before. A run with media in the last minute before
@@ -41,28 +43,55 @@ enum LeisureFinder {
                 runs.append([slice])
             }
         }
-        return runs.compactMap { run in
-            guard let first = run.first?.start, let end = run.last?.end, case let start = max(first, after),
-                  end.timeIntervalSince(start) >= ActivityConstants.leisureMinRun,
-                  now.timeIntervalSince(end) >= 2 * bridge else { return nil }
-            // A held second is the holder's: the app in front (Mail under a film) only had the focus.
-            let holder = mostNamed(beats.filter { $0.end > first && ActivityCredit.opening($0) < end }
-                .flatMap { $0.watchedApps ?? [] })
+        return runs.flatMap(split).compactMap { run in
+            // Quiet in a media app proves nothing: a paused player left in front reads the same. A run needs
+            // held or passive seconds, and its quiet counts only as the lead-in before the first of them.
+            guard let firstSign = run.firstIndex(where: { $0.state != .quietKept }),
+                  let lastSign = run.lastIndex(where: { $0.state != .quietKept }) else { return nil }
+            let leadFrom = run[firstSign].start.addingTimeInterval(-leadIn)
+            let kept = run[...lastSign].filter { $0.end > leadFrom }.map { slice in
+                slice.start >= leadFrom ? slice
+                    : CreditedSlice(start: leadFrom, end: slice.end, app: slice.app, state: slice.state,
+                                    purpose: slice.purpose, site: slice.site, holder: slice.holder)
+            }
+            // A short quiet tail may be a holder not read yet: wait it out, as for media still playing.
+            guard let first = kept.first?.start, let end = kept.last?.end, case let start = max(first, after),
+                  let tail = run.last?.end, end.timeIntervalSince(start) >= ActivityConstants.leisureMinRun,
+                  now.timeIntervalSince(min(tail, end + leadIn)) >= 2 * bridge else { return nil }
+            // A held second is its holder's, as credited: the app in front (Mail under a film) only had the focus.
             var seconds: [String: TimeInterval] = [:]
-            for slice in run {
-                seconds[slice.state == .held ? holder ?? slice.app : slice.app, default: 0] += slice.end.timeIntervalSince(slice.start)
+            for slice in kept {
+                seconds[slice.holder ?? slice.app, default: 0] += slice.end.timeIntervalSince(slice.start)
             }
             return LeisureBlock(id: UUID(), start: start, end: end, bundleID: mostNamed(seconds) ?? "", activity: .media)
         }
     }
 
+    /// `run` cut wherever its quiet outlasts the lead-in after some held or passive time: a long pause
+    /// between two held stretches was not watched, and the quiet before the second is its lead-in.
+    private static func split(_ run: [CreditedSlice]) -> [[CreditedSlice]] {
+        var parts: [[CreditedSlice]] = [[]]
+        var quietFrom: Int?
+        for slice in run {
+            if slice.state == .quietKept {
+                if quietFrom == nil { quietFrom = parts[parts.count - 1].count }
+            } else if let from = quietFrom {
+                let part = parts[parts.count - 1]
+                if part[..<from].contains(where: { $0.state != .quietKept }),
+                   slice.start.timeIntervalSince(part[from].start) > leadIn {
+                    parts[parts.count - 1] = Array(part[..<from])
+                    parts.append(Array(part[from...]))
+                }
+                quietFrom = nil
+            }
+            parts[parts.count - 1].append(slice)
+        }
+        return parts
+    }
+
     /// The key with the largest count, the first in sorted order on a tie.
     private static func mostNamed(_ counts: [String: TimeInterval]) -> String? {
         counts.max { $0.value == $1.value ? $0.key > $1.key : $0.value < $1.value }?.key
-    }
-
-    private static func mostNamed(_ names: [String]) -> String? {
-        mostNamed(names.reduce(into: [String: TimeInterval]()) { $0[$1, default: 0] += 1 })
     }
 
     /// What the timeline shows of `blocks` beside `sessions`: each trimmed to its longest stretch outside every

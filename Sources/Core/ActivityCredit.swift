@@ -14,6 +14,8 @@ struct CreditedSlice: Equatable {
     /// The site kind the browser showed; set only with the site signal on, even where a purpose
     /// the person set for the app decided the credit.
     var site: SiteKind? = nil
+    /// The app holding the screen awake, for a held slice: the one its purpose was read from.
+    var holder: String? = nil
 }
 
 struct CreditInput {
@@ -82,7 +84,8 @@ enum ActivityCredit {
                     let (state, credited) = bit.by.map { (CreditState.held, held[$0].purpose as AppPurpose?) }
                         ?? quiet(piece, from: bit.part.start)
                     slices.append(CreditedSlice(start: bit.part.start, end: bit.part.end, app: piece.app,
-                                                state: state, purpose: credited, site: site))
+                                                state: state, purpose: credited, site: site,
+                                                holder: bit.by.map { held[$0].holder }))
                 }
             }
             if piece.engaged {

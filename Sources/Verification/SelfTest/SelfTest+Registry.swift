@@ -253,6 +253,7 @@ extension SelfTest {
             + WalkAwayChecks.tests
             + AppCategoryChecks.tests
             + ReleaseReviewChecks.tests
+            + LeisureEvidenceChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.
