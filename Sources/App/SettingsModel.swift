@@ -571,7 +571,7 @@ final class SettingsModel: ObservableObject {
     /// session store re-derives every card and total from them on change.
     var purposeOverrides: [String: String] {
         get { store.purposeOverrides }
-        set { write { store.purposeOverrides = newValue } }
+        set { write { store.savePurposeOverrides(newValue, at: currentDate()) } }
     }
 
     func saveActivityRule(_ rule: ActivityRule) {

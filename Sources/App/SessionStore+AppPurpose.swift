@@ -25,7 +25,7 @@ extension SessionStore {
         let previous = PurposeMap.override(for: bundleID, in: overrides)
         guard previous != purpose else { return previous }
         objectWillChange.send()
-        engine.store.purposeOverrides = PurposeMap.settingOverride(purpose, for: bundleID, in: overrides)
+        engine.store.savePurposeOverrides(PurposeMap.settingOverride(purpose, for: bundleID, in: overrides), at: now())
         refresh()
         NotificationCenter.default.post(name: Self.appPurposesDidChange, object: self)
         return previous

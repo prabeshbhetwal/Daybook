@@ -76,7 +76,7 @@ struct SessionReportCard: View {
                     if report.split != nil || report.mergeBack != nil {
                         SplitOfferRow(store: store, offer: report.split, mergeBack: report.mergeBack, onChanged: onClose)
                     }
-                    SessionReportView(report: report, activityList: list)
+                    SessionReportView(report: report, activityList: list, purposeStore: store)
                 }
                 .padding(Tokens.Space.xl)
             }

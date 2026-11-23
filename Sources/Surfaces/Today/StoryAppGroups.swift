@@ -24,7 +24,9 @@ struct StoryAppGroups: View {
                     .font(Tokens.Typography.body)
                     .foregroundStyle(StoryStyle.supportingInk)
             }
-            if let change = changes.last {
+            // A notice another edit has since replaced is gone: its Undo would overwrite the newer choice.
+            if let change = changes.last,
+               PurposeMap.override(for: change.bundleID, in: store.purposeOverrides) == change.now {
                 PurposeChangeNotice(change: change) {
                     store.setAppPurpose(change.previous, for: change.bundleID)
                     changes.last = nil

@@ -18,6 +18,33 @@ extension DailyGoalList {
         }
     }
 
+    /// One session row's credit as timed slices for `focusByPurpose`: each phase that holds
+    /// credit, so a paused stretch covers nothing, cut to the row's focus intervals, so a
+    /// stretch filed under a category that does not count adds nothing. A phase cut short
+    /// keeps the share of its credit that its remaining time holds. When the phases do not
+    /// account for the row's credit (no phases, or a summary from another version), the
+    /// whole row is one slice.
+    static func focusSlices(credited: [String: TimeInterval], phases: [SessionPhase], span: DateInterval,
+                            focus: [DateInterval]) -> [(span: DateInterval, credited: [String: TimeInterval])] {
+        let total = credited.values.reduce(0, +)
+        let fromPhases = phases.filter { $0.credited.values.reduce(0, +) > 0 }
+        let phaseTotal = fromPhases.reduce(0) { $0 + $1.credited.values.reduce(0, +) }
+        let whole: [(span: DateInterval, credited: [String: TimeInterval])] =
+            !fromPhases.isEmpty && abs(phaseTotal - total) <= max(1, total * 0.01)
+            ? fromPhases.map { (DateInterval(start: $0.start, end: max($0.start, $0.end)), $0.credited) }
+            : [(span, credited)]
+        return whole.flatMap { slice -> [(span: DateInterval, credited: [String: TimeInterval])] in
+            if slice.span.duration == 0 {
+                return focus.contains { $0.contains(slice.span.start) } ? [slice] : []
+            }
+            return focus.compactMap { interval in
+                guard let cut = interval.intersection(with: slice.span), cut.duration > 0 else { return nil }
+                let share = cut.duration / slice.span.duration
+                return (cut, slice.credited.mapValues { $0 * share })
+            }
+        }
+    }
+
     /// The day's focus by purpose: the credited seconds of each focus session
     /// row that day, summed, each capped at the ring so an activity row never
     /// reads more than the day's focus (the two are worked out separately).

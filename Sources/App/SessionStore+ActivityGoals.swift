@@ -26,10 +26,15 @@ extension SessionStore {
         let entries = SessionDigest.entries(records: engine.archive.records,
                                             running: runningTouchesDay ? runningThread() : nil,
                                             now: now(), day: day, calendar: calendar)
-        let rows = entries.compactMap { entry -> (span: DateInterval, credited: [String: TimeInterval])? in
-            guard case .session(let session) = entry, session.workType.countsAsFocus,
-                  let credited = sessionActivity(for: session)?.credited else { return nil }
-            return (DateInterval(start: session.start, end: max(session.start, session.end)), credited)
+        // Slices, not whole rows: a paused stretch covers nothing, and a row that folds an Unsorted
+        // stretch with a focus one it was continued into counts the focus one.
+        let rows = entries.flatMap { entry -> [(span: DateInterval, credited: [String: TimeInterval])] in
+            guard case .session(let session) = entry else { return [] }
+            let focus = focusIntervals(of: session)
+            guard !focus.isEmpty, let shape = sessionActivity(for: session) else { return [] }
+            return DailyGoalList.focusSlices(credited: shape.credited, phases: shape.phases,
+                                             span: DateInterval(start: session.start, end: max(session.start, session.end)),
+                                             focus: focus)
         }
         // The ring's figure worked out afresh: today's published goal moves only on a tick, and a
         // stale one would cap the rows for the whole minute this is held.
@@ -38,11 +43,34 @@ extension SessionStore {
         return value
     }
 
-    /// The activity targets in use, with the day's count of each.
+    /// The spans of a row's stretches filed under a category that counts as focus. A row's own
+    /// category is its first stretch's, so each record is asked for its own.
+    func focusIntervals(of session: DaySession) -> [DateInterval] {
+        let records = engine.archive.records.filter { session.recordIDs.contains($0.id) }
+        let counted = records.filter { $0.workType.countsAsFocus }
+            .map { DateInterval(start: $0.start, end: max($0.start, $0.end)) }
+        // A stretch with no record yet is the running one: it counts as the session now running is filed.
+        let recorded = records.map { DateInterval(start: $0.start, end: max($0.start, $0.end)) }
+        let unrecorded = session.spans.filter { span in !recorded.contains { $0.intersects(span) } }
+        let runningCounts = session.isRunning ? engine.activeWorkType.countsAsFocus : session.workType.countsAsFocus
+        return counted + (runningCounts ? unrecorded : [])
+    }
+
+    /// The activity targets in use, with the day's count of each. A closed day with a saved result
+    /// shows what was recorded, so recategorising an app today cannot turn a met goal missed.
     func activityTargets(on day: Date) -> [(id: UUID, purpose: AppPurpose, goal: TimeInterval, achieved: TimeInterval)] {
         let targets = DailyGoalList.activityTargets(goalItems)
         guard !targets.isEmpty else { return [] }
-        let credit = focusByPurpose(on: day)
-        return targets.map { ($0.id, $0.purpose, $0.goal, credit[$0.purpose.rawValue] ?? 0) }
+        let calendar = Calendar.current
+        let saved = calendar.startOfDay(for: day) < calendar.startOfDay(for: now())
+            ? engine.store.goalResultsByDay[DailyGoalList.dayKey(day, calendar: calendar)] ?? [] : []
+        let unsaved = targets.contains { target in !saved.contains { $0.goalID == target.id } }
+        let credit = unsaved ? focusByPurpose(on: day) : [:]
+        return targets.map { target in
+            if let result = saved.first(where: { $0.goalID == target.id }) {
+                return (target.id, target.purpose, result.amount, result.counted)
+            }
+            return (target.id, target.purpose, target.goal, credit[target.purpose.rawValue] ?? 0)
+        }
     }
 }
