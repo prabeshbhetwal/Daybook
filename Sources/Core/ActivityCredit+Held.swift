@@ -6,6 +6,7 @@ extension ActivityCredit {
     struct HeldRun {
         let interval: DateInterval
         let purpose: AppPurpose
+        let holder: String
     }
 
     /// Held runs in time order. A quiet stretch is counted time with no engaged slice.
@@ -36,10 +37,11 @@ extension ActivityCredit {
         let read = run.filter { !($0.watchedApps ?? []).isEmpty }
         guard let first = run.first, let last = read.last, read.contains(where: {
             min($0.end, stretch.end).timeIntervalSince(quietSince) > ActivityConstants.watchGrace
-        }), let purpose = heldPurpose(of: run, overrides: overrides, signals: signals) else { return nil }
+        }), let purpose = heldPurpose(of: run, overrides: overrides, signals: signals),
+              let holder = heldBy(run) else { return nil }
         let start = max(opening(first), stretch.start), end = min(last.end, stretch.end)
         guard purpose != .utility, start < end else { return nil }
-        return HeldRun(interval: DateInterval(start: start, end: end), purpose: purpose)
+        return HeldRun(interval: DateInterval(start: start, end: end), purpose: purpose, holder: holder)
     }
 
     /// The engine's watching pauses, in time order. The engine backdates a watching pause to
@@ -87,12 +89,16 @@ extension ActivityCredit {
     /// (`heldBrowserPurpose`).
     static func heldPurpose(of run: ArraySlice<Beat>, overrides: [String: String],
                             signals: Set<SignalKind>) -> AppPurpose? {
-        let read = run.filter { !($0.watchedApps ?? []).isEmpty }
-        guard !read.isEmpty else { return nil }
-        let heldBy = holder(of: read, front: Set(run.flatMap { $0.slices.map(\.app) }))
+        guard let heldBy = heldBy(run) else { return nil }
         return holdsAsBrowser(heldBy, in: run, overrides: overrides, signals: signals)
             ? heldBrowserPurpose(heldBy, in: run, signals: signals)
             : PurposeMap.purpose(for: heldBy, activity: .passive, overrides: overrides)
+    }
+
+    /// Who held a run of beats, nil when no holder was read.
+    static func heldBy(_ run: ArraySlice<Beat>) -> String? {
+        let read = run.filter { !($0.watchedApps ?? []).isEmpty }
+        return read.isEmpty ? nil : holder(of: read, front: Set(run.flatMap { $0.slices.map(\.app) }))
     }
 
     /// The app named in the most non-empty beats. A tie goes to a tied app that was in
