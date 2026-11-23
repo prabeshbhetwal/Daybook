@@ -215,11 +215,10 @@ Daybook can tell work is going on in four ways, surest first:
   counted app counts while it lasts, a large `git push` included. Work done
   only on the graphics chip, or in `tmux` or `screen` (whose processes belong
   to no app), is not seen this way; an agent's hooks still work there.
-- **A coding app in front** (off by default). It needs nothing but cannot see
-  whether you walked away.
-- **A keep-awake app** (off by default). Amphetamine, Caffeine,
-  KeepingYouAwake or `caffeinate` holding the screen on counts as you being
-  here, lunch included.
+
+An agent's window in front, or a keep-awake app such as Amphetamine, Caffeine,
+KeepingYouAwake or `caffeinate` holding the screen on, is never a sign of work:
+both stay exactly so after you walk away.
 
 Signs of work up to five minutes apart are one stretch. A single step that
 runs longer than **Pause after no input for** with no sign can still pause the
@@ -228,7 +227,8 @@ your own key or click does.
 
 Work counts only while the screen is on and unlocked. Past **End session
 after** without a key or click, Daybook takes it that you have left, however
-busy an app still is.
+busy an app still is, and the session ends at your last key or click: an
+app's work while you were gone is not kept.
 
 ### Backups
 

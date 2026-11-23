@@ -4,7 +4,7 @@ import Foundation
 /// each of the user's three choices does to the session.
 enum AgentPresenceChecks: CheckSuite {
     static let tests: [(String, () -> [String])] = [
-        ("An agent counts as working from its own pings, or its window in front when allowed",
+        ("An agent counts as working only from its own pings or its busy readings",
          agentEvidence),
         ("Quiet while an agent works is counted as work unless the user chose otherwise",
          policiesShapeTheSession),
@@ -41,9 +41,8 @@ enum AgentPresenceChecks: CheckSuite {
                 return
             }
             let quiet = now.timeIntervalSince(lastInput)
-            let seen = AgentPresence.lastSeen(now: now, quiet: quiet, lastActivity: lastPing, frontmostBundleID: nil,
-                                              keptAwake: false, policy: engine.store.agentQuietPolicy,
-                                              countsAppInFront: false, countsKeepAwake: false,
+            let seen = AgentPresence.lastSeen(now: now, quiet: quiet, lastActivity: lastPing,
+                                              policy: engine.store.agentQuietPolicy,
                                               cap: engine.store.longAwayCap)
             let reading = sampler.read(now: now, quiet: quiet, film: film, agentSeen: seen,
                                        idlePaused: engine.state == .paused(reason: .idle))
@@ -114,12 +113,10 @@ enum AgentPresenceChecks: CheckSuite {
     private static func agentEvidence() -> [String] {
         var problems: [String] = []
         let now = SelfTest.base
-        func seen(quiet: TimeInterval = 20 * 60, ping: TimeInterval? = 60, front: String? = nil,
-                  keptAwake: Bool = false, policy: AgentQuietPolicy = .countAsWork, appInFront: Bool = false,
-                  keepAwakeCounts: Bool = false, cap: TimeInterval = 4 * 3_600) -> Date? {
+        func seen(quiet: TimeInterval = 20 * 60, ping: TimeInterval? = 60,
+                  policy: AgentQuietPolicy = .countAsWork, cap: TimeInterval = 4 * 3_600) -> Date? {
             AgentPresence.lastSeen(now: now, quiet: quiet, lastActivity: ping.map { now.addingTimeInterval(-$0) },
-                                   frontmostBundleID: front, keptAwake: keptAwake, policy: policy,
-                                   countsAppInFront: appInFront, countsKeepAwake: keepAwakeCounts, cap: cap)
+                                   policy: policy, cap: cap)
         }
         expect(seen() == now.addingTimeInterval(-60), "a ping a minute ago is the agent's last step, got \(String(describing: seen()))", &problems)
         expect(seen(ping: AgentPresence.window + 1) == nil, "a ping older than the window is over", &problems)
@@ -128,26 +125,10 @@ enum AgentPresenceChecks: CheckSuite {
                "a ping from before the last keypress says nothing about the quiet since", &problems)
         expect(seen(policy: .ignore) == nil, "agents ignored by choice are not seen", &problems)
         expect(seen(quiet: 4 * 3_600) == nil, "past the cap nobody is here, whatever the agent does", &problems)
-        expect(seen(ping: nil, front: "com.anthropic.claudefordesktop") == nil,
-               "an agent's window in front needs the user's say-so", &problems)
-        expect(seen(ping: nil, front: "com.anthropic.claudefordesktop", appInFront: true) == now,
-               "an agent's window in front counts when allowed", &problems)
-        expect(seen(ping: nil, front: "com.apple.Safari", appInFront: true) == nil,
-               "another app in front is not an agent", &problems)
-        expect(seen(ping: nil, front: "com.todesktop.230313mzl4w4u92", appInFront: true) == now,
-               "any coding app in front counts when allowed, Cursor among them", &problems)
-        expect(seen(ping: nil, keptAwake: true) == nil, "a keep-awake app alone is not you being here", &problems)
-        expect(seen(ping: nil, keptAwake: true, keepAwakeCounts: true) == now,
-               "a keep-awake app counts when the user says so", &problems)
-        expect(seen(ping: nil, keptAwake: true, policy: .ignore, keepAwakeCounts: true) == nil,
-               "nothing counts while agents are ignored", &problems)
-
         let suite = "fc-selftest-agents-\(UUID().uuidString)"
         let prefs = PersistenceStore(defaults: MemoryDefaults.suite(named: suite) ?? .standard)
         expect(prefs.agentQuietPolicy == .countAsWork, "agent time counts as work by default, got \(prefs.agentQuietPolicy)", &problems)
-        expect(!prefs.countsAgentAppInFront, "an agent's window in front is off by default", &problems)
         expect(prefs.noticesAppsAtWork, "noticing AI tools at work is on by default", &problems)
-        expect(!prefs.countsKeepAwake, "a keep-awake app is off by default", &problems)
         prefs.noticesAppsAtWork = false
         expect(!prefs.noticesAppsAtWork, "turning noticing off is kept", &problems)
         prefs.agentQuietPolicy = .pauseQuietly

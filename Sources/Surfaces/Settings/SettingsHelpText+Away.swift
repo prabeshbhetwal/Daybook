@@ -37,14 +37,6 @@ extension SettingsHelpText {
             Daybook checks whether a coding or AI app you used this session is busy sending data or \
             working hard, to tell that it is working for you. It never reads what the app holds.
             """),
-        HelpEntry("Count a coding app in front as you being here", """
-            While a coding or AI app is the one you are using, quiet time counts as you being here. Leave \
-            this off if you often walk away with one open.
-            """),
-        HelpEntry("Count a keep-awake app as you being here", """
-            While an app such as Amphetamine or Caffeine keeps your screen on, quiet time counts as you \
-            being here. A lunch with one running counts too.
-            """),
         HelpEntry("Let your agent tell Daybook when it works", """
             The button copies a short message. Paste it into Claude Code, Codex, Gemini CLI or Cursor, and \
             the agent sets itself up to let Daybook know each time it is busy. Nothing else is shared.

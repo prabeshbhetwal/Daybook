@@ -40,9 +40,7 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
     case entryDetails
     case idlePause
     case agentQuiet
-    case agentAppInFront
     case appsAtWork
-    case keepAwake
     case streakMinimum
     case minimumSession
     case continueWindow
@@ -98,9 +96,7 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
         case .entryDetails: return \SettingsModel.expandsEntryDetails
         case .idlePause: return \SettingsModel.idlePauseThreshold
         case .agentQuiet: return \SettingsModel.agentQuietPolicy
-        case .agentAppInFront: return \SettingsModel.countsAgentAppInFront
         case .appsAtWork: return \SettingsModel.noticesAppsAtWork
-        case .keepAwake: return \SettingsModel.countsKeepAwake
         case .streakMinimum: return \SettingsModel.streakMinimum
         case .minimumSession: return \SettingsModel.minimumRecordedSession
         case .continueWindow: return \SettingsModel.continueWindow
@@ -664,19 +660,9 @@ final class SettingsModel: ObservableObject {
         set { write { store.agentQuietPolicy = newValue } }
     }
 
-    var countsAgentAppInFront: Bool {
-        get { store.countsAgentAppInFront }
-        set { write { store.countsAgentAppInFront = newValue } }
-    }
-
     var noticesAppsAtWork: Bool {
         get { store.noticesAppsAtWork }
         set { write { store.noticesAppsAtWork = newValue } }
-    }
-
-    var countsKeepAwake: Bool {
-        get { store.countsKeepAwake }
-        set { write { store.countsKeepAwake = newValue } }
     }
 
     /// The message that sets an agent up to tell Daybook when it works.

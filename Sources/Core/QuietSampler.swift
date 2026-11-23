@@ -14,6 +14,9 @@ struct QuietSampler {
     /// agent stops is watched from here, not from the keypress before the agent,
     /// or the film's pause would take the agent's counted work back.
     private var lastAgentSeen: Date?
+    /// A film was seen in this quiet stretch. Its end counts as presence
+    /// then, so the cap runs from there, not from the last input before it.
+    private var filmSeen = false
 
     /// Recent input: nothing to tell apart, and any watching is over.
     mutating func noteInput() { self = QuietSampler() }
@@ -27,9 +30,13 @@ struct QuietSampler {
     ///     read as someone back: a fifteen-minute command between an agent's
     ///     pings ended an idle pause with the user still out, and asked about
     ///     25 minutes of an 80-minute absence.
+    ///   - pastCap: quiet has reached the long-away cap. Nobody is here,
+    ///     whatever an agent did meanwhile, so the absence runs from the last
+    ///     input: measured from an agent's last step just before the cap, it
+    ///     kept close to an hour away as work and asked about the rest.
     /// - Returns: the engine's event, and the quiet seconds for the usage tracker.
     mutating func read(now: Date, quiet: TimeInterval, film: Bool, agentSeen: Date?,
-                       idlePaused: Bool) -> (event: SessionEvent, trackerSeconds: TimeInterval) {
+                       idlePaused: Bool, pastCap: Bool = false) -> (event: SessionEvent, trackerSeconds: TimeInterval) {
         // A clock stepped back leaves these in the future. They prove nothing,
         // then or once the clock catches up: kept, one came due half an hour
         // later as "the watching just ended" and asked about an absence with
@@ -37,6 +44,13 @@ struct QuietSampler {
         if let end = watchingEndedAt, end > now { watchingEndedAt = nil }
         if let seen = lastAgentSeen, seen > now { lastAgentSeen = nil }
         let film = film && !idlePaused
+        // Only a film taken as presence spares the stretch: one that starts
+        // during an idle pause is nobody's, and must not keep the cap away.
+        if film { filmSeen = true }
+        if pastCap, !filmSeen {
+            self = QuietSampler()
+            return (.idleObserved(seconds: quiet), quiet)
+        }
         let agentSeen = idlePaused ? nil : agentSeen
         if let agentSeen { lastAgentSeen = agentSeen }
         if film || agentSeen != nil {

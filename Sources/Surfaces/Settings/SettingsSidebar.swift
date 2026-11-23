@@ -162,8 +162,6 @@ extension SettingsSection {
             return ["Pause after no input for", "Ask me after", "Stop session after",
                     "Full-screen prompt after", "While an app works for you",
                     "Notice apps working for you by themselves",
-                    "Count a coding app in front as you being here",
-                    "Count a keep-awake app as you being here",
                     "Let your agent tell Daybook when it works"]
         case .breaks:
             return ["Remind me to take breaks", "Rhythm", "Work", "Break", "Long break every", "Long break length",
@@ -203,7 +201,7 @@ extension SettingsSection {
                              .minimumSession, .continueWindow]
         case .categories: return [.categories]
         case .away: return [.idlePause, .breakThreshold, .longAwayCap, .fullPromptAfter, .agentQuiet,
-                            .appsAtWork, .agentAppInFront, .keepAwake]
+                            .appsAtWork]
         case .breaks: return [.reminders, .breakRhythm, .breakWeekdays, .breakOverrides, .workingHours, .breakEyes,
                               .breakGuard, .breakOverSound, .menuBarShowsBreakCountdown]
         case .automatic: return [.automaticSessions, .automaticGap]
@@ -238,7 +236,6 @@ extension SettingsControlKey {
         case .confirmations: return ["Don't ask again", "Warnings", "Dialogs"]
         case .agentQuiet: return ["AI", "Agent", "Claude", "Codex", "Cursor", "Gemini", "Antigravity", "Hooks",
                                    "Render", "Export", "Build"]
-        case .keepAwake: return ["Keep awake", "Caffeine", "Caffeinate", "Amphetamine", "KeepingYouAwake"]
         case .breakRhythm: return BreakPreset.allCases.map(\.title)
         case .backupSchedule: return ["iCloud", "Schedule", "Copy"]
         case .backupDestination: return ["iCloud Drive", "Folder", "External disk"]

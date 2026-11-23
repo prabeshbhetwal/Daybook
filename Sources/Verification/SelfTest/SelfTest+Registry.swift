@@ -250,6 +250,7 @@ extension SelfTest {
             + ToolbarTitleFitChecks.tests
             + AwayGapChecks.tests + aiCategoryTests + followUpTests
             + RenameSaveChecks.tests
+            + WalkAwayChecks.tests
             + AppCategoryChecks.tests
     }
 

@@ -8,8 +8,7 @@ import IOKit.pwr_mgt
 /// call, a presentation; a browser playing a film holds exactly this ("Video
 /// Wake Lock"). Anything else holding it is a keep-awake utility: menu bar apps
 /// such as Amphetamine, Caffeine or KeepingYouAwake, and `caffeinate`. That is
-/// the machine kept on, not a person in front of it, so it is presence only
-/// where the user says so (`countsKeepAwake`).
+/// the machine kept on, not a person in front of it, so it is never presence.
 enum WatchDetector {
     struct Reading: Equatable {
         var watching = false
