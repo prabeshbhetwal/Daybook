@@ -8,7 +8,33 @@ enum WalkAwayChecks: CheckSuite {
     static let tests: [(String, () -> [String])] = [
         ("Walking away is an absence from the last input, whatever is in front or still working", walkAwayIsAnAbsence),
         ("A film watched past the long-away cap does not end the session when it stops", filmPastCapKeepsSession),
+        ("A pause that began when a film ended keeps its start after a relaunch", restoredPauseKeepsItsStart),
     ]
+
+    /// After a relaunch the sampler is new and sends the raw quiet since the
+    /// last key, from before the film. The pause began when the film ended,
+    /// and the credited time before it must stay.
+    private static func restoredPauseKeepsItsStart() -> [String] {
+        var problems: [String] = []
+        let clock = TestClock(SelfTest.base)
+        let engine = SelfTest.makeEngine(clock)
+        engine.store.idlePauseThreshold = 300
+        engine.store.longAwayCap = 3_600
+        engine.start(workType: .deepWork, intent: "Lecture")
+        clock.advance(5 * 60)
+        engine.transition(on: .idleObserved(seconds: 0))           // the last key, then a four-hour film
+        clock.advance(4 * 3_600 + 10 * 60)
+        engine.transition(on: .idleObserved(seconds: 300))         // the film ended five minutes ago
+        let filmEnded = clock.value.addingTimeInterval(-300)
+        clock.advance(60)                                           // relaunched: the raw quiet since the key
+        engine.transition(on: .idleObserved(seconds: clock.value.timeIntervalSince(SelfTest.base) - 5 * 60))
+        let record = engine.archive.records.first
+        SelfTest.expectClose(record?.workSeconds ?? -1, filmEnded.timeIntervalSince(SelfTest.base),
+                             "the session keeps its time up to the film's end", &problems)
+        SelfTest.expectClose(record?.end.timeIntervalSince(filmEnded) ?? -1, 0,
+                             "the session ends where the film ended, not at the key before it", &problems)
+        return problems
+    }
 
     private static func filmPastCapKeepsSession() -> [String] {
         MainActor.assumeIsolated {
