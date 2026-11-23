@@ -19,7 +19,7 @@ extension Snapshotter {
                     let detail = store.storySessionDetail(session, on: session.start)
                     SessionEntryCard(session: session, apps: detail.apps, shape: detail.text,
                                      shapeCaption: detail.caption, activity: detail.activity, phases: detail.phases,
-                                     isOpen: true, clock: nil, onToggle: {})
+                                     isOpen: true, clock: nil, metadataStore: store, onToggle: {})
                 }
             }
             .frame(width: 620.zoomed)

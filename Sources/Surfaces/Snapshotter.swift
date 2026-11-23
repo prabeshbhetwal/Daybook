@@ -12,7 +12,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
     case storyShape, storyMeeting, storyLive, storyDecision, storyReport, storyNameSuggestion, storyNameSuggestionEarlier
     case welcomeOpening, welcomeStep
     case settingsGeneral, settingsFocus, settingsCategories, settingsAway, settingsBreaks, settingsAutomatic
-    case settingsActivityRules, settingsTracking, settingsAppearance, settingsData, settingsUpdates, settingsAdvanced
+    case settingsActivityRules, settingsAppCategories, settingsTracking, settingsAppearance, settingsData, settingsUpdates, settingsAdvanced
     case activityRuleAmbiguity, activityRuleAutomatic
     case awayQuick, awayFull, awayQuickFailure, awayFullFailure, rewardEarned, settingsHelp, storyPhases
     case storyOrigin, storySplit, storyAI
@@ -75,6 +75,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .settingsUpdates: return "Settings — Updates"
         case .settingsAdvanced: return "Settings — Advanced"
         case .settingsActivityRules: return "Settings — Activity rules"
+        case .settingsAppCategories: return "Settings — App categories"
         case .activityRuleAmbiguity: return "Activity rules — quiet shared-app choice"
         case .activityRuleAutomatic: return "Activity rules — automatic start"
         case .awayQuick: return "Away — quick prompt"
@@ -102,6 +103,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .settingsUpdates: return .updates
         case .settingsAdvanced: return .advanced
         case .settingsActivityRules: return .activities
+        case .settingsAppCategories: return .appCategories
         default: return nil
         }
     }
@@ -147,7 +149,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
             return .story
         case .settingsGeneral, .settingsFocus, .settingsCategories, .settingsAway, .settingsBreaks, .settingsAutomatic,
              .settingsTracking, .settingsAppearance, .settingsData, .settingsUpdates, .settingsAdvanced,
-             .settingsActivityRules:
+             .settingsActivityRules, .settingsAppCategories:
             return .settings
         case .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned, .settingsHelp, .storyPhases,
              .storyOrigin, .storySplit, .storyAI:
@@ -508,7 +510,7 @@ enum Snapshotter {
             return nameSuggestionStore(earlier: scenario == .storyNameSuggestionEarlier)
         case .settingsGeneral, .settingsFocus, .settingsCategories, .settingsAway, .settingsBreaks, .settingsAutomatic,
              .settingsTracking, .settingsAppearance, .settingsData, .settingsUpdates, .settingsAdvanced,
-             .settingsActivityRules:
+             .settingsActivityRules, .settingsAppCategories:
             return FixtureFactory.store(for: .running)
         case .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned, .settingsHelp, .storyPhases,
              .storyOrigin, .storySplit, .storyAI:
@@ -588,6 +590,8 @@ enum Snapshotter {
             }
         case .settingsActivityRules:
             navigation.settingsSection = .activities
+        case .settingsAppCategories:
+            navigation.settingsSection = .appCategories
         case .storyReport:
             let sessions = store.daySessions.compactMap { entry -> DaySession? in
                 if case .session(let session) = entry { return session }

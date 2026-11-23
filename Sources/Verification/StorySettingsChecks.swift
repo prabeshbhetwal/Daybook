@@ -14,7 +14,7 @@ enum StorySettingsChecks {
         let expectedPages: [(SettingsPage, [SettingsSection])] = [
             (.general, [.general, .appearance]),
             (.sessions, [.focus, .categories, .automatic]),
-            (.activities, [.activities]),
+            (.activities, [.activities, .appCategories]),
             (.away, [.away]),
             (.breaks, [.breaks]),
             (.privacy, [.tracking, .data]),

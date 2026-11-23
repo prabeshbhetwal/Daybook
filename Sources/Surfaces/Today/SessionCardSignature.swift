@@ -41,6 +41,8 @@ struct SessionCardSignature: Equatable {
     /// Whether the AI mark shows beside the category (`SessionStore.rowMarks`): it comes and goes with a
     /// stretch's category source, which nothing else in the signature carries.
     var aiMark = false
+    /// The person's app categories: the card groups its apps by them.
+    var purposeOverrides: [String: String] = [:]
 
     /// The store-side reads, taken once for the card's stretches.
     static func noteFacts(of recordIDs: [UUID], in store: SessionStore)

@@ -25,6 +25,7 @@ struct SettingsGroups: View {
         case .breaks: breaks
         case .automatic: automatic
         case .activities: activities
+        case .appCategories: appCategoriesPanel
         case .tracking: tracking
         case .appearance: appearance
         case .data: data

@@ -17,10 +17,10 @@ enum AppPurpose: String, Codable, CaseIterable {
         case .coding: return "Coding"
         case .writingAI: return "Writing & AI"
         case .design: return "Design"
-        case .communication: return "Communication"
-        case .research: return "Research"
-        case .media: return "Media"
-        case .utility: return "Utility"
+        case .communication: return "Chat & email"
+        case .research: return "Browsing & research"
+        case .media: return "Entertainment"
+        case .utility: return "Everything else"
         }
     }
 
