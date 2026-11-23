@@ -80,6 +80,8 @@ struct SessionReportView: View {
     /// The Recorded activity rows and their column widths, worked out once
     /// with the report rather than with each draw of it.
     let activityList: ReportActivityList
+    /// Where each app's category can be changed; absent in a snapshot.
+    var purposeStore: SessionStore?
     @Environment(\.focusInterfaceDensity) private var density
 
     private var session: DaySession { report.session }
@@ -215,7 +217,19 @@ struct SessionReportView: View {
     private var apps: some View {
         section("Every app in this session") {
             ForEach(Array(report.apps.enumerated()), id: \.element.id) { _, app in
-                StoryAppRow(app: app)
+                if let store = purposeStore {
+                    // Every app, so one a card leaves out under "more apps" can still be corrected here.
+                    HStack(spacing: Tokens.Space.s) {
+                        StoryAppRow(app: app)
+                        AppPurposePill(bundleID: app.bundleID, appName: app.appName,
+                                       purpose: store.appPurpose(app.bundleID),
+                                       source: store.appPurposeSource(app.bundleID), compact: true) { choice in
+                            store.setAppPurpose(choice, for: app.bundleID)
+                        }
+                    }
+                } else {
+                    StoryAppRow(app: app)
+                }
             }
         }
     }
