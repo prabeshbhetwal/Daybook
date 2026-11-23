@@ -84,12 +84,14 @@ extension PurposeMap {
 
     /// The overrides with one app's choice set, or cleared with nil. Stored
     /// lowercased, with any other spelling of the same app removed, so one
-    /// app never holds two choices.
+    /// app never holds two choices. A cleared choice stays as an empty value,
+    /// which no lookup reads as a category: it marks the app as once chosen,
+    /// so a summary kept under that choice is known to be stale.
     static func settingOverride(_ purpose: AppPurpose?, for bundleID: String,
                                 in overrides: [String: String]) -> [String: String] {
         let key = bundleID.lowercased()
         var next = overrides.filter { $0.key.lowercased() != key }
-        next[key] = purpose?.rawValue
+        next[key] = purpose?.rawValue ?? ""
         return next
     }
 

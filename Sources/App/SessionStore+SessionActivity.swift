@@ -104,8 +104,7 @@ extension SessionStore {
     /// session used an app the person has chosen a category for: app use then stands in. Other sessions
     /// keep their summary, so a change to Terminal does not cost a Safari-only day its research credit.
     /// One saved before the digest was kept counts as made with none.
-    /// shortcut: an override removed for an app the session used keeps the old summary; storing each
-    /// summary's per-app purposes would close it.
+    /// An app whose choice was cleared keeps an empty entry, so it still counts as chosen here.
     private func keptSummaryIsStale(_ kept: [SessionActivityShape], apps: RecordedActivity) -> Bool {
         let overrides = engine.store.purposeOverrides
         let digest = SessionActivityShape.digest(overrides), none = SessionActivityShape.digest([:])

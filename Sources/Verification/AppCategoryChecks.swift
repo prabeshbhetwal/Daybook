@@ -27,7 +27,11 @@ enum AppCategoryChecks: CheckSuite {
         expect(listed == .builtIn, "a lowercased identifier still finds its built-in rule, got \(listed)", &problems)
         expect(PurposeMap.isAmbiguous("company.thebrowser.DIA"), "a browser is a browser in any case", &problems)
         let cleared = PurposeMap.settingOverride(nil, for: "com.apple.Terminal", in: saved)
-        expect(cleared.isEmpty, "clearing removes every spelling, got \(cleared)", &problems)
+        expect(cleared == ["com.apple.terminal": ""], "clearing leaves one empty mark, got \(cleared)", &problems)
+        expect(PurposeMap.purpose(for: "com.apple.Terminal", activity: .active, overrides: cleared) == .coding,
+               "a cleared choice reads as Daybook's own", &problems)
+        expect(PurposeMap.source(for: "com.apple.Terminal", overrides: cleared) == .builtIn,
+               "a cleared choice is not the person's", &problems)
         return problems
     }
 
@@ -45,6 +49,10 @@ enum AppCategoryChecks: CheckSuite {
             let after = rig.f.store.sessionActivity(for: rig.session())?.credited ?? [:]
             expect((after["design"] ?? 0) > 1_700 && (after["coding"] ?? 0) < 1,
                    "Terminal's half hour moved to design, got \(after)", &problems)
+            // Back to Daybook's choice: the summary made under Design is stale too.
+            rig.f.store.setAppPurpose(nil, for: "com.apple.Terminal")
+            let back = rig.f.store.sessionActivity(for: rig.session())?.credited ?? [:]
+            expect((back["coding"] ?? 0) > 1_700, "Terminal's half hour is coding again, got \(back)", &problems)
         } + untouchedSummaryKeepsCredit()
     }
 
@@ -182,8 +190,8 @@ enum AppCategoryChecks: CheckSuite {
             store.setAppPurpose(previous, for: "com.anthropic.claudefordesktop")
             let undone = store.focusByPurpose(on: start)["coding"] ?? 0
             expect(abs(undone - before) < 1, "Undo returns coding to \(before)s, got \(undone)s", &problems)
-            expect(persistence.purposeOverrides.isEmpty,
-                   "Undo leaves no override behind, got \(persistence.purposeOverrides)", &problems)
+            expect(PurposeMap.override(for: "com.anthropic.claudefordesktop", in: persistence.purposeOverrides) == nil,
+                   "Undo leaves no choice behind, got \(persistence.purposeOverrides)", &problems)
             return problems
         }
     }
