@@ -68,6 +68,31 @@ enum PurposeSource: Equatable {
 }
 
 extension PurposeMap {
+    /// Bundle identifiers are case-insensitive on macOS, and the installed-app
+    /// catalog lowercases them while recorded use keeps the app's own case.
+    /// Rules and overrides therefore match either way.
+    private static let rulesByLowercase: [String: PurposeRule] =
+        Dictionary(rules.map { ($0.key.lowercased(), $0.value) }, uniquingKeysWith: { first, _ in first })
+
+    static func rule(for bundleID: String) -> PurposeRule? {
+        rules[bundleID] ?? rulesByLowercase[bundleID.lowercased()]
+    }
+
+    static func override(for bundleID: String, in overrides: [String: String]) -> AppPurpose? {
+        (overrides[bundleID] ?? overrides[bundleID.lowercased()]).flatMap(AppPurpose.init(rawValue:))
+    }
+
+    /// The overrides with one app's choice set, or cleared with nil. Stored
+    /// lowercased, with any other spelling of the same app removed, so one
+    /// app never holds two choices.
+    static func settingOverride(_ purpose: AppPurpose?, for bundleID: String,
+                                in overrides: [String: String]) -> [String: String] {
+        let key = bundleID.lowercased()
+        var next = overrides.filter { $0.key.lowercased() != key }
+        next[key] = purpose?.rawValue
+        return next
+    }
+
     /// The category an app's row shows. A browser shows what it counts as
     /// while it is being used, the same figure goals read for active use.
     static func shownPurpose(for bundleID: String, overrides: [String: String]) -> AppPurpose {
@@ -76,8 +101,8 @@ extension PurposeMap {
 
     /// Mirrors the precedence of `purpose(for:activity:overrides:)`.
     static func source(for bundleID: String, overrides: [String: String]) -> PurposeSource {
-        if let raw = overrides[bundleID], AppPurpose(rawValue: raw) != nil { return .yours }
-        switch rules[bundleID] {
+        if override(for: bundleID, in: overrides) != nil { return .yours }
+        switch rule(for: bundleID) {
         case .fixed: return .builtIn
         case .ambiguous: return .behaviour
         case nil: return categoryFallback(declaredCategory(bundleID)) == nil ? .unknown : .fromApp

@@ -83,9 +83,7 @@ struct AppCategoriesView: View {
             }
             Spacer(minLength: Tokens.Space.s)
             AppPurposePill(bundleID: app.bundleID, appName: app.name, purpose: purpose, source: source) { choice in
-                var next = overrides
-                next[app.bundleID] = choice?.rawValue
-                model.purposeOverrides = next
+                model.purposeOverrides = PurposeMap.settingOverride(choice, for: app.bundleID, in: overrides)
             }
         }
         .padding(.vertical, 3.zoomed)

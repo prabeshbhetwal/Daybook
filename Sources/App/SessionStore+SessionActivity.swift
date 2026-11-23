@@ -88,7 +88,11 @@ extension SessionStore {
             }
         }
         let kept = session.recordIDs.compactMap { metadataArchive.metadata(for: $0)?.activityShape }
-        if !partlyRecorded, !kept.isEmpty, kept.count == session.recordIDs.count, let joined = SessionActivityShape.joined(kept) {
+        // A summary kept under other app categories is stale once its beats are gone: app use stands in.
+        // One saved before the digest was kept counts as made with none.
+        let digest = SessionActivityShape.digest(engine.store.purposeOverrides), none = SessionActivityShape.digest([:])
+        let current = kept.allSatisfy { ($0.overridesDigest ?? none) == digest }
+        if !partlyRecorded, current, !kept.isEmpty, kept.count == session.recordIDs.count, let joined = SessionActivityShape.joined(kept) {
             return joined.clipped(to: bounds)
         }
         let recorded = apps ?? RecordedActivity(segments: timelineSegments(of: session, on: session.start),

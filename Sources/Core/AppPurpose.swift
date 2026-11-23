@@ -141,7 +141,7 @@ enum PurposeMap {
     /// an AI client. Named work in one of these is "Browsing", not the tool.
     static func isAmbiguous(_ bundleID: String?) -> Bool {
         guard let bundleID else { return false }
-        if case .ambiguous = rules[bundleID] { return true }
+        if case .ambiguous = rule(for: bundleID) { return true }
         return false
     }
 
@@ -185,10 +185,10 @@ enum PurposeMap {
                         activity: InputActivity,
                         overrides: [String: String] = [:]) -> AppPurpose {
         guard let bundleID, !bundleID.isEmpty else { return .utility }
-        if let raw = overrides[bundleID], let override = AppPurpose(rawValue: raw) {
+        if let override = override(for: bundleID, in: overrides) {
             return override
         }
-        switch rules[bundleID] {
+        switch rule(for: bundleID) {
         case .fixed(let purpose):
             return purpose
         case .ambiguous(let active, let passive):

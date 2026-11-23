@@ -36,7 +36,8 @@ struct StoryAppGroups: View {
                     ForEach(group.apps.prefix(Self.appsPerGroup)) { app in
                         HStack(spacing: Tokens.Space.s) {
                             StoryAppRow(app: app)
-                            pill(for: app, purpose: group.purpose)
+                            // A folded app keeps its own category: the heading may read Everything else.
+                            pill(for: app, purpose: store.appPurpose(app.bundleID))
                         }
                     }
                 }

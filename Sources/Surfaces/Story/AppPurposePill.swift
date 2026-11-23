@@ -123,7 +123,8 @@ struct AppPurposePicker: View {
 
     private func choiceRow(_ purpose: AppPurpose) -> some View {
         let selected = purpose == current
-        return Button { if !selected { onChoose(purpose) } } label: {
+        // A browser's shown category follows behaviour, so choosing it pins it.
+        return Button { if !(selected && isYours) { onChoose(purpose) } } label: {
             HStack(spacing: Tokens.Space.s) {
                 Image(systemName: purpose.symbolName)
                     .font(Tokens.Typography.caption)

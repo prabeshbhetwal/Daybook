@@ -18,12 +18,11 @@ extension SessionStore {
     /// Returns the override that was there, for Undo.
     @discardableResult
     func setAppPurpose(_ purpose: AppPurpose?, for bundleID: String) -> AppPurpose? {
-        var overrides = engine.store.purposeOverrides
-        let previous = overrides[bundleID].flatMap(AppPurpose.init(rawValue:))
+        let overrides = engine.store.purposeOverrides
+        let previous = PurposeMap.override(for: bundleID, in: overrides)
         guard previous != purpose else { return previous }
         objectWillChange.send()
-        overrides[bundleID] = purpose?.rawValue
-        engine.store.purposeOverrides = overrides
+        engine.store.purposeOverrides = PurposeMap.settingOverride(purpose, for: bundleID, in: overrides)
         refresh()
         return previous
     }

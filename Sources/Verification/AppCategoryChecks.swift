@@ -10,7 +10,43 @@ enum AppCategoryChecks: CheckSuite {
         ("An app's category source follows the same precedence as its category", sourcePrecedence),
         ("Plain category names leave stored raw values untouched", namesKeepRawValues),
         ("Changing an app's category moves its time in activity totals, and Undo moves it back", correctionReachesTotals),
+        ("An app's category matches its bundle identifier in any letter case, and one app keeps one choice",
+         bundleCaseMatches),
+        ("An old session whose detail has expired follows a category changed since its summary was kept",
+         staleSummaryFollowsCorrection),
     ]
+
+    private static func bundleCaseMatches() -> [String] {
+        var problems: [String] = []
+        // Settings lists apps lowercased; recorded use keeps the app's own case.
+        let saved = PurposeMap.settingOverride(.design, for: "com.apple.terminal", in: ["com.apple.Terminal": "media"])
+        expect(saved == ["com.apple.terminal": "design"], "one app holds one choice, got \(saved)", &problems)
+        let recorded = PurposeMap.purpose(for: "com.apple.Terminal", activity: .active, overrides: saved)
+        expect(recorded == .design, "recorded use follows a choice saved lowercased, got \(recorded)", &problems)
+        let listed = PurposeMap.source(for: "com.apple.terminal", overrides: [:])
+        expect(listed == .builtIn, "a lowercased identifier still finds its built-in rule, got \(listed)", &problems)
+        expect(PurposeMap.isAmbiguous("company.thebrowser.DIA"), "a browser is a browser in any case", &problems)
+        let cleared = PurposeMap.settingOverride(nil, for: "com.apple.Terminal", in: saved)
+        expect(cleared.isEmpty, "clearing removes every spelling, got \(cleared)", &problems)
+        return problems
+    }
+
+    private static func staleSummaryFollowsCorrection() -> [String] {
+        var spec = CategoryAssistantRig.Spec()
+        spec.credited = [.coding: 1_800]
+        let start = SelfTest.base
+        let usage = [AppUsageSession(bundleID: "com.apple.Terminal", appName: "Terminal", start: start,
+                                     end: start.addingTimeInterval(1_800), endReason: .appSwitch)]
+        // The rig keeps a summary for the session and records no beats, as for a session past their retention.
+        return CategoryAssistantRig.withRig([spec], usage: usage) { rig, problems in
+            let before = rig.f.store.sessionActivity(for: rig.session())?.credited ?? [:]
+            expect((before["coding"] ?? 0) > 1_700, "the kept summary reads coding first, got \(before)", &problems)
+            rig.f.store.setAppPurpose(.design, for: "com.apple.Terminal")
+            let after = rig.f.store.sessionActivity(for: rig.session())?.credited ?? [:]
+            expect((after["design"] ?? 0) > 1_700 && (after["coding"] ?? 0) < 1,
+                   "Terminal's half hour moved to design, got \(after)", &problems)
+        }
+    }
 
     private static func rank(_ id: String, _ minutes: Double) -> AppRank {
         AppRank(bundleID: id, appName: id, total: minutes * 60, share: 0, longest: 0)
