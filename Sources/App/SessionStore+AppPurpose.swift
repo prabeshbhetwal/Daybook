@@ -4,6 +4,9 @@ import Foundation
 /// `purposeOverrides` entry: it changes the app everywhere, past days
 /// included, because every shape and total is derived from it.
 extension SessionStore {
+    /// Posted after a card changes an app's category, so an open Settings list follows.
+    static let appPurposesDidChange = Notification.Name("DaybookAppPurposesDidChange")
+
     var purposeOverrides: [String: String] { engine.store.purposeOverrides }
 
     func appPurpose(_ bundleID: String) -> AppPurpose {
@@ -24,6 +27,7 @@ extension SessionStore {
         objectWillChange.send()
         engine.store.purposeOverrides = PurposeMap.settingOverride(purpose, for: bundleID, in: overrides)
         refresh()
+        NotificationCenter.default.post(name: Self.appPurposesDidChange, object: self)
         return previous
     }
 }

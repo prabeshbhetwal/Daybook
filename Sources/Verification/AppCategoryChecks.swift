@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 
 /// App categories as the story shows and corrects them: grouping and the
@@ -14,7 +15,23 @@ enum AppCategoryChecks: CheckSuite {
          bundleCaseMatches),
         ("An old session whose detail has expired follows a category changed since its summary was kept",
          staleSummaryFollowsCorrection),
+        ("An open Settings list redraws when a card changes an app's category", settingsFollowsCards),
     ]
+
+    private static func settingsFollowsCards() -> [String] {
+        var problems: [String] = []
+        let suite = "fc-selftest-app-category-settings-\(UUID().uuidString)"
+        guard let defaults = MemoryDefaults.suite(named: suite) else { return ["could not create isolated defaults"] }
+        defer { MemoryDefaults.remove(named: suite) }
+        let model = SettingsModel(store: PersistenceStore(defaults: defaults), isTrackingEnabled: false,
+                                  onChange: {}, onTrackingChanged: { _ in })
+        var fired = 0
+        let watch = model.objectWillChange.sink { fired += 1 }
+        NotificationCenter.default.post(name: SessionStore.appPurposesDidChange, object: nil)
+        watch.cancel()
+        expect(fired > 0, "Settings did not hear the card's change", &problems)
+        return problems
+    }
 
     private static func bundleCaseMatches() -> [String] {
         var problems: [String] = []

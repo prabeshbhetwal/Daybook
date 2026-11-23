@@ -394,7 +394,8 @@ final class SettingsModel: ObservableObject {
         self.backupWork = backupWork
         self.installedAppCatalog = installedAppCatalog
         catalogChanges = installedAppCatalog.objectWillChange // and the categories and the AI label file's tally
-            .merge(with: WorkTypeCatalog.shared.objectWillChange, NotificationCenter.default.publisher(for: AILabelStore.didSave).map { _ in })
+            .merge(with: WorkTypeCatalog.shared.objectWillChange, NotificationCenter.default.publisher(for: AILabelStore.didSave).map { _ in },
+                   NotificationCenter.default.publisher(for: SessionStore.appPurposesDidChange).map { _ in })
             .sink { [weak self] _ in self?.objectWillChange.send() }
         clockChanges = NotificationCenter.default.publisher(for: .NSSystemTimeZoneDidChange)
             .merge(with: NotificationCenter.default.publisher(for: .NSCalendarDayChanged))
