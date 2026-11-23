@@ -353,7 +353,8 @@ struct DayStory: View {
                 notes: noteFacts.notes, editorsOpen: noteFacts.editorsOpen, metadataError: noteFacts.error,
                 isHistory: isHistory, canRemove: canRemove, removeBlockReason: removeBlockReason,
                 pauseTitle: live.pauseTitle, canControl: live.canControl,
-                minimumRecorded: store.engine.store.minimumRecordedSession, origin: origin, aiMark: aiMark)
+                minimumRecorded: store.engine.store.minimumRecordedSession, origin: origin, aiMark: aiMark,
+                purposeOverrides: store.purposeOverrides)
             storyRow(time: session.start,
                      tint: Tokens.Palette.workType(session.workType),
                      dotSize: session.isRunning ? 13.zoomed : 11.zoomed,
@@ -544,6 +545,8 @@ struct SessionEntryCard: View {
     @StateObject private var draft = TextBox()
     @StateObject private var picking = BoolBox()
     @StateObject private var confirmingRemoval = BoolBox()
+    /// The last app category changed in this card, for its Undo.
+    @StateObject private var purposeChanges = PurposeChangeBox()
     @StateObject private var dontAskRemoval = DontAskAgain(.removeSession)
     @Environment(\.confirmationPolicy) private var confirmations
     @StateObject private var titleWidth = WidthBox()
@@ -794,7 +797,7 @@ struct SessionEntryCard: View {
                     }
                 }
                 if !showsActivityStrip { factualCaption }
-                if apps.count <= 4 { reportLink() }
+                if hiddenAppCount == 0 { reportLink() }
             }
             actions
             metadataDetail
@@ -803,17 +806,30 @@ struct SessionEntryCard: View {
         .padding(.bottom, 13.zoomed)
     }
 
+    /// The card's apps by category, when the store is there to name them.
+    private var appGroups: [AppPurposeGroup]? {
+        metadataStore.map { store in AppPurposeGroups.groups(apps, purpose: store.appPurpose) }
+    }
+
+    private var hiddenAppCount: Int {
+        appGroups.map(StoryAppGroups.hiddenCount) ?? max(0, apps.count - 4)
+    }
+
     private var appsDetail: some View {
         VStack(alignment: .leading, spacing: 6.zoomed) {
             if !apps.isEmpty {
                 sectionLabel("Apps in this stretch")
-                ForEach(Array(apps.prefix(4).enumerated()), id: \.element.id) { _, app in
-                    StoryAppRow(app: app)
+                if let appGroups, let metadataStore {
+                    StoryAppGroups(groups: appGroups, store: metadataStore, changes: purposeChanges)
+                } else {
+                    ForEach(Array(apps.prefix(4).enumerated()), id: \.element.id) { _, app in
+                        StoryAppRow(app: app)
+                    }
                 }
-                if apps.count > 4 {
+                if hiddenAppCount > 0 {
                     // The one door to the report, put where the question
                     // comes up: what were the other nine?
-                    reportLink(prefix: "\(apps.count - 4) more app\(apps.count - 4 == 1 ? "" : "s")")
+                    reportLink(prefix: "\(hiddenAppCount) more app\(hiddenAppCount == 1 ? "" : "s")")
                 }
             }
         }

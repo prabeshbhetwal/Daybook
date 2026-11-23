@@ -49,6 +49,8 @@ struct StoryDayProjectionCacheKey: Hashable {
     let machineEventLogStart: Date?
     /// Leisure blocks are only ever added, so their count is their revision.
     let leisureCount: Int
+    /// The person's app categories: a changed one regroups cards and redraws phases with no record written.
+    var purposeOverridesDigest = ""
 }
 
 struct StoryPeriodProjection: Identifiable {
@@ -82,7 +84,8 @@ extension SessionStore {
             catalogueGeneration: revision.catalogue,
             machineEventCount: machineEventLog?.events.count ?? 0,
             machineEventLogStart: machineEventLog?.events.first?.at,
-            leisureCount: leisureStore.blocks.count)
+            leisureCount: leisureStore.blocks.count,
+            purposeOverridesDigest: SessionActivityShape.digest(engine.store.purposeOverrides))
         let runningTouchesDay = dayBounds.map { bounds in
             engine.runningSpan.map { $0.end > bounds.start && $0.start < bounds.end } ?? false
         } ?? false

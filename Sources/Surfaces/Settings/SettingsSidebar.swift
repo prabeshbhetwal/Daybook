@@ -72,7 +72,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         switch self {
         case .general: return [.general, .appearance]
         case .sessions: return [.focus, .categories, .automatic]
-        case .activities: return [.activities]
+        case .activities: return [.activities, .appCategories]
         case .away: return [.away]
         case .breaks: return [.breaks]
         case .privacy: return [.tracking, .data]
@@ -84,7 +84,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         switch section {
         case .general, .appearance: self = .general
         case .focus, .categories, .automatic: self = .sessions
-        case .activities: self = .activities
+        case .activities, .appCategories: self = .activities
         case .away: self = .away
         case .breaks: self = .breaks
         case .tracking, .data: self = .privacy
@@ -115,6 +115,7 @@ extension SettingsSection {
         case .breaks: return "Breaks"
         case .automatic: return "Automatic sessions"
         case .activities: return "Activity rules"
+        case .appCategories: return "App categories"
         case .tracking: return "Recording"
         case .appearance: return "Appearance"
         case .data: return "Privacy and data"
@@ -132,6 +133,7 @@ extension SettingsSection {
         case .breaks: return "cup.and.saucer"
         case .automatic: return "wand.and.stars"
         case .activities: return "app.badge.checkmark"
+        case .appCategories: return "square.grid.2x2"
         case .tracking: return "rectangle.stack.badge.play"
         case .appearance: return "circle.lefthalf.filled"
         case .data: return "lock.shield"
@@ -172,6 +174,8 @@ extension SettingsSection {
         case .activities:
             return ["Use my activity rules", "Activity rules", "New Rule", "Activity name",
                     "Start after", "Use this rule", "Running now", "All apps", "Add App…", "Delete Rule"]
+        case .appCategories:
+            return ["App categories", "Search apps", "Use Daybook's choice"] + AppPurpose.allCases.map(\.displayName)
         case .tracking: return ["Record app use"]
         case .appearance:
             return ["Appearance", "Interface density", "Zoom", "Show Story timestamps",
@@ -202,6 +206,7 @@ extension SettingsSection {
                               .breakGuard, .breakOverSound, .menuBarShowsBreakCountdown]
         case .automatic: return [.automaticSessions, .automaticGap]
         case .activities: return [.activityRuleAutomation, .activityRules]
+        case .appCategories: return [.appCategories]
         case .tracking: return [.usageRecording]
         case .appearance: return [.appearance, .density, .zoom, .timelineLabels, .entryDetails, .quietFold, .railApps,
                                    .sessionsPerApp]
@@ -239,6 +244,8 @@ extension SettingsControlKey {
                                  "Assistant"]
         case .appleIntelligence: return ["Apple Intelligence"] // name: Apple's
         case .askPlacement: return ["Side panel", "Sheet", "Sidebar", "Inspector", "Panel"]
+        case .appCategories: return ["Coding", "AI", "Browser", "Messaging", "Communication", "Research", "Media",
+                                     "Utility", "Purpose", "Kind of work"]
         default: return []
         }
     }

@@ -24,6 +24,7 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
     case automaticSessions
     case activityRuleAutomation
     case activityRules
+    case appCategories
     case automaticGap
     case rewards
     case haptics
@@ -79,6 +80,7 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
         case .automaticSessions: return \SettingsModel.autoSessionsEnabled
         case .activityRuleAutomation: return \SettingsModel.activityRuleAutomationEnabled
         case .activityRules: return \SettingsModel.activityRules
+        case .appCategories: return \SettingsModel.purposeOverrides
         case .automaticGap: return \SettingsModel.autoSessionPauseLimit
         case .rewards: return \SettingsModel.rewardsEnabled
         case .haptics: return \SettingsModel.hapticsEnabled
@@ -392,7 +394,8 @@ final class SettingsModel: ObservableObject {
         self.backupWork = backupWork
         self.installedAppCatalog = installedAppCatalog
         catalogChanges = installedAppCatalog.objectWillChange // and the categories and the AI label file's tally
-            .merge(with: WorkTypeCatalog.shared.objectWillChange, NotificationCenter.default.publisher(for: AILabelStore.didSave).map { _ in })
+            .merge(with: WorkTypeCatalog.shared.objectWillChange, NotificationCenter.default.publisher(for: AILabelStore.didSave).map { _ in },
+                   NotificationCenter.default.publisher(for: SessionStore.appPurposesDidChange).map { _ in })
             .sink { [weak self] _ in self?.objectWillChange.send() }
         clockChanges = NotificationCenter.default.publisher(for: .NSSystemTimeZoneDidChange)
             .merge(with: NotificationCenter.default.publisher(for: .NSCalendarDayChanged))
@@ -562,6 +565,13 @@ final class SettingsModel: ObservableObject {
             write { store.activityRules = newValue }
             onActivityRulesChanged()
         }
+    }
+
+    /// The person's app categories, bundle id → `AppPurpose` raw value. The
+    /// session store re-derives every card and total from them on change.
+    var purposeOverrides: [String: String] {
+        get { store.purposeOverrides }
+        set { write { store.purposeOverrides = newValue } }
     }
 
     func saveActivityRule(_ rule: ActivityRule) {

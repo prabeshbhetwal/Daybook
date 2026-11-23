@@ -5,7 +5,7 @@ extension SplitOffer {
     /// after would be filed under. The totals do not move, and it says so.
     var sentence: String {
         let moment = DateFormats.clockTime(at)
-        var text = purpose.map { "From \(moment) this was mostly \($0.displayName.prefix(1).lowercased() + $0.displayName.dropFirst())." }
+        var text = purpose.map { "From \(moment) this was mostly \($0.inSentence)." }
             ?? "From \(moment) the work changed."
         text += " Splitting makes that part a session of its own, and your totals stay the same."
         if case .chosen(let type, _) = choice { text += " It would be filed under \(type.displayName)." }

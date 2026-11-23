@@ -235,7 +235,7 @@ enum OriginMarkChecks: CheckSuite {
             guard let manual = session({ $0.start(workType: .deepWork, intent: "Mine") }),
                   let automatic = session(Rig.automatic("Parser")),
                   let byRule = session(ruled(ruleID, "Coding", at: clock)) else { return ["no sessions were made"] }
-            let line = "Mostly media: 6 of 10 minutes"
+            let line = "Mostly entertainment: 6 of 10 minutes"
             expect(SessionReport.make(for: manual, store: store).contradiction == line,
                    "the person's label got \(String(describing: SessionReport.make(for: manual, store: store).contradiction))",
                    &problems)

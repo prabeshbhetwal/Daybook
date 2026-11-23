@@ -36,9 +36,8 @@ enum ContradictionLine {
                   !stands.contains($0.key) && $0.value / total > ActivityConstants.contradictionHigh
               }) else { return nil }
         // The name the phase strip gives the activity, with only its first letter set down for the sentence.
-        let name = other.key.displayName
         let minutes = Int((total / 60).rounded())
-        return "Mostly \(name.prefix(1).lowercased() + name.dropFirst()): "
+        return "Mostly \(other.key.inSentence): "
             + "\(Int((other.value / 60).rounded())) of \(minutes) minute\(minutes == 1 ? "" : "s")"
     }
 }

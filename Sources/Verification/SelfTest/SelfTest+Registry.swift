@@ -251,6 +251,7 @@ extension SelfTest {
             + AwayGapChecks.tests + aiCategoryTests + followUpTests
             + RenameSaveChecks.tests
             + WalkAwayChecks.tests
+            + AppCategoryChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

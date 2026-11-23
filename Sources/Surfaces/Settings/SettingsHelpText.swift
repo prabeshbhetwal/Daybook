@@ -11,7 +11,7 @@ enum SettingsHelpText {
             "Haptics": haptics, "Confirmations": confirmations, "Interface": interface, "Story": story,
             "Goal": goal, "Starting and ending": startingAndEnding, "Categories": categories,
             "Automatic categories": automaticCategories, "Automatic sessions": automatic,
-            "Activity rules": activityRules, "Rules": rules, "New rule": ruleForm, "Edit rule": ruleForm,
+            "Activity rules": activityRules, "App categories": appCategories, "Rules": rules, "New rule": ruleForm, "Edit rule": ruleForm,
             "Stepping away": steppingAway, "Apps working for you": appsWorking,
             "Reminders": reminders, "Weekday plan": weekdayPlan, "Overrides": overrides,
             "Working hours": workingHours, "Eyes and long stretches": eyesAndStretches,
@@ -235,6 +235,17 @@ enum SettingsHelpText {
     ]
 
     // MARK: - Activities
+
+    static let appCategories: [HelpEntry] = [
+        HelpEntry("App categories", """
+            Daybook sorts every app by the kind of work it is, such as Coding or Chat & email. Session cards \
+            group their apps this way, and activity goals count from it.
+            """),
+        HelpEntry("Use Daybook's choice", """
+            Click an app's category to change it. The change applies to past days too. Use Daybook's choice \
+            puts back the category Daybook picked.
+            """)
+    ]
 
     static let activityRules: [HelpEntry] = [
         HelpEntry("Use my activity rules", """

@@ -12,7 +12,7 @@ extension ActivityCredit {
     }
 
     static func isOverridden(_ app: String, _ overrides: [String: String]) -> Bool {
-        overrides[app].flatMap(AppPurpose.init(rawValue:)) != nil
+        PurposeMap.override(for: app, in: overrides) != nil
     }
 
     /// Whether a held run's holder is read as a browser: ambiguous in the map, or, with the signal

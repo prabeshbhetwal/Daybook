@@ -41,7 +41,7 @@ enum SessionPhaseStripChecks: CheckSuite {
             (phase(.browsing, 0, 10), "Browsing 10 minutes"),
             (phase(.purpose(.writingAI), 0, 80), "Writing & AI 1 hour 20 minutes"),
             // A film inside a session: its time is the session's, but not counted.
-            (phase(.purpose(.media), 20, 80, counted: false), "Media 1 hour, not counted"),
+            (phase(.purpose(.media), 20, 80, counted: false), "Entertainment 1 hour, not counted"),
         ]
         for (phase, want) in cases {
             let got = SessionPhaseText.phaseLine(phase)
@@ -80,7 +80,7 @@ enum SessionPhaseStripChecks: CheckSuite {
     private static func summaryInOrder() -> [String] {
         var problems: [String] = []
         let heard = SessionPhaseText.summary(shape(codeBrowseCode, depth: .deep))
-        expect(heard == "Coding 40 minutes, Research 10 minutes, Coding 30 minutes. Deep.",
+        expect(heard == "Coding 40 minutes, Browsing & research 10 minutes, Coding 30 minutes. Deep.",
                "the three phases in order, then the depth, got \"\(heard)\"", &problems)
         let lunch = [phase(.purpose(.coding), 0, 30), phase(.away, 30, 90, counted: false), phase(.purpose(.coding), 90, 110)]
         let away = SessionPhaseText.summary(shape(lunch))

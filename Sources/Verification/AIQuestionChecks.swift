@@ -75,7 +75,7 @@ enum AIQuestionChecks: CheckSuite {
         let appNames = [bundle: "Xcode"]
         let credited = shape.credited.sorted { $0.value > $1.value }
         let made = CategoryQuestionFacts(
-            activities: credited.map { (name: AppPurpose(rawValue: $0.key)?.displayName ?? "", minutes: CategoryQuestion.minutes(fromSeconds: $0.value)) },
+            activities: credited.map { (name: AppPurpose(rawValue: $0.key)?.modelName ?? "", minutes: CategoryQuestion.minutes(fromSeconds: $0.value)) },
             depthWord: shape.depth?.rawValue, appNames: (shape.fingerprint?.topApps ?? []).compactMap { appNames[$0] },
             siteKind: shape.fingerprint?.siteKind, categories: [(id: "deepWork", name: "Deep work")])
         guard let fingerprint = shape.fingerprint else { return ["no fingerprint"] }

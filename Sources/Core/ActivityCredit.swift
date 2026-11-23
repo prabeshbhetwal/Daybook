@@ -96,7 +96,7 @@ enum ActivityCredit {
     /// Ambiguous in the map and not overridden: only these are read by behaviour (rule 3b).
     /// An app the map does not list has a purpose that does not depend on behaviour, so it is fixed.
     static func isAmbiguous(_ app: String, _ overrides: [String: String]) -> Bool {
-        PurposeMap.isAmbiguous(app) && overrides[app].flatMap(AppPurpose.init(rawValue:)) == nil
+        PurposeMap.isAmbiguous(app) && PurposeMap.override(for: app, in: overrides) == nil
     }
 
     /// One slice of one beat, placed in time.

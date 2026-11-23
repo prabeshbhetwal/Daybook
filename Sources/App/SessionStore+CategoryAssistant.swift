@@ -35,7 +35,7 @@ extension SessionStore {
         guard let dominant = ranked.first.flatMap({ AppPurpose(rawValue: $0.key) }) else { return nil }
         let activities = ranked.compactMap { entry -> (name: String, minutes: Int)? in
             let minutes = CategoryQuestion.minutes(fromSeconds: entry.value)
-            return minutes > 0 ? AppPurpose(rawValue: entry.key).map { ($0.displayName, minutes) } : nil
+            return minutes > 0 ? AppPurpose(rawValue: entry.key).map { ($0.modelName, minutes) } : nil
         }
         let startable = WorkType.startable.map { (id: $0.rawValue, name: $0.displayName) }
         guard !activities.isEmpty, !startable.isEmpty else { return nil }

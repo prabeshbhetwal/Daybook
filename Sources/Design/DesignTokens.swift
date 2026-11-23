@@ -251,6 +251,10 @@ enum Tokens {
         /// makes wears whichever hue they chose for it.
         static func workType(_ type: WorkType) -> Color { hue(type.hue) }
 
+        /// An app category's colour: pills, category bars and lists. Never
+        /// the only cue; its symbol and name always come with it.
+        static func purpose(_ purpose: AppPurpose) -> Color { hue(purpose.hue) }
+
         static func hue(_ hue: WorkTypeHue) -> Color {
             let colours = pair(hue)
             return Color(lightHex: colours.light, darkHex: colours.dark)
