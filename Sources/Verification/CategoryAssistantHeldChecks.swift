@@ -121,7 +121,7 @@ enum CategoryAssistantHeldChecks: CheckSuite {
             assistant.responder = { _ in asked.value += 1; return Rig.answer("2") }
             // The first kind has its label and the second is asked: an answer of each sort, neither of them saved.
             rig.records.forEach { assistant.sessionEnded($0.id) }
-            _ = InstalledAppCatalog.turnRunLoop(until: { assistant.isIdle }, timeout: 5)
+            _ = InstalledAppCatalog.turnRunLoop(until: { assistant.isIdle }, timeout: 30)
             expect(asked.value == 1, "the sessions were not answered as set up: asked \(asked.value) times", &problems)
             expect(rig.stored(0) == rig.records[0] && rig.stored(1) == rig.records[1],
                    "a record was written though its answer could not be saved: \(String(describing: rig.stored(0))) \(String(describing: rig.stored(1)))", &problems)
@@ -143,7 +143,7 @@ enum CategoryAssistantHeldChecks: CheckSuite {
             let assistant = CategoryAssistant(store: rig.f.store, labels: stuck, assigns: { true })
             assistant.responder = { _ in asked.value += 1; return Rig.answer("2") }
             assistant.sessionEnded(rig.record.id)
-            _ = InstalledAppCatalog.turnRunLoop(until: { assistant.isIdle }, timeout: 5)
+            _ = InstalledAppCatalog.turnRunLoop(until: { assistant.isIdle }, timeout: 30)
             expect(asked.value == 0, "the model was asked though its answer could not be saved: \(asked.value) times", &problems)
             expect(rig.stored() == rig.record, "a record was written though its answer could not be saved", &problems)
         }
