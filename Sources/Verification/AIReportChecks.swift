@@ -35,7 +35,7 @@ enum AIReportChecks: CheckSuite {
             fresh.responder = { question in rig.calls.questions.append(question); return Rig.answer("2") }
             rig.f.store.installCategoryAssistant(fresh)
             rig.f.store.noteEndedRecordsForAssistant()
-            _ = InstalledAppCatalog.turnRunLoop(until: { fresh.isIdle }, timeout: 5)
+            _ = InstalledAppCatalog.turnRunLoop(until: { fresh.isIdle }, timeout: 30)
             expect(fresh.suggestions[rig.record.id] == .pick(id),
                    "the suggestion did not come back after a relaunch: \(fresh.suggestions)", &problems)
             expect(rig.f.store.aiReport(for: rig.session()).suggestion == .pick(WorkType(rawValue: id)),

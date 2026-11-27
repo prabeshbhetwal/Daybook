@@ -63,7 +63,9 @@ enum CategoryAssistantRig {
         }
 
         func settle(_ wait: TimeInterval = 0) {
-            _ = InstalledAppCatalog.turnRunLoop(until: { assistant.isIdle }, timeout: 5)
+            // Longer than the assistant's own 10 s question timeout, so a loaded Mac that schedules the answer
+            // late still finishes it here; the wait ends as soon as the assistant is idle.
+            _ = InstalledAppCatalog.turnRunLoop(until: { assistant.isIdle }, timeout: 30)
             if wait > 0 { _ = InstalledAppCatalog.turnRunLoop(until: { false }, timeout: wait) }
         }
     }

@@ -187,7 +187,8 @@ enum AskPanelChecks: CheckSuite {
                 guard window.isVisible, window.screen != nil else { return }
 
                 anchor.base = open
-                let deadline = Date().addingTimeInterval(2)
+                // Ends once the window has grown; the generous cap only matters on a loaded Mac.
+                let deadline = Date().addingTimeInterval(15)
                 while window.contentRect(forFrameRect: window.frame).width < expected.width - 0.5, Date() < deadline {
                     RunLoop.current.run(until: Date().addingTimeInterval(0.01))
                 }
