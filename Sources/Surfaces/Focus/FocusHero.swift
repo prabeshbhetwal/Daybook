@@ -636,6 +636,13 @@ struct FocusHero: View {
                 .font(Tokens.Typography.display)
                 .foregroundStyle(quiet ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary)) // ink: quiet, large text, 3:1
                 .elapsedClockAccessibility(store.elapsed)
+            // The clock's two lanes, only once an agent has held some of it.
+            if let lanes = Tokens.laneSplit(worked: store.elapsed, agent: store.agentElapsed) {
+                Text(durations: lanes)
+                    .font(Tokens.Typography.body.monospacedDigit())
+                    .foregroundStyle(StoryStyle.supportingInk)
+                    .accessibilityLabel(DurationText.spoken(in: lanes))
+            }
             VStack(alignment: compact ? .leading : .center, spacing: 2.zoomed) {
                 Text(store.activeIntent)
                     .font(compact ? Tokens.Typography.rowTitle : Tokens.Typography.heading)
