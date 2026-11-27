@@ -254,6 +254,7 @@ extension SelfTest {
             + AppCategoryChecks.tests
             + ReleaseReviewChecks.tests
             + LeisureEvidenceChecks.tests
+            + PopoverGoalsChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

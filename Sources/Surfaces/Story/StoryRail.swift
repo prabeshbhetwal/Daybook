@@ -400,13 +400,7 @@ struct StoryRail: View {
 
     /// Category goals from the goal list, each against the day's focus with
     /// app use recorded: the ring's own accounting, so a row never outruns it.
-    private var categoryGoals: [(type: WorkType, goal: TimeInterval, achieved: TimeInterval)] {
-        let credit = store.storyRailDay(on: shownDay).creditByCategory
-        return WorkType.startable.compactMap { type in
-            guard let goal = type.dailyGoal, goal > 0 else { return nil }
-            return (type, goal, credit[type.rawValue] ?? 0)
-        }
-    }
+    private var categoryGoals: [CategoryGoalStatus] { store.categoryGoals(on: shownDay) }
 
     /// What the card means, behind its info mark. The line joining the ring's
     /// figure to the logged focus (sessions less time with no app use) lives

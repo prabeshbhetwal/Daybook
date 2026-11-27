@@ -11,7 +11,10 @@ struct HeroCard: View {
         FocusHero(store: store,
                   intentFocused: intentFocused,
                   compact: true,
-                  wide: false)
+                  wide: false,
+                  // The panel's goals card and footer carry these instead.
+                  showsGoal: false,
+                  showsTakeBreak: false)
             .card(padding: dense ? Tokens.Space.m : Tokens.Space.l,
                   radius: Tokens.Radius.popoverCard)
     }
