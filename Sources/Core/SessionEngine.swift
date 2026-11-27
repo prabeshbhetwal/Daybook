@@ -31,6 +31,9 @@ final class SessionEngine {
     var sessionStartDate: Date
     var totalPausedDuration: TimeInterval = 0
     var pausedSpans: [DateInterval] = []
+    /// The Agent lane so far (`SessionEngine+AgentLane`). Nil for a session
+    /// restored from before the lane existed.
+    var agentSpans: [AgentSpan]? = []
     var currentAppName: String = "—"
     var currentAppBundleID: String?
 

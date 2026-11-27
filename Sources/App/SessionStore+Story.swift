@@ -310,7 +310,9 @@ extension SessionStore {
                     usage: usage,
                     running: running,
                     runningWork: storyRunningFocusSeconds(in: slice),
-                    runningPaused: running == nil ? nil : engine.runningPausedSpans)
+                    runningPaused: running == nil ? nil : engine.runningPausedSpans,
+                    runningAgent: running == nil ? nil : engine.runningAgentSpans,
+                    agent: engine.store.agentGoalRule)
             }
             cursor = nextDay
         }

@@ -40,6 +40,7 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
     case entryDetails
     case idlePause
     case agentQuiet
+    case agentLimit
     case appsAtWork
     case streakMinimum
     case minimumSession
@@ -96,6 +97,7 @@ enum SettingsControlKey: String, CaseIterable, Hashable {
         case .entryDetails: return \SettingsModel.expandsEntryDetails
         case .idlePause: return \SettingsModel.idlePauseThreshold
         case .agentQuiet: return \SettingsModel.agentQuietPolicy
+        case .agentLimit: return \SettingsModel.agentUnattendedLimit
         case .appsAtWork: return \SettingsModel.noticesAppsAtWork
         case .streakMinimum: return \SettingsModel.streakMinimum
         case .minimumSession: return \SettingsModel.minimumRecordedSession
@@ -659,6 +661,11 @@ final class SettingsModel: ObservableObject {
     var agentQuietPolicy: AgentQuietPolicy {
         get { store.agentQuietPolicy }
         set { write { store.agentQuietPolicy = newValue } }
+    }
+
+    var agentUnattendedLimit: TimeInterval {
+        get { store.agentUnattendedLimit }
+        set { write { store.agentUnattendedLimit = newValue } }
     }
 
     var noticesAppsAtWork: Bool {

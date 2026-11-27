@@ -13,6 +13,8 @@ struct SessionActivityKey: Equatable {
     let overridesDigest: String
     /// The signals its beats carry: a shape worked out without one is not the shape with it.
     let signals: Set<SignalKind>
+    /// The Agent lane: time in it is credited apart from the person's.
+    var agent: [AgentSpan]? = nil
 }
 
 struct SessionActivityMemo {
@@ -132,15 +134,16 @@ extension SessionStore {
         } : counted
         guard ActivityDerivation.recordsWhole(tested, beats: beats) else { return nil }
         let overrides = engine.store.purposeOverrides, watching = session.workType.countsWhileWatching
-        let signals = SignalKind.carried(by: beats)
+        let signals = SignalKind.carried(by: beats), agent = agentLane(of: session, in: bounds, at: moment)
         let key = SessionActivityKey(bounds: bounds, counted: counted, beats: beats.count,
                                      algorithmVersion: ActivityConstants.algorithmVersion, isRunning: session.isRunning,
                                      countsWhileWatching: watching, overridesDigest: SessionActivityShape.digest(overrides),
-                                     signals: signals)
+                                     signals: signals, agent: agent)
         let row = SessionActivityMemoKey(session)
         if let memo = activityEvidence.memo[row], memo.key == key { return memo.shape }
         let shape = ActivityDerivation.derive(DerivationInput(
-            credit: CreditInput(beats: beats, counted: counted, signals: signals, purposeOverrides: overrides),
+            credit: CreditInput(beats: beats, counted: counted, signals: signals, purposeOverrides: overrides,
+                                agent: agent),
             bounds: bounds, countsWhileWatching: watching,
             isRunning: session.isRunning, now: moment))
         if activityEvidence.memo.count >= Self.activityMemoLimit { activityEvidence.memo.removeAll() }
@@ -282,7 +285,8 @@ extension SessionStore {
         let signals = SignalKind.carried(by: beats)
         if known == nil, isCurrent(counted, signals: signals) { return settle() }
         let shape = ActivityDerivation.derive(DerivationInput(
-            credit: CreditInput(beats: beats, counted: counted, signals: signals, purposeOverrides: overrides.all),
+            credit: CreditInput(beats: beats, counted: counted, signals: signals, purposeOverrides: overrides.all,
+                                agent: record.agentLane),
             bounds: bounds, countsWhileWatching: watching,
             isRunning: false, now: moment))
         // Evidence never raises an alert: a refused write is quietly left until the sidecar next saves something.

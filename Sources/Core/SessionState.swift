@@ -264,6 +264,9 @@ struct SessionRecord: Codable, Equatable, Identifiable {
     /// Known non-counting intervals inside this record. Nil preserves the
     /// legacy even-spread estimate for records written before this existed.
     var pausedSpans: [DateInterval]?
+    /// Time an agent worked with nobody at the keyboard (`AgentLane`). Nil on
+    /// records written before the lane existed, which show no split at all.
+    var agentSpans: [AgentSpan]?
     /// Where a rest came from. Nil on work and on rests written before origins
     /// existed.
     var breakOrigin: BreakOrigin?
@@ -291,6 +294,7 @@ struct SessionRecord: Codable, Equatable, Identifiable {
          threadID: UUID = UUID(),
          isAuto: Bool = false,
          pausedSpans: [DateInterval]? = nil,
+         agentSpans: [AgentSpan]? = nil,
          breakOrigin: BreakOrigin? = nil,
          plannedLength: TimeInterval? = nil,
          origin: SessionOrigin? = nil,
@@ -308,6 +312,7 @@ struct SessionRecord: Codable, Equatable, Identifiable {
         self.threadID = threadID
         self.isAuto = isAuto
         self.pausedSpans = pausedSpans
+        self.agentSpans = agentSpans
         self.breakOrigin = breakOrigin
         self.plannedLength = plannedLength
         self.origin = origin
@@ -333,6 +338,7 @@ struct SessionRecord: Codable, Equatable, Identifiable {
         // Records written before auto sessions existed were all started by hand.
         isAuto = try container.decodeIfPresent(Bool.self, forKey: .isAuto) ?? false
         pausedSpans = try container.decodeIfPresent([DateInterval].self, forKey: .pausedSpans)
+        agentSpans = container.lenient([AgentSpan].self, .agentSpans)
         // Read as a name, then looked up: an origin a later build adds is not
         // one this build knows, and must not make the whole list unreadable.
         breakOrigin = try container.decodeIfPresent(String.self, forKey: .breakOrigin)
@@ -482,6 +488,8 @@ struct PersistedState: Codable, Equatable {
     var sessionStart: Date
     var totalPaused: TimeInterval
     var pausedSpans: [DateInterval]? = nil
+    /// The Agent lane so far. Nil in snapshots written before it existed.
+    var agentSpans: [AgentSpan]? = nil
     var pauseStart: Date?
     var pauseReason: String?
     var pauseBundleID: String?
@@ -627,6 +635,9 @@ enum FocusConstants {
     /// so a long lunch or a school run still keeps your session, while anything
     /// that could be a night, a commute home, or a closed laptop does not.
     static let defaultLongAwayCap: TimeInterval = 4 * 3600
+    /// Unattended agent time counts toward goals for at most this long.
+    static let defaultAgentUnattendedLimit: TimeInterval = 3600
+    static let agentUnattendedLimitOptions: [TimeInterval] = [1_800, 3_600, 7_200, 14_400]
     static let longAwayCapOptions: [TimeInterval] = [
         3_600, 2 * 3_600, 3 * 3_600, 4 * 3_600, 6 * 3_600, 8 * 3_600
     ]

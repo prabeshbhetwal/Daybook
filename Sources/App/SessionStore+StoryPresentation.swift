@@ -33,7 +33,8 @@ extension SessionStore {
         } ?? false
         let running = engine.state == .idle ? nil : RunningThread(
             recordID: engine.activeRecordID, threadID: engine.activeThreadID, name: engine.sessionName,
-            workType: engine.activeWorkType, start: engine.sessionStartDate, worked: engine.elapsed)
+            workType: engine.activeWorkType, start: engine.sessionStartDate, worked: engine.elapsed,
+            agentSpans: engine.runningAgentSpans)
         return Array(StoryChronology.build(records: engine.archive.records, running: running,
                                           usage: effectiveUsageSnapshot?.sessions(touching: day) ?? [],
                                           machineEvents: machineEvents(on: day),

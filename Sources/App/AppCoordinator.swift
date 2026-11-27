@@ -377,6 +377,7 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
                             running: engine.runningSpan,
                             runningWork: engine.elapsedToday(),
                             runningPaused: engine.runningPausedSpans,
+                            runningAgent: engine.runningAgentSpans, agent: engine.store.agentGoalRule,
                             windowDays: engine.store.paceWindowDays).progress(),
             endedMedia: recentlyEndedMedia(before: moment,
                                            usage: usageSnapshot.sessions),
@@ -614,11 +615,13 @@ final class AppCoordinator: NSObject, NSApplicationDelegate {
         settings.updater = updater; settings.aiCategories = AICategorySource(setting: AIAssignSetting(defaults: .standard), labels: store.aiLabelStore)
         // New or not by the welcome's own rule: recorded app use alone makes
         // an install an existing one, so its history is not uploaded unasked.
-        engine.store.settleBackupSchedule(isExistingInstall: !FirstRunGate.shouldWelcome(
+        let isExistingInstall = !FirstRunGate.shouldWelcome(
             onboarded: engine.store.hasOnboarded,
             hasSessionHistory: !engine.archive.records.isEmpty,
             hasUsageHistory: usage.hasSessions,
-            forced: false))
+            forced: false)
+        engine.store.settleBackupSchedule(isExistingInstall: isExistingInstall)
+        engine.store.settleAgentQuietPolicy(isExistingInstall: isExistingInstall)
         backups.start { [weak self] in self?.settings.backUpIfDue() }
         secondLaunchObserver = DistributedNotificationCenter.default().addObserver(
             forName: InstanceLock.reopenNotification, object: nil, queue: .main) { [weak self] _ in

@@ -23,13 +23,16 @@ enum FocusedActiveTime {
                         running: (start: Date, end: Date)?,
                         runningWork: TimeInterval? = nil,
                         runningPaused: [DateInterval]? = nil,
+                        runningAgent: [AgentSpan]? = nil,
+                        agent: AgentGoalRule = .youOnly,
                         calendar: Calendar = .current) -> TimeInterval {
         guard let bounds = SessionRecord.dayBounds(day, calendar: calendar) else {
             return 0
         }
         return seconds(in: DateInterval(start: bounds.start, end: bounds.end),
                        records: records, usage: usage, running: running,
-                       runningWork: runningWork, runningPaused: runningPaused)
+                       runningWork: runningWork, runningPaused: runningPaused,
+                       runningAgent: runningAgent, agent: agent)
     }
 
     /// Focused-active seconds inside any bounded interval. This is the same
@@ -39,7 +42,9 @@ enum FocusedActiveTime {
                         usage: [AppUsageSession],
                         running: (start: Date, end: Date)?,
                         runningWork: TimeInterval? = nil,
-                        runningPaused: [DateInterval]? = nil) -> TimeInterval {
+                        runningPaused: [DateInterval]? = nil,
+                        runningAgent: [AgentSpan]? = nil,
+                        agent: AgentGoalRule = .youOnly) -> TimeInterval {
         guard interval.duration > 0 else { return 0 }
         let bounds = (start: interval.start, end: interval.end)
         // A running session with no work here (one in a category that does not count) credits nothing, and its
@@ -54,8 +59,20 @@ enum FocusedActiveTime {
         }
         // Known pauses are not focus. Credited across the whole span, app use
         // inside an explicit pause filled the goal while no work was logged.
-        var focus = focusRecords.flatMap { worked(($0.start, $0.end), paused: $0.exactPausedSpans) }
-        if let running { focus += worked(running, paused: runningPaused) }
+        // The Agent lane is not the person's: it leaves the hands-on figure, and
+        // comes back only as far as the agent rule lets it (`AgentLane.goalSpans`).
+        func you(_ span: Span, paused: [DateInterval]?, lane: [AgentSpan]?) -> [Span] {
+            without(lane, worked(span, paused: paused))
+        }
+        func agentPart(_ lane: [AgentSpan]?) -> [Span] {
+            clip(agent.goalSpans(lane ?? []).map { (start: $0.start, end: $0.end) }, to: bounds)
+        }
+        var focus = focusRecords.flatMap { you(($0.start, $0.end), paused: $0.exactPausedSpans, lane: $0.agentLane) }
+        var agentFocus = focusRecords.flatMap { agentPart($0.agentLane) }
+        if let running {
+            focus += you(running, paused: runningPaused, lane: runningAgent)
+            agentFocus += agentPart(runningAgent)
+        }
 
         let handsOn = merged(clip(usage.compactMap { session -> Span? in
                                       session.end > bounds.start && session.start < bounds.end
@@ -64,7 +81,9 @@ enum FocusedActiveTime {
                                   to: bounds))
         // The union intersection de-duplicates overlapping records, so no
         // second is ever counted twice however the archive overlaps.
-        let union = overlap(merged(clip(focus, to: bounds)), handsOn)
+        // The agent's counted part joins the hands-on focus as one set, so a
+        // minute another record already counts as yours is not counted again.
+        let union = length(merged(intersect(merged(clip(focus, to: bounds)), handsOn) + agentFocus))
 
         // A record's credit is additionally capped at the work actually done in
         // it. A span includes paused stretches, and a session paused on a
@@ -75,13 +94,14 @@ enum FocusedActiveTime {
         // neither the hands-on overlap nor the recorded work.
         var capped: TimeInterval = 0
         for record in focusRecords {
-            let credit = overlap(clip(worked((record.start, record.end), paused: record.exactPausedSpans),
-                                      to: bounds),
-                                 handsOn)
+            let credit = overlap(clip(you((record.start, record.end), paused: record.exactPausedSpans,
+                                          lane: record.agentLane), to: bounds), handsOn)
+                + length(merged(agentPart(record.agentLane)))
             capped += min(credit, record.workSeconds(in: bounds))
         }
         if let running {
-            let credit = overlap(clip(worked(running, paused: runningPaused), to: bounds), handsOn)
+            let credit = overlap(clip(you(running, paused: runningPaused, lane: runningAgent), to: bounds), handsOn)
+                + length(merged(agentPart(runningAgent)))
             capped += min(credit, runningWork ?? credit)
         }
         return min(union, capped)
@@ -102,6 +122,18 @@ enum FocusedActiveTime {
         }
         if span.end > cursor { result.append((start: cursor, end: span.end)) }
         return result
+    }
+
+    /// `spans` less the Agent lane.
+    private static func without(_ lane: [AgentSpan]?, _ spans: [Span]) -> [Span] {
+        guard let lane, !lane.isEmpty else { return spans }
+        let cover = lane.map { DateInterval(start: $0.start, end: max($0.start, $0.end)) }
+        return AgentLane.subtracting(cover, from: spans.map { DateInterval(start: $0.start, end: max($0.start, $0.end)) })
+            .map { (start: $0.start, end: $0.end) }
+    }
+
+    private static func length(_ spans: [Span]) -> TimeInterval {
+        spans.reduce(0) { $0 + $1.end.timeIntervalSince($1.start) }
     }
 
     private static func clip(_ ranges: [Span], to bounds: Span) -> [Span] {
@@ -131,15 +163,19 @@ enum FocusedActiveTime {
     /// is a linear sweep rather than the quadratic pass the dashboard's
     /// focus-quality figure still uses.
     private static func overlap(_ left: [Span], _ right: [Span]) -> TimeInterval {
-        var total: TimeInterval = 0
+        length(intersect(left, right))
+    }
+
+    private static func intersect(_ left: [Span], _ right: [Span]) -> [Span] {
+        var result: [Span] = []
         var i = 0
         var j = 0
         while i < left.count, j < right.count {
             let low = max(left[i].start, right[j].start)
             let high = min(left[i].end, right[j].end)
-            if high > low { total += high.timeIntervalSince(low) }
+            if high > low { result.append((start: low, end: high)) }
             if left[i].end < right[j].end { i += 1 } else { j += 1 }
         }
-        return total
+        return result
     }
 }

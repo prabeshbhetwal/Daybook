@@ -126,6 +126,7 @@ extension SessionEngine {
         sessionStartDate = saved.sessionStart
         totalPausedDuration = saved.totalPaused
         pausedSpans = saved.pausedSpans ?? []
+        restoreAgentSpans(saved.agentSpans, savedAt: saved.savedAt)
         pauseStartDate = saved.pauseStart
         awayInterval = saved.awayStart.map { (start: $0, trigger: saved.awayTrigger ?? .screenLock) }
         shadowAway = saved.shadowAway ?? 0
@@ -162,6 +163,7 @@ extension SessionEngine {
                        activeWorkType: activeWorkType,
                        isAuto: activeIsAuto,
                        shadowAway: shadowAway)
+        result.agentSpans = agentSpans
         result.awayDecision = lastAwayDecision
         result.awayDecisions = awayDecisions
         result.correctionGeneration = correctionGeneration

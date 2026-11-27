@@ -2,7 +2,11 @@ import Foundation
 
 /// What quiet at the keyboard means while an AI agent works for the user.
 enum AgentQuietPolicy: String, CaseIterable {
-    /// The session keeps counting: the agent's work is the session's work.
+    /// The session keeps running and the agent's time goes in its own lane,
+    /// which goals leave out (`AgentLane`).
+    case trackSeparately
+    /// The session keeps running and goals count the agent's lane with the
+    /// person's, up to the unattended limit.
     case countAsWork
     /// The clock stops without a question, as it does behind a film.
     case pauseQuietly
@@ -11,11 +15,15 @@ enum AgentQuietPolicy: String, CaseIterable {
 
     var title: String {
         switch self {
-        case .countAsWork: return "Count it as work"
-        case .pauseQuietly: return "Pause without asking"
+        case .trackSeparately: return "Track separately"
+        case .countAsWork: return "Count with my time"
+        case .pauseQuietly: return "Pause the session"
         case .ignore: return "Treat it as time away"
         }
     }
+
+    /// The session runs on while an agent works, and the Agent lane records it.
+    var keepsSessionRunning: Bool { self == .trackSeparately || self == .countAsWork }
 }
 
 /// Whether an AI agent is working for the person at the session. Evidence,

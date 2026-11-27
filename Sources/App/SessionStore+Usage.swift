@@ -61,6 +61,7 @@ extension SessionStore {
             running: running,
             runningWork: runningWork,
             runningPaused: engine.runningPausedSpans,
+            runningAgent: engine.runningAgentSpans, agent: engine.store.agentGoalRule,
             calendar: calendar)
     }
 

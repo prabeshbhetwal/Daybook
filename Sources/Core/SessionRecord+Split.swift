@@ -42,10 +42,13 @@ extension SessionRecord {
         head.end = moment
         head.workSeconds = headWork
         head.pausedSpans = pausedSpans.map { $0.filter { $0.end <= moment } }
+        // An agent's run can cross the cut, unlike a pause: each half keeps its own part.
+        head.agentSpans = agentSpans.map { $0.compactMap { $0.clipped(from: start, to: moment) } }
         let tail = SessionRecord(id: tailID, name: choice.name, workType: choice.workType, start: moment, end: end,
                                  workSeconds: workSeconds - headWork, detectedApp: choice.detectedApp,
                                  threadID: tailThread, isAuto: isAuto,
                                  pausedSpans: pausedSpans.map { $0.filter { $0.start >= moment } },
+                                 agentSpans: agentSpans.map { $0.compactMap { $0.clipped(from: moment, to: end) } },
                                  origin: origin, originRuleID: originRuleID, originRuleName: originRuleName,
                                  categorySource: choice.source, nameByApp: choice.nameByApp)
         return (head, tail)
@@ -61,6 +64,9 @@ extension SessionRecord {
         joined.workSeconds = head.workSeconds + tail.workSeconds
         if head.pausedSpans != nil || tail.pausedSpans != nil {
             joined.pausedSpans = (head.pausedSpans ?? []) + (tail.pausedSpans ?? [])
+        }
+        if head.agentSpans != nil || tail.agentSpans != nil {
+            joined.agentSpans = AgentLane.joined(head.agentSpans ?? [], tail.agentSpans ?? [])
         }
         return joined
     }

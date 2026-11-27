@@ -1,7 +1,9 @@
 import Foundation
 
 /// How a counted second is credited (spec section 2). The first rule that matches wins.
-enum CreditState: String, Codable { case engaged, held, quietKept, passive }
+/// `agent` is the Agent lane: an agent worked with nobody at the keyboard. Its purpose is
+/// the agent app's, for the phase strip, but it is not the person's credit.
+enum CreditState: String, Codable { case engaged, held, quietKept, passive, agent }
 
 struct CreditedSlice: Equatable {
     let start: Date
@@ -26,6 +28,9 @@ struct CreditInput {
     /// Sites are read only with `.siteKind` here; the label's counterfactual removes it.
     let signals: Set<SignalKind>
     let purposeOverrides: [String: String]
+    /// The session's Agent lane; nil for a session from before it, whose agent time is
+    /// still credited to the session's first app as it always was.
+    var agent: [AgentSpan]? = nil
 }
 
 /// Credits every counted second to what the hands and screen were doing:
@@ -50,6 +55,8 @@ enum ActivityCredit {
         let anchor = placed.first(where: \.engaged)?.app
         var quietSince = firstStart
         var engagedApps: Set<String> = []
+        let lanes = (input.agent ?? []).sorted { $0.start < $1.start }
+        let laneCover = lanes.map { DateInterval(start: $0.start, end: max($0.start, $0.end)) }
 
         func purpose(_ app: String, _ activity: InputActivity) -> AppPurpose {
             PurposeMap.purpose(for: app, activity: activity, overrides: overrides)
@@ -59,7 +66,7 @@ enum ActivityCredit {
         }
         // Rules 3a and 3b: a quiet second outside every held run.
         func quiet(_ piece: Piece, from start: Date) -> (CreditState, AppPurpose?) {
-            if piece.presence == .agent { return (.quietKept, purpose(anchor ?? piece.app, .active)) }
+            if piece.presence == .agent, input.agent == nil { return (.quietKept, purpose(anchor ?? piece.app, .active)) }
             let site = honouredSite(piece.site, app: piece.app, input)
             guard site?.rule.isAmbiguous ?? isAmbiguous(piece.app, overrides) else {
                 return (.quietKept, piecePurpose(piece, .passive))
@@ -74,18 +81,25 @@ enum ActivityCredit {
         for piece in placed {
             // What the browser showed, kept even when the person's purpose decided the credit.
             let site = input.signals.contains(.siteKind) ? piece.site : nil
-            for part in cut(piece.interval, by: counted) where part.by != nil {
-                if piece.engaged {
-                    slices.append(CreditedSlice(start: part.part.start, end: part.part.end, app: piece.app,
-                                                state: .engaged, purpose: piecePurpose(piece, .active), site: site))
-                    continue
-                }
-                for bit in cut(part.part, by: heldSpans) {
-                    let (state, credited) = bit.by.map { (CreditState.held, held[$0].purpose as AppPurpose?) }
-                        ?? quiet(piece, from: bit.part.start)
-                    slices.append(CreditedSlice(start: bit.part.start, end: bit.part.end, app: piece.app,
-                                                state: state, purpose: credited, site: site,
-                                                holder: bit.by.map { held[$0].holder }))
+            for span in cut(piece.interval, by: counted) where span.by != nil {
+                for part in cut(span.part, by: laneCover) {
+                    if let lane = part.by {
+                        slices.append(CreditedSlice(start: part.part.start, end: part.part.end, app: piece.app, state: .agent,
+                                                    purpose: purpose(lanes[lane].app ?? anchor ?? piece.app, .active), site: site))
+                        continue
+                    }
+                    if piece.engaged {
+                        slices.append(CreditedSlice(start: part.part.start, end: part.part.end, app: piece.app,
+                                                    state: .engaged, purpose: piecePurpose(piece, .active), site: site))
+                        continue
+                    }
+                    for bit in cut(part.part, by: heldSpans) {
+                        let (state, credited) = bit.by.map { (CreditState.held, held[$0].purpose as AppPurpose?) }
+                            ?? quiet(piece, from: bit.part.start)
+                        slices.append(CreditedSlice(start: bit.part.start, end: bit.part.end, app: piece.app,
+                                                    state: state, purpose: credited, site: site,
+                                                    holder: bit.by.map { held[$0].holder }))
+                    }
                 }
             }
             if piece.engaged {
