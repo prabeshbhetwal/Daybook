@@ -16,6 +16,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
     case activityRuleAmbiguity, activityRuleAutomatic
     case awayQuick, awayFull, awayQuickFailure, awayFullFailure, rewardEarned, settingsHelp, storyPhases
     case storyOrigin, storySplit, storyAI
+    case focusHandedOff, settingsLabs
 
     var id: String { rawValue }
 
@@ -28,6 +29,8 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .focusSaveFailure: return "Focus — answer not saved"
         case .focusAutomatic: return "Focus — automatic session, naming open"
         case .focusOnBreak: return "Focus — on a break"
+        case .focusHandedOff: return "Focus — handed off to an agent"
+        case .settingsLabs: return "Settings — Labs"
         case .todayHistory: return "Today — history"
         case .todayHistoryExpanded: return "Today — history expanded recap"
         case .reviewHistorySelection: return "History — a day open"
@@ -102,6 +105,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .settingsData: return .data
         case .settingsUpdates: return .updates
         case .settingsAdvanced: return .advanced
+        case .settingsLabs: return .labs
         case .settingsActivityRules: return .activities
         case .settingsAppCategories: return .appCategories
         default: return nil
@@ -118,7 +122,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
     var presentations: [SnapshotPresentation] {
         switch self {
         case .focusFirstRun, .focusRunning, .focusPaused, .focusAwaitingDecision, .focusSaveFailure,
-             .focusAutomatic, .focusOnBreak, .activityRuleAmbiguity, .activityRuleAutomatic:
+             .focusAutomatic, .focusOnBreak, .focusHandedOff, .activityRuleAmbiguity, .activityRuleAutomatic:
             return [.minimum, .comfortable, .popover]
         case .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned, .settingsHelp, .storyPhases:
             return [.compact]
@@ -132,7 +136,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
     var tab: AppTab? {
         switch self {
         case .focusFirstRun, .focusRunning, .focusPaused, .focusAwaitingDecision, .focusSaveFailure,
-             .focusAutomatic, .focusOnBreak, .activityRuleAmbiguity, .activityRuleAutomatic:
+             .focusAutomatic, .focusOnBreak, .focusHandedOff, .activityRuleAmbiguity, .activityRuleAutomatic:
             return .focus
         case .todayHistory, .todayHistoryExpanded:
             return .today
@@ -149,7 +153,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
             return .story
         case .settingsGeneral, .settingsFocus, .settingsCategories, .settingsAway, .settingsBreaks, .settingsAutomatic,
              .settingsTracking, .settingsAppearance, .settingsData, .settingsUpdates, .settingsAdvanced,
-             .settingsActivityRules, .settingsAppCategories:
+             .settingsActivityRules, .settingsAppCategories, .settingsLabs:
             return .settings
         case .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned, .settingsHelp, .storyPhases,
              .storyOrigin, .storySplit, .storyAI:
@@ -450,6 +454,11 @@ enum Snapshotter {
             let store = FixtureFactory.store(for: .running)
             store.startBreak()
             return store
+        case .focusHandedOff:
+            let store = FixtureFactory.store(for: .running)
+            store.engine.store.offersHandOff = true
+            store.handOffToAgent()
+            return store
         case .activityRuleAmbiguity:
             return FixtureFactory.activityRuleStore(ambiguous: true)
         case .activityRuleAutomatic:
@@ -510,7 +519,7 @@ enum Snapshotter {
             return nameSuggestionStore(earlier: scenario == .storyNameSuggestionEarlier)
         case .settingsGeneral, .settingsFocus, .settingsCategories, .settingsAway, .settingsBreaks, .settingsAutomatic,
              .settingsTracking, .settingsAppearance, .settingsData, .settingsUpdates, .settingsAdvanced,
-             .settingsActivityRules, .settingsAppCategories:
+             .settingsActivityRules, .settingsAppCategories, .settingsLabs:
             return FixtureFactory.store(for: .running)
         case .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned, .settingsHelp, .storyPhases,
              .storyOrigin, .storySplit, .storyAI:

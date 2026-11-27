@@ -126,7 +126,7 @@ enum FocusedActiveTime {
 
     /// `spans` less the Agent lane.
     private static func without(_ lane: [AgentSpan]?, _ spans: [Span]) -> [Span] {
-        guard let lane, !lane.isEmpty else { return spans }
+        guard let lane = AgentLane.replacing(lane), !lane.isEmpty else { return spans }
         let cover = lane.map { DateInterval(start: $0.start, end: max($0.start, $0.end)) }
         return AgentLane.subtracting(cover, from: spans.map { DateInterval(start: $0.start, end: max($0.start, $0.end)) })
             .map { (start: $0.start, end: $0.end) }

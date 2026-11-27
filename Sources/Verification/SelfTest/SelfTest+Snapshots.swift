@@ -60,7 +60,7 @@ extension SelfTest {
                 .settingsUpdates, .settingsAdvanced,
                 .activityRuleAmbiguity, .activityRuleAutomatic,
                 .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned, .settingsHelp, .storyPhases,
-                .storyOrigin, .storySplit, .storyAI
+                .storyOrigin, .storySplit, .storyAI, .focusHandedOff, .settingsLabs
             ]
 
             expect(SnapshotScenario.allCases == required,

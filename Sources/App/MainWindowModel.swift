@@ -99,6 +99,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     case data
     case updates
     case advanced
+    case labs
 
     var id: String { rawValue }
 }

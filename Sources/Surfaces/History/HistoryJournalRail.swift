@@ -313,7 +313,7 @@ struct HistorySessionRail: View {
                       trailing: nil) {
                 Text(durations: session.isRunning ? "In progress" : Tokens.preciseDuration(session.worked))
                     .font(Tokens.Typography.figure)
-                if let lanes = Tokens.laneSplit(worked: session.worked, agent: session.agent) {
+                if let lanes = Tokens.laneSplit(worked: session.worked, agent: session.agent, together: session.together) {
                     Text(durations: lanes)
                         .font(Tokens.Typography.body.monospacedDigit())
                         .accessibilityLabel(DurationText.spoken(in: lanes))

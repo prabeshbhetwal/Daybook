@@ -55,7 +55,8 @@ enum ActivityCredit {
         let anchor = placed.first(where: \.engaged)?.app
         var quietSince = firstStart
         var engagedApps: Set<String> = []
-        let lanes = (input.agent ?? []).sorted { $0.start < $1.start }
+        // Time the agent worked alongside the person is still theirs here.
+        let lanes = (AgentLane.replacing(input.agent) ?? []).sorted { $0.start < $1.start }
         let laneCover = lanes.map { DateInterval(start: $0.start, end: max($0.start, $0.end)) }
 
         func purpose(_ app: String, _ activity: InputActivity) -> AppPurpose {

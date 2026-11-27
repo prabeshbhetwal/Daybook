@@ -256,6 +256,7 @@ extension SelfTest {
             + LeisureEvidenceChecks.tests
             + PopoverGoalsChecks.tests
             + AgentLaneChecks.tests
+            + AgentHandOffChecks.tests
     }
 
     /// SelfTest's own checks 1 to 107.

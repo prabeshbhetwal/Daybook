@@ -29,7 +29,9 @@ enum SettingsHelpText {
         // Each row says what is read and kept, in the consent sheet's words; a card would restate them.
         "Site signal",
         // The version, the build and a recovery report, to read; nothing to set.
-        "Diagnostics"
+        "Diagnostics",
+        // Labs: the switch's own line and the line under it say what a hand-off does and how it ends.
+        "Hand off to agent"
     ]
 
     // MARK: - General

@@ -139,12 +139,14 @@ extension SessionStore {
                                                screenLocked: screenLocked,
                                                inputCount: inputCount)
         let quiet = applyPresenceObservation(observation)
+        engine.observeHandOff(lastInput: now.addingTimeInterval(-quiet))
         let lastAgentSignal = [lastAgentPing, workTraffic.lastBusy, workLoad.lastBusy].compactMap { $0 }.max()
         noteAgentSignal(lastAgentSignal, lastInput: now.addingTimeInterval(-quiet))
         sampleWorkTraffic(now: now, quiet: quiet,
                           screenInUse: displayAwake && !screenLocked && !presenceGate.isAwaitingConfirmation)
         if quiet < 60 {
             // Recent input: nothing to tell apart, and any watching is over.
+            noteAgentAlongside(now: now, lastInput: now.addingTimeInterval(-quiet))
             watchingCache = nil
             quietSampler.noteInput()
             tracker?.observeIdle(seconds: quiet)

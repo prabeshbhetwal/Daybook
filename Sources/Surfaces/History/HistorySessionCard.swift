@@ -54,7 +54,7 @@ struct HistorySessionRow: View {
                 .font(Tokens.Typography.body)
                 .foregroundStyle(StoryStyle.supportingInk)
                 .lineLimit(2)
-            if let lanes = Tokens.laneSplit(worked: session.worked, agent: session.agent) {
+            if let lanes = Tokens.laneSplit(worked: session.worked, agent: session.agent, together: session.together) {
                 Text(durations: lanes)
                     .font(Tokens.Typography.body.monospacedDigit())
                     .foregroundStyle(StoryStyle.supportingInk)
@@ -190,7 +190,7 @@ struct HistorySessionRow: View {
         if !session.name.isEmpty { parts.append(session.name) }
         parts.append(session.workType.displayName)
         parts.append(session.isRunning ? "in progress" : Tokens.spent(session.worked))
-        if let lanes = Tokens.laneSplit(worked: session.worked, agent: session.agent) { parts.append(lanes) }
+        if let lanes = Tokens.laneSplit(worked: session.worked, agent: session.agent, together: session.together) { parts.append(lanes) }
         return parts.joined(separator: ", ")
     }
 

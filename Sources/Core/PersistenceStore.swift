@@ -73,6 +73,7 @@ final class PersistenceStore {
         static let idlePauseThreshold = "fc.idlePauseThreshold"
         static let agentQuietPolicy = "fc.agentQuietPolicy"
         static let agentUnattendedLimit = "fc.agentUnattendedLimit"
+        static let labsHandOff = "fc.labs.handOffToAgent"
         /// Retired: an agent window in front or a keep-awake app is no longer
         /// presence. Kept so a reset still clears an old value.
         static let countsAgentAppInFront = "fc.countsAgentAppInFront"
@@ -655,6 +656,12 @@ final class PersistenceStore {
         set { defaults.set(newValue, forKey: Key.agentUnattendedLimit) }
     }
 
+    /// Labs: whether Hand off to agent sits beside Step Away. Off by default.
+    var offersHandOff: Bool {
+        get { defaults.bool(forKey: Key.labsHandOff) }
+        set { defaults.set(newValue, forKey: Key.labsHandOff) }
+    }
+
     /// Whether an app used in the session that keeps sending data or keeps
     /// the processor busy counts as work going on (`WorkTraffic`). On by
     /// default: it is the one way that needs no setup and works with any app.
@@ -1083,7 +1090,7 @@ final class PersistenceStore {
                     Key.activityRuleAutomationEnabled, Key.activityRuleVersion,
                     Key.automaticActivityRecord, Key.activityRuleCooldownUntil,
                     Key.workTypes, Key.savedActivities, Key.categoryChoices,
-                    Key.idlePauseThreshold, Key.agentQuietPolicy, Key.agentUnattendedLimit, Key.countsAgentAppInFront,
+                    Key.idlePauseThreshold, Key.agentQuietPolicy, Key.agentUnattendedLimit, Key.labsHandOff, Key.countsAgentAppInFront,
                     Key.noticesAppsAtWork, Key.countsKeepAwake,
                     Key.streakMinimum, Key.minimumRecordedSession,
                     Key.continueWindow, Key.defaultWorkType, Key.menuBarShowsTime,

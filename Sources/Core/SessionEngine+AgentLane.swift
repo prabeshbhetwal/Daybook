@@ -14,7 +14,7 @@ extension SessionEngine {
     /// window (a relaunch, a pause) starts a new span at this signal rather
     /// than bridge the gap.
     func noteAgentAtWork(first: Date, signal: Date, lastInput: Date, app: String?) {
-        guard state == .running, store.agentQuietPolicy.keepsSessionRunning,
+        guard state == .running, handOffSince == nil, store.agentQuietPolicy.keepsSessionRunning,
               var spans = agentSpans, signal <= now() else { return }
         let youUntil = lastInput.addingTimeInterval(store.idlePauseThreshold)
         guard signal > youUntil else { return }
@@ -49,5 +49,25 @@ extension SessionEngine {
     /// The running session's lane so far; nil when idle or begun before the lane.
     var runningAgentSpans: [AgentSpan]? {
         state == .idle ? nil : agentSpansSoFar(until: now())
+    }
+}
+
+extension SessionEngine {
+    /// The agent in `app` was at work at `signal` while the person was at the
+    /// Mac in another app: both lanes hold this time. A run seen within the
+    /// presence window grows; a longer silence starts a new span. `since`
+    /// follows the person's input, so time spent together never meets the
+    /// unattended limit.
+    func noteAgentAlongside(signal: Date, lastInput: Date, app: String) {
+        guard state == .running, handOffSince == nil, store.agentQuietPolicy.keepsSessionRunning,
+              var spans = agentSpans, signal <= now(), signal >= sessionStartDate else { return }
+        if let last = spans.last, last.isAlongside, last.app == app,
+           signal.timeIntervalSince(last.end) <= AgentPresence.window {
+            spans[spans.count - 1].end = max(last.end, signal)
+            spans[spans.count - 1].since = max(last.since, lastInput)
+        } else if spans.last.map({ signal > $0.end }) ?? true {
+            spans.append(AgentSpan(start: signal, end: signal, since: lastInput, app: app, alongside: true))
+        }
+        agentSpans = spans
     }
 }

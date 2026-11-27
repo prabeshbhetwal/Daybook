@@ -51,6 +51,7 @@ extension SessionEngine {
         totalPausedDuration = snapshot.totalPaused
         pausedSpans = snapshot.pausedSpans ?? []
         restoreAgentSpans(snapshot.agentSpans, savedAt: snapshot.savedAt)
+        restoreHandOff(snapshot.kind == .running ? snapshot.handOffSince : nil, savedAt: snapshot.savedAt)
         pauseStartDate = snapshot.pauseStart
         currentAppName = snapshot.lastApp
         currentAppBundleID = snapshot.lastAppBundleID

@@ -20,6 +20,8 @@ struct DaySession: Identifiable, Equatable {
     /// The Agent lane's seconds in `worked` (`AgentLane`). Zero for sessions
     /// from before the lane, which show no split.
     var agent: TimeInterval = 0
+    /// The part of `agent` the person also worked, in another app.
+    var together: TimeInterval = 0
 }
 
 /// A recorded rest between sessions, named when the user named it.
@@ -87,18 +89,20 @@ enum SessionDigest {
         }
         let day = DateInterval(start: bounds.start, end: bounds.end)
         var items: [(start: Date, end: Date, name: String, type: WorkType, worked: TimeInterval,
-                     thread: UUID, id: UUID, running: Bool, agent: TimeInterval)] = records.compactMap { record in
+                     thread: UUID, id: UUID, running: Bool, agent: TimeInterval, together: TimeInterval)] = records.compactMap { record in
             guard let clipped = clip(start: record.start, end: record.end, worked: record.workSeconds) else {
                 return nil
             }
             return (clipped.start, clipped.end, record.name, record.workType, clipped.worked,
-                    record.threadID, record.id, false, record.agentSeconds(in: day))
+                    record.threadID, record.id, false, record.agentSeconds(in: day),
+                    record.agentLane.map { AgentLane.together($0, in: day) } ?? 0)
         }
         if let running {
             if let clipped = clip(start: running.start, end: now, worked: running.worked) {
                 items.append((clipped.start, clipped.end, running.name, running.workType, clipped.worked,
                               running.threadID, running.recordID ?? running.threadID, true,
-                              AgentLane.seconds(running.agentSpans ?? [], in: day)))
+                              AgentLane.seconds(running.agentSpans ?? [], in: day),
+                              AgentLane.together(running.agentSpans ?? [], in: day)))
             }
         }
         items.sort { $0.start == $1.start ? $0.end < $1.end : $0.start < $1.start }
@@ -126,7 +130,8 @@ enum SessionDigest {
                                   spans: current.spans + [DateInterval(start: item.start, end: max(item.start, item.end))],
                                   recordIDs: current.recordIDs + [item.id],
                                   isRunning: current.isRunning || item.running,
-                                  agent: current.agent + item.agent)
+                                  agent: current.agent + item.agent,
+                                  together: current.together + item.together)
             } else {
                 close()
                 open = DaySession(id: item.id, threadID: item.thread,
@@ -135,7 +140,8 @@ enum SessionDigest {
                                   worked: item.worked, stretches: 1,
                                   spans: [DateInterval(start: item.start, end: max(item.start, item.end))],
                                   recordIDs: [item.id],
-                                  isRunning: item.running, agent: item.agent)
+                                  isRunning: item.running, agent: item.agent,
+                                  together: item.together)
             }
         }
         close()
