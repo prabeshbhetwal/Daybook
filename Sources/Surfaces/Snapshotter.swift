@@ -3,6 +3,7 @@ import AppKit
 
 enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
     case focusFirstRun, focusRunning, focusPaused, focusAwaitingDecision, focusSaveFailure, focusAutomatic, focusOnBreak
+    case focusAgentLane
     case todayHistory, todayHistoryExpanded
     case reviewHistorySelection, historySession, historySearch, historyApp, historySparse
     case historyFrontMonths, historyFrontYears, historyFrontMonth
@@ -29,6 +30,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
         case .focusSaveFailure: return "Focus — answer not saved"
         case .focusAutomatic: return "Focus — automatic session, naming open"
         case .focusOnBreak: return "Focus — on a break"
+        case .focusAgentLane: return "Focus — an agent worked while you were away"
         case .focusHandedOff: return "Focus — handed off to an agent"
         case .settingsLabs: return "Settings — Labs"
         case .todayHistory: return "Today — history"
@@ -122,7 +124,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
     var presentations: [SnapshotPresentation] {
         switch self {
         case .focusFirstRun, .focusRunning, .focusPaused, .focusAwaitingDecision, .focusSaveFailure,
-             .focusAutomatic, .focusOnBreak, .focusHandedOff, .activityRuleAmbiguity, .activityRuleAutomatic:
+             .focusAutomatic, .focusOnBreak, .focusAgentLane, .focusHandedOff, .activityRuleAmbiguity, .activityRuleAutomatic:
             return [.minimum, .comfortable, .popover]
         case .awayQuick, .awayFull, .awayQuickFailure, .awayFullFailure, .rewardEarned, .settingsHelp, .storyPhases:
             return [.compact]
@@ -136,7 +138,7 @@ enum SnapshotScenario: String, CaseIterable, Identifiable, Hashable {
     var tab: AppTab? {
         switch self {
         case .focusFirstRun, .focusRunning, .focusPaused, .focusAwaitingDecision, .focusSaveFailure,
-             .focusAutomatic, .focusOnBreak, .focusHandedOff, .activityRuleAmbiguity, .activityRuleAutomatic:
+             .focusAutomatic, .focusOnBreak, .focusAgentLane, .focusHandedOff, .activityRuleAmbiguity, .activityRuleAutomatic:
             return .focus
         case .todayHistory, .todayHistoryExpanded:
             return .today
@@ -453,6 +455,14 @@ enum Snapshotter {
         case .focusOnBreak:
             let store = FixtureFactory.store(for: .running)
             store.startBreak()
+            return store
+        case .focusAgentLane:
+            // 45 minutes on the clock: 11 typed, then an agent's run to now.
+            let store = FixtureFactory.store(for: .running)
+            let start = store.engine.sessionStartDate, now = start.addingTimeInterval(2_712)
+            store.engine.noteAgentAtWork(first: start.addingTimeInterval(660), signal: now, lastInput: start,
+                                         app: "com.apple.Terminal")
+            store.refresh()
             return store
         case .focusHandedOff:
             let store = FixtureFactory.store(for: .running)

@@ -17,6 +17,8 @@ enum AgentLaneChecks: CheckSuite {
          goalsFollowTheSetting),
         ("Time in the Agent lane is the agent app's, never the person's credit", creditKeepsLaneApart),
         ("A session shows You and Agent only when the Agent lane holds time", laneSplitText),
+        ("The menu panel clock shows You and Agent beneath it once an agent has held the session",
+         panelLaneLine),
     ]
 
     private static let editor = "com.microsoft.VSCode"
@@ -209,5 +211,23 @@ enum AgentLaneChecks: CheckSuite {
             .compactMap { entry -> DaySession? in if case .session(let s) = entry { return s } else { return nil } }
         expect(rows.map(\.agent) == [0, 1_800], "rows carry 0 and 30 minutes of agent time, got \(rows.map(\.agent))", &problems)
         return problems
+    }
+
+    /// The panel hero draws `Tokens.laneSplit(worked: store.elapsed, agent: store.agentElapsed)`.
+    private static func panelLaneLine() -> [String] {
+        MainActor.assumeIsolated {
+            var problems: [String] = []
+            let store = FixtureFactory.store(for: .running)
+            expect(store.agentElapsed == 0 && Tokens.laneSplit(worked: store.elapsed, agent: store.agentElapsed) == nil,
+                   "a session no agent touched shows no line, got agent \(store.agentElapsed)", &problems)
+            let start = store.engine.sessionStartDate
+            store.engine.noteAgentAtWork(first: start.addingTimeInterval(660), signal: start.addingTimeInterval(2_712),
+                                         lastInput: start, app: "com.apple.Terminal")
+            store.refresh()
+            SelfTest.expectClose(store.agentElapsed, 2_052, "the store publishes the running lane", &problems)
+            let line = Tokens.laneSplit(worked: store.elapsed, agent: store.agentElapsed)
+            expect(line == "You 11m · Agent 34m", "the panel reads both lanes, got \(String(describing: line))", &problems)
+            return problems
+        }
     }
 }
