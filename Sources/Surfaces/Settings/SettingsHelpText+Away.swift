@@ -28,10 +28,14 @@ extension SettingsHelpText {
     ]
 
     static let appsWorking: [HelpEntry] = [
-        HelpEntry("While an app works for you", """
-            What your session does while you wait on an app, such as an AI agent or a video export. \
-            Count it as work keeps the clock going, Pause without asking stops it, and Treat it as \
-            time away handles it like any other absence.
+        HelpEntry("Agent at work", """
+            What your session does while an AI agent works and you are not typing. Track separately \
+            shows its time apart from yours, Count with my time adds it to your goals, and the other \
+            two pause or treat it as away.
+            """),
+        HelpEntry("Unattended agent time counts for", """
+            With Count with my time, agent time stops counting toward your goals once you have been \
+            away from the keyboard this long. It is still recorded and shown as Agent time.
             """),
         HelpEntry("Notice apps working for you by themselves", """
             Daybook checks whether a coding or AI app you used this session is busy sending data or \

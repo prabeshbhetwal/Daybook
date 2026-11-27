@@ -37,6 +37,8 @@ struct DailyGoal {
     private let running: (start: Date, end: Date)?
     private let runningWork: TimeInterval?
     private let runningPaused: [DateInterval]?
+    private let runningAgent: [AgentSpan]?
+    private let agent: AgentGoalRule
     private let calendar: Calendar
     private let now: () -> Date
 
@@ -54,6 +56,8 @@ struct DailyGoal {
          running: (start: Date, end: Date)? = nil,
          runningWork: TimeInterval? = nil,
          runningPaused: [DateInterval]? = nil,
+         runningAgent: [AgentSpan]? = nil,
+         agent: AgentGoalRule = .youOnly,
          calendar: Calendar = .current,
          now: @escaping () -> Date = Date.init,
          windowDays: Int = FocusConstants.goalMedianWindowDays) {
@@ -65,6 +69,8 @@ struct DailyGoal {
         self.running = running
         self.runningWork = runningWork
         self.runningPaused = runningPaused
+        self.runningAgent = runningAgent
+        self.agent = agent
         self.calendar = calendar
         self.now = now
     }
@@ -86,6 +92,7 @@ struct DailyGoal {
                                   usage: usage, running: running,
                                   runningWork: runningWork,
                                   runningPaused: runningPaused,
+                                  runningAgent: runningAgent, agent: agent,
                                   calendar: calendar)
     }
 
@@ -116,7 +123,7 @@ struct DailyGoal {
             }
             let fullDay = FocusedActiveTime.seconds(
                 in: DateInterval(start: dayStart, end: dayEnd),
-                records: archive.records, usage: usage, running: nil)
+                records: archive.records, usage: usage, running: nil, agent: agent)
             guard fullDay > 0 else { continue }
 
             // Eligibility is full-day focused activity; the stored sample is
@@ -124,7 +131,7 @@ struct DailyGoal {
             let cutoff = historicalCutoff(on: dayStart, ending: dayEnd, matching: current)
             reached.append(FocusedActiveTime.seconds(
                 in: DateInterval(start: dayStart, end: cutoff),
-                records: archive.records, usage: usage, running: nil))
+                records: archive.records, usage: usage, running: nil, agent: agent))
         }
 
         guard reached.count >= FocusConstants.goalMedianMinimumDays else { return nil }

@@ -13,7 +13,8 @@ extension SessionStore {
         let minute = calendar.isDate(day, inSameDayAs: now()) || engine.runningSpan != nil
             ? Int(now().timeIntervalSinceReferenceDate / 60) : 0
         // A changed app category moves time between activities with no new evidence.
-        let overrides = SessionActivityShape.digest(engine.store.purposeOverrides)
+        let rule = engine.store.agentGoalRule
+        let overrides = SessionActivityShape.digest(engine.store.purposeOverrides) + "|\(rule.policy.rawValue)|\(rule.limit)"
         if let cached = focusByPurposeCache, cached.day == day, cached.revision == evidenceRevision,
            cached.minute == minute, cached.overrides == overrides {
             return cached.value
@@ -38,7 +39,13 @@ extension SessionStore {
         }
         // The ring's figure worked out afresh: today's published goal moves only on a tick, and a
         // stale one would cap the rows for the whole minute this is held.
-        let value = DailyGoalList.focusByPurpose(rows: rows, ring: focusedActiveSeconds(on: day))
+        let ring = focusedActiveSeconds(on: day)
+        let sessions = entries.compactMap { entry -> DaySession? in
+            if case .session(let session) = entry { return session } else { return nil }
+        }
+        let value = DailyGoalList.focusByPurpose(rows: rows, ring: ring)
+            .merging(agentFocusByPurpose(sessions, on: day, rule: rule), uniquingKeysWith: +)
+            .mapValues { min($0, max(0, ring)) }
         focusByPurposeCache = (day, evidenceRevision, minute, overrides, value)
         return value
     }

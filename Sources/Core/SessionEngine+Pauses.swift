@@ -24,6 +24,7 @@ extension SessionEngine {
         sessionStartDate = now()
         totalPausedDuration = 0
         pausedSpans = []
+        agentSpans = []
         pauseStartDate = nil
         awayInterval = nil
         shadowAway = 0

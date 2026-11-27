@@ -6,10 +6,19 @@ import SwiftUI
 extension SettingsGroups {
     var agentsPanel: some View {
         SurfacePanel(title: "Apps working for you", layout: layout) {
-            preferenceRow("While an app works for you", detail: agentPolicyDetail) {
-                RowMenu("While an app works for you", selection: $model.agentQuietPolicy,
+            preferenceRow("Agent at work", detail: agentPolicyDetail) {
+                RowMenu("Agent at work", selection: $model.agentQuietPolicy,
                         options: AgentQuietPolicy.allCases) { $0.title }
             }
+            rowDivider
+            // Beside the choice it qualifies: it only matters when agent time counts.
+            preferenceRow("Unattended agent time counts for",
+                          detail: "After this long with no input, agent time is still recorded but stops counting toward your goals.") {
+                ThresholdControl(label: "Unattended agent time counts for", selection: $model.agentUnattendedLimit,
+                                 options: FocusConstants.agentUnattendedLimitOptions, allowsNever: true,
+                                 neverTitle: "No limit")
+            }
+            .disabled(model.agentQuietPolicy != .countAsWork)
             rowDivider
             toggleRow("Notice apps working for you by themselves",
                       detail: "Reads network and processor load of apps used this session, never content.",
@@ -38,12 +47,14 @@ extension SettingsGroups {
 
     private var agentPolicyDetail: String {
         switch model.agentQuietPolicy {
+        case .trackSeparately:
+            return "Your session keeps running. Agent time is shown on its own and leaves your goals to you."
         case .countAsWork:
-            return "Your session keeps counting while an agent, render or build runs."
+            return "Your session keeps running, and agent time counts toward your goals alongside yours."
         case .pauseQuietly:
-            return "The clock stops while you watch, without asking about a break."
+            return "The clock stops while an agent works, without asking about a break."
         case .ignore:
-            return "Quiet time counts as away, as usual."
+            return "Quiet time is time away, and you are asked about it when you come back."
         }
     }
 

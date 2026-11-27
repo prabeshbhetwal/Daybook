@@ -139,6 +139,8 @@ extension SessionStore {
                                                screenLocked: screenLocked,
                                                inputCount: inputCount)
         let quiet = applyPresenceObservation(observation)
+        let lastAgentSignal = [lastAgentPing, workTraffic.lastBusy, workLoad.lastBusy].compactMap { $0 }.max()
+        noteAgentSignal(lastAgentSignal, lastInput: now.addingTimeInterval(-quiet))
         sampleWorkTraffic(now: now, quiet: quiet,
                           screenInUse: displayAwake && !screenLocked && !presenceGate.isAwaitingConfirmation)
         if quiet < 60 {
@@ -162,9 +164,8 @@ extension SessionStore {
         // An agent's window in front, or a keep-awake app, is not evidence:
         // both stay exactly so when the person walks away, and counting them
         // held an hour of absence as work until the long-away cap.
-        let lastActivity = [lastAgentPing, workTraffic.lastBusy, workLoad.lastBusy].compactMap { $0 }.max()
         let agentSeen = displayAwake && !screenLocked && !presenceGate.isAwaitingConfirmation
-            ? AgentPresence.lastSeen(now: now, quiet: quiet, lastActivity: lastActivity,
+            ? AgentPresence.lastSeen(now: now, quiet: quiet, lastActivity: lastAgentSignal,
                                      policy: engine.store.agentQuietPolicy, cap: engine.store.longAwayCap)
             : nil
         let pastCap = quiet >= engine.store.longAwayCap
@@ -177,6 +178,9 @@ extension SessionStore {
                                         idlePaused: engine.state == .paused(reason: .idle), pastCap: pastCap)
         tracker?.observeIdle(seconds: reading.trackerSeconds)
         engine.transition(on: reading.event)
+        if case .watchingObserved(_, true) = reading.event, let agentSeen {
+            noteAgentAtWork(signal: agentSeen, lastInput: now.addingTimeInterval(-quiet))
+        }
         if case .watchingObserved(_, let byAgent) = reading.event {
             noteBeatReading(byAgent ? .agent : .watched, watched: holders.watchedApps)
         } else {

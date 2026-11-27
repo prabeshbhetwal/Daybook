@@ -50,7 +50,10 @@ enum ActivityDerivation {
     static func purposeSeconds(_ slices: [CreditedSlice]) -> [AppPurpose: TimeInterval] {
         var seconds: [AppPurpose: TimeInterval] = [:]
         for slice in slices {
-            if let purpose = slice.purpose { seconds[purpose, default: 0] += slice.end.timeIntervalSince(slice.start) }
+            // The Agent lane is not the person's credit.
+            if let purpose = slice.purpose, slice.state != .agent {
+                seconds[purpose, default: 0] += slice.end.timeIntervalSince(slice.start)
+            }
         }
         return seconds
     }
@@ -88,7 +91,7 @@ enum ActivityDerivation {
     /// watching is the work.
     static func depth(_ slices: [CreditedSlice], members: Set<String>, countsWhileWatching: Bool) -> SessionDepth {
         var credited: TimeInterval = 0, watched: TimeInterval = 0, inside: TimeInterval = 0
-        for slice in slices where slice.purpose != nil {
+        for slice in slices where slice.purpose != nil && slice.state != .agent {
             let seconds = slice.end.timeIntervalSince(slice.start)
             credited += seconds
             switch slice.state {
@@ -96,6 +99,7 @@ enum ActivityDerivation {
             case .held, .passive: watched += seconds
             // A leisure site is outside even on a member: social browsing is not deep work.
             case .engaged, .quietKept: if members.contains(slice.app) && slice.site?.isLeisure != true { inside += seconds }
+            case .agent: break
             }
         }
         if watched > credited / 2 { return .passive }
@@ -112,7 +116,7 @@ enum ActivityDerivation {
             total > 0 ? min(5, Int(((credited[purpose] ?? 0) / total * 5 + 1e-9).rounded(.down))) : 0
         }
         var byApp: [String: TimeInterval] = [:]
-        for slice in slices where slice.purpose != nil {
+        for slice in slices where slice.purpose != nil && slice.state != .agent {
             byApp[slice.app, default: 0] += slice.end.timeIntervalSince(slice.start)
         }
         let ranked = byApp.sorted { $0.value != $1.value ? $0.value > $1.value : $0.key < $1.key }.map(\.key)

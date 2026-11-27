@@ -183,6 +183,6 @@ extension SessionEngine {
     /// Whether quiet while something is watched is still session time: the
     /// work type's own rule, or the user's word on agents.
     func watchingCounts(byAgent: Bool) -> Bool {
-        activeWorkType.countsWhileWatching || (byAgent && store.agentQuietPolicy == .countAsWork)
+        activeWorkType.countsWhileWatching || (byAgent && store.agentQuietPolicy.keepsSessionRunning)
     }
 }

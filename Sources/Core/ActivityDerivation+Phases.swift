@@ -26,14 +26,17 @@ extension ActivityDerivation {
         while start < input.bounds.end {
             let cell = DateInterval(start: start, end: min(start.addingTimeInterval(cellLength), input.bounds.end))
             let half = cell.duration / 2
-            var credited: [AppPurpose: TimeInterval] = [:]
+            // `seen` names the cell, the Agent lane included; `credited` is the person's alone.
+            var credited: [AppPurpose: TimeInterval] = [:], seen: [AppPurpose: TimeInterval] = [:]
             for slice in slices where slice.end > cell.start && slice.start < cell.end {
-                if let purpose = slice.purpose { credited[purpose, default: 0] += overlap(cell, slice.start, slice.end) }
+                guard let purpose = slice.purpose else { continue }
+                seen[purpose, default: 0] += overlap(cell, slice.start, slice.end)
+                if slice.state != .agent { credited[purpose, default: 0] += overlap(cell, slice.start, slice.end) }
             }
             let counted = input.credit.counted.reduce(0) { $0 + overlap(cell, $1.start, $1.end) } > half
             let activity: PhaseActivity?
             if counted {
-                activity = top(credited).map(PhaseActivity.purpose)
+                activity = top(seen).map(PhaseActivity.purpose)
             } else {
                 let held = watching.map { (seconds: overlap(cell, $0.span.start, $0.span.end), purpose: $0.purpose) }
                 let mostly = held.reduce(0) { $0 + $1.seconds } > half

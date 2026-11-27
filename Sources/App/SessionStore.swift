@@ -41,6 +41,9 @@ final class SessionStore: ObservableObject {
 
     @Published var state: SessionState = .idle
     @Published var elapsed: TimeInterval = 0
+    /// The Agent lane's part of `elapsed`: shown beneath the clock as
+    /// `You … · Agent …`, and only when it holds time.
+    @Published var agentElapsed: TimeInterval = 0
     /// The clock the user sees: this piece of work today, across its
     /// stretches. A break or an absence splits the record — the timeline stays
     /// honest — but not the clock, so coming back from the kitchen picks up at
@@ -372,6 +375,9 @@ final class SessionStore: ObservableObject {
     /// When an agent's hook last pinged (`AgentPresence.pingName`). Set by
     /// the coordinator; nil until one does.
     var lastAgentPing: Date?
+    /// The first agent signal since the last input: where an Agent lane span
+    /// opens (`SessionStore+AgentLane`).
+    var firstAgentSignal: Date?
     /// Owns confirmed-active time and suppresses the HID reset caused by wake.
     /// Kept pure so wake versus human input can be exercised with an injected
     /// clock and no CoreGraphics permissions.

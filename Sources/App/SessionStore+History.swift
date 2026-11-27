@@ -259,7 +259,8 @@ extension SessionStore {
                              name: engine.sessionName,
                              workType: engine.activeWorkType,
                              start: engine.sessionStartDate,
-                             worked: engine.elapsed)
+                             worked: engine.elapsed,
+                             agentSpans: engine.runningAgentSpans)
     }
 
     /// The live thread's literal overlap with a selected day. A session begun
@@ -280,7 +281,8 @@ extension SessionStore {
             worked = running.worked
         }
         return RunningThread(recordID: running.recordID, threadID: running.threadID, name: running.name,
-                             workType: running.workType, start: start, worked: worked)
+                             workType: running.workType, start: start, worked: worked,
+                             agentSpans: running.agentSpans)
     }
 
     /// The primary and side apps a thread was worked in.

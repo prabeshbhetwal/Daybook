@@ -1,7 +1,7 @@
 import Foundation
 
 /// Quiet while an AI agent works: what counts as the agent working, and what
-/// each of the user's three choices does to the session.
+/// each of the user's choices does to the session.
 enum AgentPresenceChecks: CheckSuite {
     static let tests: [(String, () -> [String])] = [
         ("An agent counts as working only from its own pings or its busy readings",
@@ -127,7 +127,7 @@ enum AgentPresenceChecks: CheckSuite {
         expect(seen(quiet: 4 * 3_600) == nil, "past the cap nobody is here, whatever the agent does", &problems)
         let suite = "fc-selftest-agents-\(UUID().uuidString)"
         let prefs = PersistenceStore(defaults: MemoryDefaults.suite(named: suite) ?? .standard)
-        expect(prefs.agentQuietPolicy == .countAsWork, "agent time counts as work by default, got \(prefs.agentQuietPolicy)", &problems)
+        expect(prefs.agentQuietPolicy == .trackSeparately, "a new Mac tracks agent time separately, got \(prefs.agentQuietPolicy)", &problems)
         expect(prefs.noticesAppsAtWork, "noticing AI tools at work is on by default", &problems)
         prefs.noticesAppsAtWork = false
         expect(!prefs.noticesAppsAtWork, "turning noticing off is kept", &problems)

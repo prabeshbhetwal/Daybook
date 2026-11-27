@@ -12,6 +12,8 @@ struct ThresholdControl: View {
     /// What the store reads as Never: a span nothing reaches, or 0 where the
     /// store treats 0 as off.
     var neverValue: TimeInterval = FocusConstants.never
+    /// What the Never choice is called where "Never" would misread.
+    var neverTitle = "Never"
     @StateObject private var custom = BoolBox()
     @StateObject private var draft = TextBox()
     /// Set when "Custom…" is chosen, so the field takes the cursor once it is
@@ -50,7 +52,7 @@ struct ThresholdControl: View {
 
     private var menuItems: [RowMenuItem<TimeInterval>] {
         options.map { .option($0, Tokens.duration($0)) } + [.option(customTag, "Custom…")]
-            + (allowsNever ? [.divider, .option(neverValue, "Never")] : [])
+            + (allowsNever ? [.divider, .option(neverValue, neverTitle)] : [])
     }
 
     var body: some View {

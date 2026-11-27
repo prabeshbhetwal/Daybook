@@ -23,6 +23,8 @@ struct RunningThread: Equatable {
     let workType: WorkType
     let start: Date
     let worked: TimeInterval
+    /// The running session's Agent lane so far.
+    var agentSpans: [AgentSpan]? = nil
 }
 
 /// What a thread was worked *in*.

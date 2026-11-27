@@ -72,6 +72,7 @@ final class PersistenceStore {
         static let categoryChoices = "fc.categoryChoices"
         static let idlePauseThreshold = "fc.idlePauseThreshold"
         static let agentQuietPolicy = "fc.agentQuietPolicy"
+        static let agentUnattendedLimit = "fc.agentUnattendedLimit"
         /// Retired: an agent window in front or a keep-awake app is no longer
         /// presence. Kept so a reset still clears an old value.
         static let countsAgentAppInFront = "fc.countsAgentAppInFront"
@@ -113,6 +114,17 @@ final class PersistenceStore {
         // every built-in back to its default.
         WorkTypeCatalog.shared.apply(customisations: workTypeDefinitions)
         migrateCategoryGoals()
+    }
+
+    /// Before the Agent lane, agent time counted as work by default. A Mac
+    /// that already ran the app keeps that (Count with my time), so its goals
+    /// do not drop overnight; a new one starts on Track separately. Written
+    /// once, so a later first run is never taken for an old install. The
+    /// caller decides by the welcome's own rule, which also knows history.
+    func settleAgentQuietPolicy(isExistingInstall: Bool) {
+        guard defaults.string(forKey: Key.agentQuietPolicy) == nil else { return }
+        let policy: AgentQuietPolicy = isExistingInstall ? .countAsWork : .trackSeparately
+        defaults.set(policy.rawValue, forKey: Key.agentQuietPolicy)
     }
 
     // MARK: - First run
@@ -628,9 +640,19 @@ final class PersistenceStore {
     var agentQuietPolicy: AgentQuietPolicy {
         get {
             defaults.string(forKey: Key.agentQuietPolicy).flatMap(AgentQuietPolicy.init(rawValue:))
-                ?? .countAsWork
+                ?? .trackSeparately
         }
         set { defaults.set(newValue.rawValue, forKey: Key.agentQuietPolicy) }
+    }
+
+    /// How long after the last input an agent's time may still count toward
+    /// goals under Count with my time. `FocusConstants.never` is no limit.
+    var agentUnattendedLimit: TimeInterval {
+        get {
+            let stored = defaults.double(forKey: Key.agentUnattendedLimit)
+            return stored > 0 ? stored : FocusConstants.defaultAgentUnattendedLimit
+        }
+        set { defaults.set(newValue, forKey: Key.agentUnattendedLimit) }
     }
 
     /// Whether an app used in the session that keeps sending data or keeps
@@ -1061,7 +1083,7 @@ final class PersistenceStore {
                     Key.activityRuleAutomationEnabled, Key.activityRuleVersion,
                     Key.automaticActivityRecord, Key.activityRuleCooldownUntil,
                     Key.workTypes, Key.savedActivities, Key.categoryChoices,
-                    Key.idlePauseThreshold, Key.agentQuietPolicy, Key.countsAgentAppInFront,
+                    Key.idlePauseThreshold, Key.agentQuietPolicy, Key.agentUnattendedLimit, Key.countsAgentAppInFront,
                     Key.noticesAppsAtWork, Key.countsKeepAwake,
                     Key.streakMinimum, Key.minimumRecordedSession,
                     Key.continueWindow, Key.defaultWorkType, Key.menuBarShowsTime,

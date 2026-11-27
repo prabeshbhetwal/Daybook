@@ -50,6 +50,7 @@ extension SessionEngine {
         sessionStartDate = snapshot.sessionStart
         totalPausedDuration = snapshot.totalPaused
         pausedSpans = snapshot.pausedSpans ?? []
+        restoreAgentSpans(snapshot.agentSpans, savedAt: snapshot.savedAt)
         pauseStartDate = snapshot.pauseStart
         currentAppName = snapshot.lastApp
         currentAppBundleID = snapshot.lastAppBundleID

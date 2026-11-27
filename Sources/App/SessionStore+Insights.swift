@@ -262,6 +262,7 @@ extension SessionStore {
             running: engine.runningSpan,
             runningWork: engine.elapsedToday(),
             runningPaused: engine.runningPausedSpans,
+            runningAgent: engine.runningAgentSpans, agent: engine.store.agentGoalRule,
             calendar: calendar,
             now: { moment },
             windowDays: engine.store.paceWindowDays).progress()

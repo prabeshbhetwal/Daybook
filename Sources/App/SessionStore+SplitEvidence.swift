@@ -17,7 +17,8 @@ extension SessionStore {
             if !beats.isEmpty, ActivityDerivation.recordsWhole(counted, beats: beats) {
                 return ActivityDerivation.derive(DerivationInput(
                     credit: CreditInput(beats: beats, counted: counted, signals: [],
-                                        purposeOverrides: engine.store.purposeOverrides),
+                                        purposeOverrides: engine.store.purposeOverrides,
+                                        agent: record.agentLane.map { $0.compactMap { $0.clipped(from: bounds.start, to: bounds.end) } }),
                     bounds: bounds, countsWhileWatching: record.workType.countsWhileWatching,
                     isRunning: false, now: now()))
             }

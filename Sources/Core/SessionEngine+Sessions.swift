@@ -29,7 +29,8 @@ extension SessionEngine {
                                      detectedApp: activeDetectedApp,
                                      threadID: activeThreadID,
                                      isAuto: activeIsAuto,
-                                     pausedSpans: trustedPausedSpans(until: end)).stamped(activeProvenance)
+                                     pausedSpans: trustedPausedSpans(until: end),
+                                     agentSpans: agentSpansSoFar(until: end)).stamped(activeProvenance)
         let additions = (record.map { [$0] } ?? []) + (rest.map { [$0] } ?? [])
         if decisionHistory.requiresTerminalCheckpoint || awayDecisions.contains(where: {
             $0.creditedSeconds > 0 && $0.threadID == activeThreadID && $0.sessionStart == sessionStartDate
@@ -184,6 +185,7 @@ extension SessionEngine {
         sessionStartDate = evidence.start
         totalPausedDuration = max(0, now().timeIntervalSince(evidence.end))
         pausedSpans = totalPausedDuration > 0 ? [DateInterval(start: evidence.end, end: now())] : []
+        agentSpans = []
         pauseStartDate = nil
         awayInterval = nil
         shadowAway = 0

@@ -20,7 +20,8 @@ extension SessionEngine {
                             end: evidence.start, workSeconds: oldWork,
                             detectedApp: activeDetectedApp,
                             threadID: activeThreadID, isAuto: true,
-                            pausedSpans: trustedPausedSpans(until: evidence.start))
+                            pausedSpans: trustedPausedSpans(until: evidence.start),
+                            agentSpans: agentSpansSoFar(until: evidence.start))
                 .stamped(activeProvenance)
         activeWorkType = action.workType
         activeDetectedApp = currentAppBundleID
@@ -122,6 +123,7 @@ extension SessionEngine {
         awayReturnedAt = nil
         totalPausedDuration = 0
         pausedSpans = []
+        agentSpans = []
         activeIsAuto = false
         activeAutomaticAction = nil
         state = .idle

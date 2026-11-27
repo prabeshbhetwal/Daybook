@@ -181,6 +181,7 @@ extension SessionStore {
         // from the last start after a stop, and publishing that every second
         // woke every observer of the store for nothing while no session ran.
         publish(\.elapsed, engine.state == .idle ? 0 : engine.elapsed)
+        publish(\.agentElapsed, engine.runningAgentSpans.map { AgentLane.seconds($0) } ?? 0)
         publish(\.threadElapsed, engine.state == .idle ? 0 : threadBaseSeconds + elapsed)
         publish(\.todayTotal, engine.todayTotal)
         publish(\.sessionsToday, engine.sessionsToday)
@@ -196,6 +197,8 @@ extension SessionStore {
                                                 running: engine.runningSpan,
                                                 runningWork: inFlight,
                                                 runningPaused: engine.runningPausedSpans,
+                                                runningAgent: engine.runningAgentSpans,
+                                                agent: engine.store.agentGoalRule,
                                                 now: { moment },
                                                 windowDays: engine.store.paceWindowDays)
                                 .achievedToday(),
@@ -233,6 +236,7 @@ extension SessionStore {
                                   usage: usageSnapshot?.sessions ?? [],
                                   usageAccurateFrom: usageSnapshot?.accurateFrom,
                                   running: engine.runningSpan,
+                                  agent: engine.store.agentGoalRule,
                                   now: { moment },
                                   windowDays: engine.store.paceWindowDays).typical()
         cachedTypicalMinute = Calendar.current.dateInterval(of: .minute,
