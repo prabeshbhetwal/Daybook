@@ -254,6 +254,7 @@ extension SelfTest {
             + AppCategoryChecks.tests
             + ReleaseReviewChecks.tests
             + LeisureEvidenceChecks.tests
+            + PopoverGoalsChecks.tests
             + AgentLaneChecks.tests
     }
 

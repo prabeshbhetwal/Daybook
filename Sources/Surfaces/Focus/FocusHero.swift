@@ -220,6 +220,9 @@ struct FocusHero: View {
     /// Whether the strip shows today's goal. The window turns it off where
     /// the rail's goal card already shows the same goal.
     var showsGoal = true
+    /// Whether the hero offers Take a Break. The menu-bar panel moves it to
+    /// its footer, beside the break reminder.
+    var showsTakeBreak = true
     /// nil draws the full hero; a part draws only that part of the chrome.
     var chromePart: FocusHeroChromePart?
     /// Start and Pause are one pill that changes its word.
@@ -553,7 +556,7 @@ struct FocusHero: View {
                 }
             }
             .frame(maxWidth: Tokens.formMeasure)
-            goalSupport
+            if showsGoal { goalSupport }
         }
     }
 
@@ -662,7 +665,7 @@ struct FocusHero: View {
             }
             // Its own row: Pause, Step Away and Stop already fill the popover's.
             takeBreakButton
-            goalSupport
+            if showsGoal { goalSupport }
             if composition.showsAutomaticSessionControls {
                 automaticControls
             }
@@ -881,7 +884,7 @@ struct FocusHero: View {
     /// where, and the Session menu's item asks the same question.
     @ViewBuilder private var takeBreakButton: some View {
         // In the window's bar there is no room for the word.
-        if composition.offersTakeBreak {
+        if composition.offersTakeBreak && showsTakeBreak {
             FocusTakeBreakMenu(store: store, compact: chromePart == .row || isStrip)
         }
     }

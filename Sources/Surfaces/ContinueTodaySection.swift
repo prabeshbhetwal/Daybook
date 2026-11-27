@@ -7,6 +7,6 @@ struct ContinueTodaySection: View {
     var limit: Int
 
     var body: some View {
-        FocusContinuations(store: store, limit: limit, compact: true)
+        FocusContinuations(store: store, limit: limit, compact: true, offersNewSession: true)
     }
 }

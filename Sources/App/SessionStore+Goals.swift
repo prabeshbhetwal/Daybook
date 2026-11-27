@@ -1,9 +1,32 @@
 import Foundation
 
+/// One category goal against a day's credit. The Story rail's goal rows and
+/// the menu-bar panel's goals card both read these, so they never disagree.
+struct CategoryGoalStatus: Equatable, Identifiable {
+    let type: WorkType
+    let goal: TimeInterval
+    let achieved: TimeInterval
+    var id: WorkType { type }
+    var isMet: Bool { achieved >= goal }
+    /// Capped at 1: a bar, not a percentage.
+    var share: Double { goal > 0 ? min(1, achieved / goal) : 0 }
+}
+
 extension SessionStore {
     /// The goal list as stored, for the card and the settings. Eight at most,
     /// so reading it each redraw is a few microseconds.
     var goalItems: [DailyGoalItem] { engine.store.dailyGoalItems }
+
+    /// Category goals, each against the day's focus with app use recorded:
+    /// the ring's own accounting, so a row never outruns it. Empty when no
+    /// category has a goal.
+    func categoryGoals(on day: Date) -> [CategoryGoalStatus] {
+        let credit = storyRailDay(on: day).creditByCategory
+        return WorkType.startable.compactMap { type in
+            guard let goal = type.dailyGoal, goal > 0 else { return nil }
+            return CategoryGoalStatus(type: type, goal: goal, achieved: credit[type.rawValue] ?? 0)
+        }
+    }
 
     /// The app limits that count today, with the day's recorded use of each,
     /// in the person's order. Use is all foreground time on the day, in a

@@ -6,6 +6,22 @@ import AppKit
 /// Three destinations fit the panel at every zoom; a fourth, Check for
 /// Updates, truncated to "Check for Upd…". It lives in Settings, About &
 /// Updates, and in the Daybook menu.
+/// The break reminder with Take a Break beside it: the panel's one place for
+/// breaks, so the hero keeps to Pause, Step Away and Stop.
+struct PopoverBreakRow: View {
+    @ObservedObject var store: SessionStore
+
+    var body: some View {
+        HStack(spacing: Tokens.Space.s) {
+            FocusBreakLine(store: store)
+            Spacer(minLength: Tokens.Space.s)
+            if store.focusSurfaceComposition.offersTakeBreak {
+                FocusTakeBreakMenu(store: store)
+            }
+        }
+    }
+}
+
 struct PopoverFooter: View {
     var onOpenApplication: () -> Void
     var onOpenSettings: () -> Void

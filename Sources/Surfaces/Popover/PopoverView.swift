@@ -79,13 +79,14 @@ struct PopoverView: View {
                 Label(error, systemImage: "exclamationmark.triangle.fill")
                     .font(Tokens.Typography.body).foregroundStyle(Tokens.Colour.danger)
             }
+            PopoverGoalsCard(store: store, dense: metrics.dense)
             if store.focusSurfaceComposition.showsContinuationSection {
                 ContinueTodaySection(store: store, limit: 3)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .card(padding: metrics.dense ? Tokens.Space.m : Tokens.Space.l,
                           radius: Tokens.Radius.popoverCard)
             }
-            FocusBreakLine(store: store)
+            PopoverBreakRow(store: store)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .animation(Tokens.Motion.animation(Tokens.Motion.swap, reduceMotion: reduceMotion),

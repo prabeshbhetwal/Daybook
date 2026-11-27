@@ -54,6 +54,9 @@ struct FocusContinuations: View {
     @ObservedObject private var catalog = WorkTypeCatalog.shared
     var limit = 3
     var compact = false
+    /// The menu-bar panel adds a plus to the header while a session runs. Idle,
+    /// the hero above already is the new-session form.
+    var offersNewSession = false
 
     private var isSwitching: Bool { !store.isIdle }
 
@@ -63,8 +66,13 @@ struct FocusContinuations: View {
             threads: threads, quickStarts: store.quickStarts, limit: limit,
             excluding: isSwitching ? (store.activeIntent, store.workType) : nil)
         VStack(alignment: .leading, spacing: Tokens.Space.xs) {
-            SectionHeader(title: rowsTitle(threads: threads), compact: compact)
-                .padding(.bottom, Tokens.Space.xs)
+            HStack(spacing: Tokens.Space.xs) {
+                SectionHeader(title: rowsTitle(threads: threads), compact: compact)
+                if offersNewSession && isSwitching {
+                    PopoverNewSessionButton(store: store)
+                }
+            }
+            .padding(.bottom, offersNewSession && isSwitching ? 0 : Tokens.Space.xs)
             if rows.isEmpty {
                 Text(isSwitching
                      ? "Names you start will be here to switch to next time."
