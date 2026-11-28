@@ -18,7 +18,9 @@ extension SessionEngine {
               var spans = agentSpans, signal <= now() else { return }
         let youUntil = lastInput.addingTimeInterval(store.idlePauseThreshold)
         guard signal > youUntil else { return }
-        let sameQuiet = spans.last.map { abs($0.since.timeIntervalSince(lastInput)) < 1 } ?? false
+        // A run alongside you ended with your last input; what follows is the agent's alone
+        // and starts a span of its own rather than stretch the shared one.
+        let sameQuiet = spans.last.map { !$0.isAlongside && abs($0.since.timeIntervalSince(lastInput)) < 1 } ?? false
         if let last = spans.last, sameQuiet, signal.timeIntervalSince(last.end) <= AgentPresence.window {
             spans[spans.count - 1].end = max(last.end, signal)
         } else {

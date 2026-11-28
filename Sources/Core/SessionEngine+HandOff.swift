@@ -70,6 +70,7 @@ extension SessionEngine {
     func endHandOff(at moment: Date) {
         guard handOffSince != nil else { return }
         handOffSince = nil
+        handOffClosedAt = min(moment, now())
         guard var spans = agentSpans, let last = spans.indices.last, spans[last].isDeclared else { return }
         spans[last].end = max(spans[last].start, min(moment, now()))
         agentSpans = spans

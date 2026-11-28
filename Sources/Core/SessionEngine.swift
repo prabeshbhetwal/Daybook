@@ -35,8 +35,11 @@ final class SessionEngine {
     /// restored from before the lane existed.
     var agentSpans: [AgentSpan]? = [] {
         // A fresh or restored lane starts with no hand-off of its own.
-        didSet { if agentSpans?.isEmpty ?? true { handOffSince = nil } }
+        didSet { if agentSpans?.isEmpty ?? true { handOffSince = nil; handOffClosedAt = nil } }
     }
+    /// Where the last hand-off closed. An idle pause is never back-dated across
+    /// it: that would take the declared Agent time out with the pause.
+    var handOffClosedAt: Date?
     /// When the person handed the session to their agent (Labs); nil when
     /// they have not. Only `SessionEngine+HandOff` sets it.
     var handOffSince: Date?
