@@ -48,7 +48,8 @@ extension SessionEngine {
     ///   about 32 minutes away two minutes in.
     func enterPause(reason: PauseReason, at moment: Date? = nil) {
         cancelDwell()
-        let floor = max(sessionStartDate, pausedSpans.map(\.end).max() ?? sessionStartDate)
+        let floor = max(sessionStartDate, pausedSpans.map(\.end).max() ?? sessionStartDate,
+                        handOffClosedAt ?? sessionStartDate)
         pauseStartDate = min(max(moment ?? now(), floor), now())
         state = .paused(reason: reason)
     }

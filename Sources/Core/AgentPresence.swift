@@ -48,6 +48,13 @@ enum AgentPresence {
     ]
 
     /// An app whose busy network is an agent at work, not a film or a sync.
+    /// An agent in `agentApp` works alongside the person when they are in a different app. With
+    /// the agent's own app in front the time is the person's.
+    static func worksAlongside(front: String?, agentApp: String?) -> Bool {
+        guard let agentApp, isWorkApp(agentApp) else { return false }
+        return front != agentApp
+    }
+
     static func isWorkApp(_ bundleID: String) -> Bool {
         appBundleIDs.contains(bundleID) || PurposeMap.purpose(for: bundleID, activity: .active) == .coding
     }

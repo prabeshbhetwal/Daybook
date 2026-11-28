@@ -10,6 +10,9 @@ enum AgentHandOffChecks: CheckSuite {
         ("A relaunch keeps a hand-off going; a crash closes it at the checkpoint", handOffRestore),
         ("An agent working while you use another app keeps both lanes, never summed", lanesOverlap),
         ("A lock, a reset or Labs turned off ends a hand-off where it happens", { handOffEnds() }),
+        ("Time after you stop typing is the agent's alone, never marked as shared", { unattendedFollowsShared() }),
+        ("A lock after a long hand-off keeps the declared time, and the agent's own app in front is yours", { lockKeepsDeclared() }),
+        ("Alongside time already credited to the activity is not counted again, share by share", { unionByShare() }),
     ]
 
     private static let editor = "com.microsoft.VSCode"
@@ -160,6 +163,64 @@ extension AgentHandOffChecks {
         labsOff.store.offersHandOff = false
         labsOff.observeHandOff(lastInput: since)
         expect(!labsOff.isHandedOff, "turning Labs off ends the hand-off", &problems)
+        return problems
+    }
+}
+
+extension AgentHandOffChecks {
+    fileprivate static func unattendedFollowsShared() -> [String] {
+        var problems: [String] = []
+        let clock = TestClock(SelfTest.base)
+        let engine = SelfTest.makeEngine(clock)
+        engine.store.idlePauseThreshold = 5 * 60
+        engine.start(workType: .deepWork, intent: "Shared then alone")
+        let began = clock.value
+        for _ in 0..<5 {
+            clock.advance(30)
+            engine.noteAgentAlongside(signal: clock.value, lastInput: clock.value, app: editor)
+        }
+        let lastInput = clock.value
+        // You stop typing; the agent keeps going for 20 minutes.
+        for _ in 0..<20 {
+            clock.advance(60)
+            engine.noteAgentAtWork(first: lastInput.addingTimeInterval(60), signal: clock.value, lastInput: lastInput, app: editor)
+        }
+        let lane = engine.runningAgentSpans ?? []
+        SelfTest.expectClose(AgentLane.together(lane), lastInput.timeIntervalSince(began) - 30, "only the shared minutes are shared", &problems)
+        let alone = AgentLane.seconds(AgentLane.replacing(lane) ?? [])
+        expect(alone > 14 * 60, "the unattended time is the agent's alone, got \(alone) s", &problems)
+        return problems
+    }
+
+    fileprivate static func lockKeepsDeclared() -> [String] {
+        var problems: [String] = []
+        let clock = TestClock(SelfTest.base)
+        let engine = handedOffEngine(clock)
+        let since = clock.value
+        quiet(engine, clock, minutes: 20, since: since)
+        engine.transition(on: .awayBegan(trigger: .screenLock))
+        // The ticker's next samples carry the quiet since your last input, from before the hand-off.
+        clock.advance(60)
+        engine.transition(on: .idleObserved(seconds: clock.value.timeIntervalSince(since) + 60))
+        SelfTest.expectClose(AgentLane.seconds(engine.runningAgentSpans ?? []), 20 * 60,
+                             "the twenty declared minutes survive the lock and the idle pause after it", &problems)
+        expect(AgentPresence.worksAlongside(front: "com.apple.dt.Xcode", agentApp: "com.openai.codex") ||
+               !AgentPresence.isWorkApp("com.openai.codex"), "another work app in front is alongside", &problems)
+        expect(!AgentPresence.worksAlongside(front: editor, agentApp: editor), "the agent's own app in front is yours", &problems)
+        expect(!AgentPresence.worksAlongside(front: nil, agentApp: nil), "no agent app is nothing alongside", &problems)
+        return problems
+    }
+
+    fileprivate static func unionByShare() -> [String] {
+        var problems: [String] = []
+        let start = SelfTest.base
+        let piece = DateInterval(start: start, end: start.addingTimeInterval(3_600))
+        // An hour-long phase that credited one minute to the activity leaves the agent 59 of its 60.
+        let mixed = AgentLane.unclaimed(piece, by: [(span: piece, credit: 60)])
+        SelfTest.expectClose(mixed, 3_540, "a minute of credit in an hour takes a minute off the agent", &problems)
+        let whole = AgentLane.unclaimed(piece, by: [(span: piece, credit: 3_600)])
+        SelfTest.expectClose(whole, 0, "a fully credited hour leaves the agent nothing", &problems)
+        SelfTest.expectClose(AgentLane.unclaimed(piece, by: []), 3_600, "with no credit the agent keeps it all", &problems)
         return problems
     }
 }

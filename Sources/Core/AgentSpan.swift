@@ -88,6 +88,16 @@ enum AgentLane {
         spans.map { $0.filter { !$0.isAlongside } }
     }
 
+    /// Seconds of `piece` the person's own time has not credited. Each phase credited `credit` seconds
+    /// of its length to the activity, so it covers that share of the piece's overlap with it.
+    static func unclaimed(_ piece: DateInterval, by phases: [(span: DateInterval, credit: TimeInterval)]) -> TimeInterval {
+        let yours = phases.reduce(0.0) { total, phase in
+            guard let overlap = piece.intersection(with: phase.span), phase.span.duration > 0 else { return total }
+            return total + overlap.duration * min(1, max(0, phase.credit / phase.span.duration))
+        }
+        return max(0, piece.duration - yours)
+    }
+
     /// Seconds both lanes held at once.
     static func together(_ spans: [AgentSpan], in bounds: DateInterval? = nil) -> TimeInterval {
         seconds(spans.filter(\.isAlongside), in: bounds)
