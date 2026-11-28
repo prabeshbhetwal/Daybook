@@ -33,7 +33,13 @@ final class SessionEngine {
     var pausedSpans: [DateInterval] = []
     /// The Agent lane so far (`SessionEngine+AgentLane`). Nil for a session
     /// restored from before the lane existed.
-    var agentSpans: [AgentSpan]? = []
+    var agentSpans: [AgentSpan]? = [] {
+        // A fresh or restored lane starts with no hand-off of its own.
+        didSet { if agentSpans?.isEmpty ?? true { handOffSince = nil } }
+    }
+    /// When the person handed the session to their agent (Labs); nil when
+    /// they have not. Only `SessionEngine+HandOff` sets it.
+    var handOffSince: Date?
     var currentAppName: String = "—"
     var currentAppBundleID: String?
 

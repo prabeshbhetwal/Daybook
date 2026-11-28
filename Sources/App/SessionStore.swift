@@ -44,6 +44,12 @@ final class SessionStore: ObservableObject {
     /// The Agent lane's part of `elapsed`: shown beneath the clock as
     /// `You … · Agent …`, and only when it holds time.
     @Published var agentElapsed: TimeInterval = 0
+    /// The part of `agentElapsed` the person also worked, in another app.
+    @Published var agentTogether: TimeInterval = 0
+    /// The running session is handed to the person's agent (Labs).
+    @Published var isHandedOff = false
+    /// Hand off to agent is turned on in Settings › Labs.
+    @Published var offersHandOff = false
     /// The clock the user sees: this piece of work today, across its
     /// stretches. A break or an absence splits the record — the timeline stays
     /// honest — but not the clock, so coming back from the kitchen picks up at

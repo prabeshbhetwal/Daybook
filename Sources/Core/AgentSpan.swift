@@ -13,6 +13,16 @@ struct AgentSpan: Codable, Equatable {
     /// The agent's app, whose category the lane's time takes. Nil when no
     /// work app could be told.
     var app: String?
+    /// The person said their agent was at work (Hand off to agent) rather
+    /// than Daybook seeing it. Nil, as in every span before Labs, is observed.
+    var declared: Bool? = nil
+    /// The agent worked while the person was at the Mac too, in another app:
+    /// both lanes hold this time, so it never comes off the person's. Nil is
+    /// a span of the agent alone, which replaces the person's time.
+    var alongside: Bool? = nil
+
+    var isDeclared: Bool { declared ?? false }
+    var isAlongside: Bool { alongside ?? false }
 
     var duration: TimeInterval { max(0, end.timeIntervalSince(start)) }
 
@@ -20,7 +30,10 @@ struct AgentSpan: Codable, Equatable {
     func clipped(from low: Date, to high: Date) -> AgentSpan? {
         let from = max(start, low), to = min(end, high)
         guard to > from else { return nil }
-        return AgentSpan(start: from, end: to, since: since, app: app)
+        var piece = self
+        piece.start = from
+        piece.end = to
+        return piece
     }
 }
 
@@ -63,9 +76,21 @@ enum AgentLane {
     /// `head` then `tail`, with a run the split cut in two made whole again.
     static func joined(_ head: [AgentSpan], _ tail: [AgentSpan]) -> [AgentSpan] {
         guard var last = head.last, let first = tail.first, last.end == first.start,
-              last.since == first.since, last.app == first.app else { return head + tail }
+              last.since == first.since, last.app == first.app,
+              last.declared == first.declared, last.alongside == first.alongside else { return head + tail }
         last.end = first.end
         return head.dropLast() + [last] + tail.dropFirst()
+    }
+
+    /// The spans that take the person's place: every one but those the agent
+    /// worked alongside them. The You lane is the session less these.
+    static func replacing(_ spans: [AgentSpan]?) -> [AgentSpan]? {
+        spans.map { $0.filter { !$0.isAlongside } }
+    }
+
+    /// Seconds both lanes held at once.
+    static func together(_ spans: [AgentSpan], in bounds: DateInterval? = nil) -> TimeInterval {
+        seconds(spans.filter(\.isAlongside), in: bounds)
     }
 
     /// Overlapping intervals become one, in order.

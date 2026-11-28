@@ -89,10 +89,11 @@ extension SelfTest {
         var problems: [String] = []
         let expectedTitles = [
             "General", "Sessions", "Categories", "Away", "Breaks", "Automatic sessions",
-            "Activity rules", "App categories", "Recording", "Appearance", "Privacy and data", "Updates", "Advanced"
+            "Activity rules", "App categories", "Recording", "Appearance", "Privacy and data", "Updates", "Advanced",
+            "Labs"
         ]
         expect(SettingsSection.allCases.map(\.title) == expectedTitles,
-               "all thirteen Settings groups retain their approved order and titles", &problems)
+               "all fourteen Settings groups retain their approved order and titles", &problems)
         expect(SettingsSection.allCases.allSatisfy {
             !$0.symbol.isEmpty && !$0.controlLabels.isEmpty
         }, "every Settings group exposes a symbol and searchable control labels", &problems)
@@ -111,7 +112,7 @@ extension SelfTest {
             .openAtLogin, .menuBarTime, .menuBarIcon, .dockIcon, .updateChecks, .updateFrequency,
             .updateInstall, .railApps, .paceWindow, .suggestionWindow, .quietFold,
             .confirmations, .backupSchedule, .backupRetention, .backupDestination,
-            .agentQuiet, .agentLimit, .appsAtWork, .askButton, .askPlacement, .appCategories
+            .agentQuiet, .agentLimit, .appsAtWork, .askButton, .askPlacement, .appCategories, .handOff
         ]
         let listedControls = SettingsSection.allCases.flatMap(\.mutableControlKeys)
         expect(Set(listedControls) == expectedControls,

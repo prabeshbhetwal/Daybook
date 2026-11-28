@@ -490,6 +490,8 @@ struct PersistedState: Codable, Equatable {
     var pausedSpans: [DateInterval]? = nil
     /// The Agent lane so far. Nil in snapshots written before it existed.
     var agentSpans: [AgentSpan]? = nil
+    /// When the running hand-off began; nil when none was.
+    var handOffSince: Date? = nil
     var pauseStart: Date?
     var pauseReason: String?
     var pauseBundleID: String?
@@ -629,6 +631,9 @@ extension PersistedState {
 enum FocusConstants {
     /// D7 — away intervals below this are discarded entirely.
     static let awayDebounce: TimeInterval = 5
+    /// Input this soon after Hand off to agent is the hand that pressed it
+    /// leaving the Mac, not the person coming back.
+    static let handOffGrace: TimeInterval = 30
     /// D6 — continuous frontmost dwell on a break app before pausing.
     static let distractionDwell: TimeInterval = 20
     /// Beyond this, an absence ends the session rather than pausing it. Picked

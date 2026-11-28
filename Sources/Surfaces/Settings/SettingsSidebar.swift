@@ -13,6 +13,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
     case breaks
     case privacy
     case about
+    case labs
 
     var id: String { rawValue }
 
@@ -25,6 +26,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .breaks: return "Breaks"
         case .privacy: return "Privacy & Data"
         case .about: return "About & Updates"
+        case .labs: return "Labs"
         }
     }
 
@@ -37,6 +39,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .breaks: return "cup.and.saucer"
         case .privacy: return "lock.shield"
         case .about: return "arrow.down.circle"
+        case .labs: return "flask"
         }
     }
 
@@ -51,6 +54,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .breaks: return .pink
         case .privacy: return .green
         case .about: return .teal
+        case .labs: return .yellow
         }
     }
 
@@ -58,7 +62,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
     /// darker hues; on grey, orange and green it fell to 2 to 2.9:1, so those
     /// take a near-black glyph.
     var glyphColour: Color {
-        [.grey, .green, .teal, .pink].contains(hue) ? Color(white: 0.06) : .white
+        [.grey, .green, .teal, .pink, .yellow].contains(hue) ? Color(white: 0.06) : .white
     }
 
     /// The page `delta` rows away in `pages`, or nil past either end: a
@@ -77,6 +81,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .breaks: return [.breaks]
         case .privacy: return [.tracking, .data]
         case .about: return [.updates, .advanced]
+        case .labs: return [.labs]
         }
     }
 
@@ -89,6 +94,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .breaks: self = .breaks
         case .tracking, .data: self = .privacy
         case .updates, .advanced: self = .about
+        case .labs: self = .labs
         }
     }
 
@@ -121,6 +127,7 @@ extension SettingsSection {
         case .data: return "Privacy and data"
         case .updates: return "Updates"
         case .advanced: return "Advanced"
+        case .labs: return "Labs"
         }
     }
 
@@ -139,6 +146,7 @@ extension SettingsSection {
         case .data: return "lock.shield"
         case .updates: return "arrow.down.circle"
         case .advanced: return "wrench.and.screwdriver"
+        case .labs: return "flask"
         }
     }
 
@@ -190,6 +198,7 @@ extension SettingsSection {
         case .updates: return ["Check for updates automatically", "How often", "When an update is found",
                                "Check for Updates"]
         case .advanced: return ["Version", "Build", "Recovery", "App use measured precisely since"]
+        case .labs: return ["Labs", "Hand off to agent"]
         }
     }
 
@@ -213,6 +222,7 @@ extension SettingsSection {
         case .updates: return [.updateChecks, .updateFrequency, .updateInstall]
         case .data: return [.appleIntelligence, .backupSchedule, .backupDestination, .backupRetention]
         case .advanced: return []
+        case .labs: return [.handOff]
         }
     }
 
@@ -237,6 +247,7 @@ extension SettingsControlKey {
         case .agentQuiet: return ["AI", "Agent", "Claude", "Codex", "Cursor", "Gemini", "Antigravity", "Hooks",
                                    "Render", "Export", "Build", "Track separately", "Count with my time"]
         case .agentLimit: return ["Unattended", "Agent limit", "No limit"]
+        case .handOff: return ["Experimental", "Agent", "Step back", "Cloud task", "Hand off"]
         case .breakRhythm: return BreakPreset.allCases.map(\.title)
         case .backupSchedule: return ["iCloud", "Schedule", "Copy"]
         case .backupDestination: return ["iCloud Drive", "Folder", "External disk"]

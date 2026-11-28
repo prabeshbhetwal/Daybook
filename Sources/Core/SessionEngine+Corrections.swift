@@ -127,6 +127,7 @@ extension SessionEngine {
         totalPausedDuration = saved.totalPaused
         pausedSpans = saved.pausedSpans ?? []
         restoreAgentSpans(saved.agentSpans, savedAt: saved.savedAt)
+        restoreHandOff(saved.kind == .running ? saved.handOffSince : nil, savedAt: saved.savedAt)
         pauseStartDate = saved.pauseStart
         awayInterval = saved.awayStart.map { (start: $0, trigger: saved.awayTrigger ?? .screenLock) }
         shadowAway = saved.shadowAway ?? 0
@@ -164,6 +165,11 @@ extension SessionEngine {
                        isAuto: activeIsAuto,
                        shadowAway: shadowAway)
         result.agentSpans = agentSpans
+        result.handOffSince = isHandedOff ? handOffSince : nil
+        if isHandedOff, var spans = result.agentSpans, let last = spans.indices.last, spans[last].isDeclared {
+            spans[last].end = max(spans[last].end, now())
+            result.agentSpans = spans
+        }
         result.awayDecision = lastAwayDecision
         result.awayDecisions = awayDecisions
         result.correctionGeneration = correctionGeneration

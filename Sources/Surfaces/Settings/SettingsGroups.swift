@@ -31,6 +31,7 @@ struct SettingsGroups: View {
         case .data: data
         case .updates: updates
         case .advanced: advanced
+        case .labs: labs
         }
     }
 

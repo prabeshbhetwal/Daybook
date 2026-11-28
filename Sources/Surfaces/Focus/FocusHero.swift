@@ -424,6 +424,18 @@ struct FocusHero: View {
         return parts.joined(separator: " · ")
     }
 
+    /// Labs: hand the session to the agent, or take it back. Only when the
+    /// person turned it on in Settings › Labs.
+    @ViewBuilder private var handOffButton: some View {
+        if store.isHandedOff {
+            FocusActionButton(title: "I'm Back", symbol: "person.fill") { store.takeBackFromAgent() }
+                .help("Ends the hand-off: your own time runs again")
+        } else if store.offersHandOff {
+            FocusActionButton(title: "Hand Off", symbol: "sparkles") { store.handOffToAgent() }
+                .help("Your agent carries the session while you step back. Any input brings you back.")
+        }
+    }
+
     @ViewBuilder private var liveControls: some View {
         switch mode {
         case .running:
@@ -434,6 +446,7 @@ struct FocusHero: View {
             .help(pauseHelp)
             FocusActionButton(title: "Step Away", symbol: "door.right.hand.open") { store.markAway() }
                 .help(awayHelp)
+            handOffButton
             FocusActionButton(title: "Stop", symbol: "stop.fill") { store.stop() }
                 .help(stopHelp)
             takeBreakButton
@@ -574,6 +587,7 @@ struct FocusHero: View {
                 store.markAway()
             }
             .help(awayHelp)
+            handOffButton
             FocusActionButton(title: "Stop", symbol: "stop.fill") {
                 store.stop()
             }
@@ -637,7 +651,8 @@ struct FocusHero: View {
                 .foregroundStyle(quiet ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary)) // ink: quiet, large text, 3:1
                 .elapsedClockAccessibility(store.elapsed)
             // The clock's two lanes, only once an agent has held some of it.
-            if let lanes = Tokens.laneSplit(worked: store.elapsed, agent: store.agentElapsed) {
+            if let lanes = Tokens.laneSplit(worked: store.elapsed, agent: store.agentElapsed,
+                                            together: store.agentTogether) {
                 Text(durations: lanes)
                     .font(Tokens.Typography.body.monospacedDigit())
                     .foregroundStyle(StoryStyle.supportingInk)

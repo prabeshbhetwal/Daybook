@@ -21,6 +21,16 @@ extension SessionEngine {
         }
         guard let emits else { return }
         forceEmit = emits
+        // Anything that stops the clock, or takes the person from the Mac
+        // (a lock, a sleep), ends a hand-off where it happened.
+        if handOffSince != nil {
+            var leaves = state != .running
+            if case .awayBegan = event { leaves = true }
+            if leaves {
+                endHandOff(at: now())
+                forceEmit = true
+            }
+        }
 
         if case .refused = lastLongAwayTransition?.outcome { forceEmit = true }
         if state != previous || forceEmit {
@@ -94,6 +104,8 @@ extension SessionEngine {
         case (.running, .markedAway):
             enterPause(reason: .away)
         case (.running, .idleObserved(let seconds)):
+            // Handed off, quiet is the agent's: `observeHandOff` decides.
+            if isHandedOff { break }
             if seconds < FocusConstants.awayDebounce, awayInterval != nil {
                 // Confirmed input with an absence open: the person is back.
                 // This is the only trustworthy end an unlocked absence has —
@@ -103,6 +115,7 @@ extension SessionEngine {
                 enterPause(reason: .idle, at: now().addingTimeInterval(-seconds))
             }
         case (.running, .watchingObserved(let seconds, let byAgent)):
+            if isHandedOff { break }
             // Quiet, but watched: something on screen is keeping the display
             // awake, or an agent is at work. Nobody left, so this is never an
             // absence to ask about. In a session whose work is attending —

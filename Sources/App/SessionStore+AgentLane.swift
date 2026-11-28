@@ -16,6 +16,29 @@ extension SessionStore {
         engine.noteAgentAtWork(first: first, signal: signal, lastInput: lastInput, app: agentApp())
     }
 
+    /// An agent's hooks pinged while the person works in another app: the
+    /// lanes overlap, the agent in its app's category and the person in the
+    /// one in front. With the agent's app in front it is the person's work.
+    func noteAgentAlongside(now: Date, lastInput: Date) {
+        guard let ping = lastAgentPing, now.timeIntervalSince(ping) <= AgentPresence.window,
+              !(engine.currentAppBundleID.map(AgentPresence.isWorkApp) ?? false),
+              let app = engine.activeDetectedApp, AgentPresence.isWorkApp(app) else { return }
+        engine.noteAgentAlongside(signal: ping, lastInput: lastInput, app: app)
+    }
+
+    /// Hands the running session to the agent (Labs): the Agent lane carries
+    /// it, declared, until input or the unattended limit.
+    func handOffToAgent() {
+        engine.handOff(app: agentApp())
+        refresh()
+    }
+
+    /// The person takes the session back from the agent.
+    func takeBackFromAgent() {
+        engine.takeBackFromAgent()
+        refresh()
+    }
+
     /// The app the agent works in, whose category its lane takes: the one in
     /// front if it is a work app, else the session's own app if that is one.
     private func agentApp() -> String? {
@@ -42,9 +65,23 @@ extension SessionStore {
         var spans: [AppPurpose: [AgentSpan]] = [:]
         for session in sessions {
             let focus = focusIntervals(of: session)
+            let phases = sessionActivity(for: session)?.phases ?? []
             for span in rule.goalSpans(agentLane(of: session, in: bounds, at: now()) ?? []) {
                 let purpose = PurposeMap.purpose(for: span.app, activity: .active, overrides: overrides)
-                spans[purpose, default: []] += focus.compactMap { span.clipped(from: $0.start, to: $0.end) }
+                var pieces = focus.compactMap { span.clipped(from: $0.start, to: $0.end) }
+                if span.isAlongside {
+                    // The union within a category: where the person's own time already
+                    // counts for this activity, the agent's adds nothing to it.
+                    // shortcut: a whole phase with any such credit is taken out, so a long
+                    // mixed phase undercounts the agent; use credited slices if that shows.
+                    let yours = phases.filter { ($0.credited[purpose.rawValue] ?? 0) > 0 }
+                        .map { DateInterval(start: $0.start, end: max($0.start, $0.end)) }
+                    pieces = pieces.flatMap { piece in
+                        AgentLane.subtracting(yours, from: [DateInterval(start: piece.start, end: piece.end)])
+                            .compactMap { piece.clipped(from: $0.start, to: $0.end) }
+                    }
+                }
+                spans[purpose, default: []] += pieces
             }
         }
         return Dictionary(uniqueKeysWithValues: spans.map { ($0.key.rawValue, AgentLane.seconds($0.value)) })

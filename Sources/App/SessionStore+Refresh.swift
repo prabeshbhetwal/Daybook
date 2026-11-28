@@ -181,7 +181,11 @@ extension SessionStore {
         // from the last start after a stop, and publishing that every second
         // woke every observer of the store for nothing while no session ran.
         publish(\.elapsed, engine.state == .idle ? 0 : engine.elapsed)
-        publish(\.agentElapsed, engine.runningAgentSpans.map { AgentLane.seconds($0) } ?? 0)
+        let lane = engine.runningAgentSpans
+        publish(\.agentElapsed, lane.map { AgentLane.seconds($0) } ?? 0)
+        publish(\.agentTogether, lane.map { AgentLane.together($0) } ?? 0)
+        publish(\.isHandedOff, engine.isHandedOff)
+        publish(\.offersHandOff, engine.store.offersHandOff)
         publish(\.threadElapsed, engine.state == .idle ? 0 : threadBaseSeconds + elapsed)
         publish(\.todayTotal, engine.todayTotal)
         publish(\.sessionsToday, engine.sessionsToday)
