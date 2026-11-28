@@ -118,6 +118,19 @@ panel is open the button is pressed in and ringed in the action colour, which
 tells it from a hover. The button is absent on a Mac that can never run Ask and
 when its Settings switch is off.
 
+## Glass
+
+Liquid Glass belongs to the control layer only. Cards, wells, the Story, the
+rail and every explanatory text stay on the warm tokens above, because glass
+behind body text breaks the 4.5:1 floor and nothing sits under glass at first
+launch. Standard structures (`.toolbar`, sheets, popovers) take the system's
+glass for free; a custom bar does not, and gaining it there is its own decision.
+Custom glass is regular, never clear, applied to the control itself, and
+neighbouring pieces share one `GlassEffectContainer` so glass never sits on
+glass. The welcome coach follows this: its cards keep `StoryStyle.card` and
+`StoryStyle.well`, and only its back and next controls are one glass group,
+with the interactive bounce on those buttons alone.
+
 ## Vocabulary
 
 - Corners: bar 3, mark 4, swatch 5, control 7, well 9, nested 12, panel 16;
